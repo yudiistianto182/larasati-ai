@@ -1,0 +1,12 @@
+node_modules
+build
+coverage
+.vscode
+.DS_STORE
+.env
+package-lock.json
+
+log/*.txt
+tmp/uploads/*.pdf
+tmp/uploads/*.PDF
+*.pem
