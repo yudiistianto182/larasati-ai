@@ -236,10 +236,16 @@ export default class DataContestController {
                     .where(where_case)
                     .delete();
 
+                let where_scorer = { contestscorer_contest_id: params.id };
+                await trx
+                    .from('data_contest_scorer')
+                    .where(where_scorer)
+                    .delete();
+
                 for (let index = 0; index < post.scorer.length; index++) {
                     let data_insert_case = {
                         contestscorer_contest_id: params.id,
-                        contestscorer_scorer_id: post.scorer[index].scorer_id
+                        contestscorer_user_id: post.scorer[index].user_id
                     }
                     await trx
                         .insertQuery()
@@ -309,6 +315,12 @@ export default class DataContestController {
                 .where(where_contest_scorer)
                 .delete();
 
+            let where_case = { contestcase_contest_id: params.id };
+            await trx
+                .from('data_contest_case')
+                .where(where_case)
+                .delete();
+                
             let where = { contest_id: params.id };
             await trx
                 .from('data_contest')

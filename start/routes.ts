@@ -67,3 +67,9 @@ Route.get('/v1/data_case/:id', 'v1/bo/DataCaseController.detail').middleware('jw
 Route.post('/v1/data_case', 'v1/bo/DataCaseController.store').middleware('jwtauth');
 Route.put('/v1/data_case/:id', 'v1/bo/DataCaseController.update').middleware(['jwtauth']);
 Route.delete('/v1/data_case/:id', 'v1/bo/DataCaseController.destroy').middleware(['jwtauth']);
+
+Route.get('/v1/trx_response', 'v1/bo/TrxResponseController.index').middleware('jwtauth');
+Route.get('/v1/trx_response/:id', 'v1/bo/TrxResponseController.detail').middleware('jwtauth');
+Route.post('/v1/trx_response', 'v1/bo/TrxResponseController.store').middleware('jwtauth');
+Route.put('/v1/trx_response/:id', 'v1/bo/TrxResponseController.update').middleware(['jwtauth']);
+Route.delete('/v1/trx_response/:id', 'v1/bo/TrxResponseController.destroy').middleware(['jwtauth']);
