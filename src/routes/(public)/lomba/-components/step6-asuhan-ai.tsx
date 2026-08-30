@@ -52,12 +52,55 @@ const ASUHAN_AI_TRIGGERS = [
   },
 ];
 
-export function Step6AsuhanAi() {
+interface Step6AsuhanAiProps {
+  isStarted?: boolean;
+}
+
+export function Step6AsuhanAi({ isStarted = false }: Step6AsuhanAiProps) {
   const [messages, setMessages] = React.useState<Message[]>(INITIAL_ASUHAN_MESSAGES);
   const [isAiThinking, setIsAiThinking] = React.useState(false);
 
-  const { speak, isSpeaking, stop: stopSpeaking } = useTextToSpeech();
+  // 3-second countdown before patient starts speaking (starts only when student clicks Mulai Pengerjaan Pos)
+  const [countdownValue, setCountdownValue] = React.useState<number>(3);
+  const [isCountingDown, setIsCountingDown] = React.useState<boolean>(false);
+  const hasSpokenInitialRef = React.useRef<boolean>(false);
+
+  const { speak, isSpeaking, cancel } = useTextToSpeech();
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Start countdown only when isStarted is true
+  React.useEffect(() => {
+    if (isStarted && !hasSpokenInitialRef.current && countdownValue === 3) {
+      setIsCountingDown(true);
+    }
+  }, [isStarted, countdownValue]);
+
+  // Countdown timer effect
+  React.useEffect(() => {
+    if (!isCountingDown || !isStarted) return;
+
+    if (countdownValue > 1) {
+      const timer = setTimeout(() => {
+        setCountdownValue((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (countdownValue === 1) {
+      const timer = setTimeout(() => {
+        setIsCountingDown(false);
+        setCountdownValue(0);
+        hasSpokenInitialRef.current = true;
+        // Pasien langsung berbicara setelah hitungan mundur 3 detik selesai
+        speak(INITIAL_ASUHAN_MESSAGES[0].text);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdownValue, isCountingDown, isStarted, speak]);
+
+  React.useEffect(() => {
+    return () => {
+      cancel();
+    };
+  }, [cancel]);
 
   React.useEffect(() => {
     if (chatContainerRef.current) {
@@ -108,7 +151,33 @@ export function Step6AsuhanAi() {
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full select-none text-[#f3e5ab]">
+    <div className="relative flex flex-col gap-4 w-full select-none text-[#f3e5ab]">
+      {/* 3-Second Pre-Conversation Countdown Overlay */}
+      {isCountingDown && (
+        <div className="absolute inset-0 z-40 rounded-3xl bg-[#0e0a07]/85 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
+          <div className="flex flex-col items-center gap-4 text-center p-6 max-w-md">
+            <Badge className="bg-[#d4af37] text-[#14100c] font-serif font-black text-xs px-3.5 py-1 uppercase tracking-widest shadow-md">
+              Pos 5: Asuhan & Konseling AI
+            </Badge>
+
+            <span className="text-sm font-serif font-bold text-[#fff8db]">
+              Bersiap... Pasien akan mulai berbicara dalam
+            </span>
+
+            <div className="relative flex size-24 items-center justify-center rounded-full border-4 border-[#d4af37] bg-gradient-to-br from-[#3b2713] to-[#1a1109] shadow-[0_0_40px_rgba(212,175,55,0.7)]">
+              <span className="font-serif font-black text-5xl text-[#fff8db] animate-in zoom-in-75 duration-300">
+                {countdownValue}
+              </span>
+              <div className="absolute inset-0 rounded-full border-2 border-[#d4af37] animate-ping opacity-35" />
+            </div>
+
+            <p className="text-xs text-[#e6d59c]/80 font-mono">
+              🔊 Pastikan speaker & mikrofon aktif untuk berdialog langsung
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         {/* Left 5 Cols: AI Video Patient Avatar (Equal Height: 540px) */}
         <div className="lg:col-span-5 flex flex-col justify-between gap-3 h-[540px]">

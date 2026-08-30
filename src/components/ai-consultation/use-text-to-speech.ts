@@ -56,5 +56,6 @@ export function useTextToSpeech() {
     isSupported,
     speak,
     cancel,
+    stop: cancel,
   };
 }

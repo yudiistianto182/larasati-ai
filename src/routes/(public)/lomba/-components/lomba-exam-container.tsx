@@ -320,11 +320,18 @@ export function LombaExamContainer() {
 
               {/* 3. Active Interactive Station Stage */}
               <div className="w-full max-w-full overflow-hidden pt-1">
-                {currentStep === 2 && <Step2AnamnesisAi onComplete={handleNextStep} />}
+                {currentStep === 2 && (
+                  <Step2AnamnesisAi
+                    isStarted={!isBriefingModalOpen && isTimerRunning}
+                    onComplete={handleNextStep}
+                  />
+                )}
                 {currentStep === 3 && <Step3FaktorRisikoMagnet />}
                 {currentStep === 4 && <Step4ProsedurIvaSequence />}
                 {currentStep === 5 && <Step5InterpretasiMcq />}
-                {currentStep === 6 && <Step6AsuhanAi />}
+                {currentStep === 6 && (
+                  <Step6AsuhanAi isStarted={!isBriefingModalOpen && isTimerRunning} />
+                )}
                 {currentStep === 7 && hasAudioRecorder && <Step7AudioRecorder />}
               </div>
 
