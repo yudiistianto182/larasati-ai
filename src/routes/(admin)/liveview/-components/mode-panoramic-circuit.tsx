@@ -29,7 +29,7 @@ export function ModePanoramicCircuit({
     return { x: -24, y: -108 };
   };
 
-  const posCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+  const posCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
   return (
     <div
@@ -96,13 +96,13 @@ export function ModePanoramicCircuit({
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a0705]/40 via-transparent to-transparent pointer-events-none" />
         </div>
 
-        {/* 2. Tokoh Pemandu (Dewi Larasati) Centered at Top INSIDE the Arena Board */}
+        {/* 2. Tokoh Pemandu (Larasati) Centered at Top INSIDE the Arena Board */}
         {!isMinimized && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2 rounded-2xl bg-gradient-to-r from-[#20140a]/95 via-[#342010]/95 to-[#20140a]/95 border-2 border-[#d4af37]/80 shadow-[0_8px_25px_rgba(0,0,0,0.85),0_0_20px_rgba(212,175,55,0.3)] backdrop-blur-md">
             <div className="relative size-11 sm:size-12 rounded-xl overflow-hidden border-2 border-[#fde047] shrink-0 shadow-md bg-[#20140a]">
               <img
                 src="/images/larasati.png"
-                alt="Dewi Larasati"
+                alt="Larasati"
                 className="size-full object-cover object-top"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src =
@@ -114,7 +114,7 @@ export function ModePanoramicCircuit({
               <div className="flex items-center gap-1.5">
                 <Sparkles className="size-3 text-[#fde047]" />
                 <span className="font-serif font-black text-xs sm:text-sm bg-gradient-to-r from-[#fffbeb] via-[#fde047] to-[#ca8a04] bg-clip-text text-transparent">
-                  Dewi Larasati
+                  Larasati
                 </span>
                 <Badge className="bg-[#140e08] text-[#f9f586] border border-[#d4af37] text-[9px] font-bold px-1.5 py-0">
                   Tokoh Pemandu
@@ -163,10 +163,10 @@ export function ModePanoramicCircuit({
 
           {/* Outer Track Border */}
           <path
-            d="M 110 120 C 200 120, 280 130, 300 168 C 320 220, 180 260, 140 324 C 100 380, 260 380, 350 408 C 420 430, 490 240, 530 264 C 560 280, 460 450, 500 492 C 540 530, 640 450, 720 432"
+            d="M 100 162 C 160 170, 190 378, 260 378 C 330 378, 370 198, 440 198 C 510 198, 540 420, 610 420 C 680 420, 700 222, 770 222 C 830 222, 860 378, 910 378"
             fill="none"
             stroke="#422508"
-            strokeWidth={isMinimized ? 20 : 32}
+            strokeWidth={isMinimized ? 20 : 34}
             strokeLinecap="round"
             strokeLinejoin="round"
             opacity="0.95"
@@ -174,29 +174,29 @@ export function ModePanoramicCircuit({
 
           {/* Base Dark Track */}
           <path
-            d="M 110 120 C 200 120, 280 130, 300 168 C 320 220, 180 260, 140 324 C 100 380, 260 380, 350 408 C 420 430, 490 240, 530 264 C 560 280, 460 450, 500 492 C 540 530, 640 450, 720 432"
+            d="M 100 162 C 160 170, 190 378, 260 378 C 330 378, 370 198, 440 198 C 510 198, 540 420, 610 420 C 680 420, 700 222, 770 222 C 830 222, 860 378, 910 378"
             fill="none"
             stroke="#180d04"
-            strokeWidth={isMinimized ? 14 : 22}
+            strokeWidth={isMinimized ? 14 : 24}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
 
           {/* Soft Golden Ambient Underlay Glow */}
           <path
-            d="M 110 120 C 200 120, 280 130, 300 168 C 320 220, 180 260, 140 324 C 100 380, 260 380, 350 408 C 420 430, 490 240, 530 264 C 560 280, 460 450, 500 492 C 540 530, 640 450, 720 432"
+            d="M 100 162 C 160 170, 190 378, 260 378 C 330 378, 370 198, 440 198 C 510 198, 540 420, 610 420 C 680 420, 700 222, 770 222 C 830 222, 860 378, 910 378"
             fill="none"
             stroke="url(#royalGoldTrackGrad)"
-            strokeWidth={isMinimized ? 8 : 12}
+            strokeWidth={isMinimized ? 8 : 14}
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.25"
+            opacity="0.3"
             filter="url(#goldRoadAura)"
           />
 
           {/* Animated Radiant Gold Gradient Energy Dash Line */}
           <path
-            d="M 110 120 C 200 120, 280 130, 300 168 C 320 220, 180 260, 140 324 C 100 380, 260 380, 350 408 C 420 430, 490 240, 530 264 C 560 280, 460 450, 500 492 C 540 530, 640 450, 720 432"
+            d="M 100 162 C 160 170, 190 378, 260 378 C 330 378, 370 198, 440 198 C 510 198, 540 420, 610 420 C 680 420, 700 222, 770 222 C 830 222, 860 378, 910 378"
             fill="none"
             stroke="url(#royalGoldTrackGrad)"
             strokeWidth={isMinimized ? 3.5 : 5.5}
@@ -354,15 +354,19 @@ export function ModePanoramicCircuit({
           );
         })}
 
-        {/* 6. FLOATING TEAM AVATAR BUBBLES (Rendered ONLY in Normal Full View; in Minimized View, teams are cleanly represented by the station's dynamic multi-color borders) */}
-        {!isMinimized &&
-          groups.map((group) => {
+        {/* 6. FLOATING TEAM AVATAR BUBBLES (Rendered ONLY in Normal Full View) */}
+        {!isMinimized && (() => {
+          const localCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+          return groups.map((group) => {
             const targetWp =
               CIRCUIT_WAYPOINTS.find((w) => w.pos === group.pos) || CIRCUIT_WAYPOINTS[0];
 
-            const currentCountAtPos = posCounts[group.pos] || 0;
-            posCounts[group.pos] = currentCountAtPos + 1;
-            const offset = getAvatarOffset(group.pos, currentCountAtPos);
+            const totalAtPos = groups.filter((g) => g.pos === group.pos).length;
+            const currentIdx = localCounts[group.pos] || 0;
+            localCounts[group.pos] = currentIdx + 1;
+
+            const offsetX = totalAtPos > 1 ? (currentIdx === 0 ? -22 : 22) : 0;
+            const offsetY = -56;
 
             return (
               <div
@@ -372,11 +376,11 @@ export function ModePanoramicCircuit({
                   onSelectGroup?.(group.id);
                 }}
                 style={{
-                  left: `calc(${targetWp.leftPct}% + ${offset.x}px)`,
-                  top: `calc(${targetWp.topPct}% + ${offset.y}px)`,
+                  left: `calc(${targetWp.leftPct}% + ${offsetX}px)`,
+                  top: `calc(${targetWp.topPct}% + ${offsetY}px)`,
                   transition: "all 0.85s cubic-bezier(0.34, 1.25, 0.64, 1)",
                 }}
-                className="absolute z-40 cursor-pointer pointer-events-auto group"
+                className="absolute z-40 cursor-pointer pointer-events-auto group -translate-x-1/2"
                 title={`Klik untuk melihat detail jawaban ${group.name}`}
               >
                 <div
@@ -399,12 +403,13 @@ export function ModePanoramicCircuit({
                     className="absolute -bottom-1 -right-1 size-5 rounded-full border-2 border-white flex items-center justify-center font-black text-[10px] text-black shadow-md"
                     style={{ backgroundColor: group.color }}
                   >
-                    {group.groupNum}
+                    0{group.groupNum}
                   </div>
                 </div>
               </div>
             );
-          })}
+          });
+        })()}
       </div>
     </div>
   );

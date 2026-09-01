@@ -43,7 +43,7 @@ export function LiveviewWinnerModal({ winner, onClose }: LiveviewWinnerModalProp
         </p>
 
         <p className="text-xs text-[#d1b17a] max-w-xs mx-auto leading-relaxed mb-6">
-          Kelompok ini berhasil menyelesaikan seluruh tahapan skenario asuhan kebidanan pada Sirkuit Perjalanan Larasati.
+          Kelompok ini berhasil menyelesaikan seluruh tahapan skenario asuhan kebidanan pada Sirkuit Larasati Journey.
         </p>
 
         <Button

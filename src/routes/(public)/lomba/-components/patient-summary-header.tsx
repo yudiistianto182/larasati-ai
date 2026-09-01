@@ -1,17 +1,11 @@
 import * as React from "react";
 import {
-  Activity,
-  AlertCircle,
   BookOpen,
   ChevronDown,
   ChevronUp,
   Clock,
   FileText,
   HelpCircle,
-  Layers,
-  Sparkles,
-  User,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -114,8 +108,8 @@ export function PatientSummaryHeader({
                     />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm text-foreground">Ny. Ani (29 Tahun)</span>
-                    <span className="text-[11px] text-muted-foreground">G2P1A0 &bull; Hamil Trimester II</span>
+                    <span className="font-bold text-sm text-foreground">Ny. Ani (45 Tahun)</span>
+                    <span className="text-[11px] text-muted-foreground">G5P4A0 &bull; Multiparitas</span>
                     <Badge variant="secondary" className="text-[10px] font-semibold w-fit mt-0.5">
                       Poli KIA Puskesmas
                     </Badge>

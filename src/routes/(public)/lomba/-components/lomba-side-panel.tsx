@@ -14,8 +14,8 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { PanduanPengerjaanModal } from "./panduan-pengerjaan-modal";
+import { playCtaClickSound } from "./lomba-sound-effects";
 
 interface LombaSidePanelProps {
   staseNumber: number;
@@ -109,8 +109,11 @@ export function LombaSidePanel({
         {/* Action Button: Panduan Cara Pengerjaan (Opens Dialog Modal) */}
         <Button
           type="button"
-          onClick={() => setIsGuideOpen(true)}
-          className="w-full h-8.5 text-xs font-serif font-semibold tracking-wider bg-[#2a1d12] hover:bg-[#382718] text-[#f3e5ab] border border-[#d4af37]/40 shadow-xs gap-1.5"
+          onClick={() => {
+            playCtaClickSound();
+            setIsGuideOpen(true);
+          }}
+          className="w-full h-8.5 text-xs font-serif font-semibold tracking-wider bg-[#2a1d12] hover:bg-[#382718] text-[#f3e5ab] border border-[#d4af37]/40 shadow-xs gap-1.5 cursor-pointer"
         >
           <BookOpen className="size-3.5 text-[#d4af37]" />
           <span>Panduan Cara Pengerjaan Pos</span>
@@ -129,10 +132,10 @@ export function LombaSidePanel({
           </div>
           <div className="flex flex-col min-w-0">
             <h4 className="font-serif font-bold text-sm text-[#fff8db] truncate">
-              Ny. Ani (29 Tahun)
+              Ny. Ani (45 Tahun)
             </h4>
             <span className="text-[11px] text-[#d4af37]/80 truncate">
-              G2P1A0 &bull; Hamil Trimester II
+              G5P4A0 &bull; Multiparitas
             </span>
             <span className="text-[10px] text-[#e6d59c]/70">
               Poli KIA Puskesmas

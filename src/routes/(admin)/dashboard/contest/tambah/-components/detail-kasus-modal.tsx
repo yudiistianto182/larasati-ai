@@ -168,11 +168,11 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
             {/* Stase Navigation Tabs */}
             <div className="flex flex-wrap items-center gap-1.5">
               {[
-                { num: 1, name: "Pos 1: Interaktif dengan AI", icon: Bot, color: "text-blue-500" },
+                { num: 1, name: "Pos 1: Interaktif dengan", icon: Bot, color: "text-blue-500" },
                 { num: 2, name: "Pos 2: Multi Select Jawaban", icon: ShieldAlert, color: "text-amber-500" },
                 { num: 3, name: "Pos 3: Mengurutkan Langkah", icon: ListChecks, color: "text-purple-500" },
                 { num: 4, name: "Pos 4: Single Choice Image", icon: ImageIcon, color: "text-emerald-500" },
-                { num: 5, name: "Pos 5: Interaktif dengan AI", icon: HeartHandshake, color: "text-rose-500" },
+                { num: 5, name: "Pos 5: Interaktif dengan", icon: HeartHandshake, color: "text-rose-500" },
               ].map((st) => {
                 const Icon = st.icon;
                 const isActive = activeStase === st.num;
@@ -202,7 +202,7 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
               {activeStase === 1 && staseData?.stase1 && (
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-bold text-foreground">{staseData.stase1.header?.nama_stase || "Pos 1: Interaktif dengan AI"}</span>
+                    <span className="font-bold text-foreground">{staseData.stase1.header?.nama_stase || "Pos 1: Interaktif dengan"}</span>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="font-mono text-[10px]">
                         Amplop: {staseData.stase1.header?.kode_amplop || "-"}
@@ -220,7 +220,7 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
 
                   <div className="flex flex-col gap-1.5 pt-1">
                     <span className="font-semibold text-foreground">
-                      Daftar Trigger Pertanyaan AI ({staseData.stase1.triggers?.length || 0}):
+                      Daftar Trigger Pertanyaan ({staseData.stase1.triggers?.length || 0}):
                     </span>
                     <div className="grid grid-cols-1 gap-2">
                       {(staseData.stase1.triggers ?? []).map((trg, i) => (
@@ -372,7 +372,7 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
               {activeStase === 5 && staseData?.stase5 && (
                 <div className="flex flex-col gap-2.5">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <span className="font-bold text-foreground">{staseData.stase5.header?.nama_stase || "Pos 5: Interaktif dengan AI"}</span>
+                    <span className="font-bold text-foreground">{staseData.stase5.header?.nama_stase || "Pos 5: Interaktif dengan"}</span>
                     <Badge variant="secondary" className="text-[10px]">
                       Durasi: {staseData.stase5.header?.durasi_menit ?? 7} Menit
                     </Badge>

@@ -41,7 +41,7 @@ const LEDGER_ROWS: LedgerRow[] = [
   },
   {
     id: 2,
-    account: "Hooli AI",
+    account: "Hooli",
     dealId: "OPP-475",
     stage: "Qualification",
     blocker: "Close date overdue by 28 days",
@@ -233,8 +233,8 @@ const ledgerColumns: ColumnDef<DataTableFeatures, LedgerRow>[] = [
             "min-w-12 justify-center font-medium tabular-nums",
             row.original.riskScore >= 80 && "border-destructive/35 bg-destructive/10 text-destructive",
             row.original.riskScore >= 65 &&
-              row.original.riskScore < 80 &&
-              "border-amber-500/35 bg-amber-500/10 text-amber-700",
+            row.original.riskScore < 80 &&
+            "border-amber-500/35 bg-amber-500/10 text-amber-700",
           )}
         >
           {row.original.riskScore}

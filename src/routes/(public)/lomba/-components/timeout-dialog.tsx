@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AlertCircle, ArrowRight, Clock } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
 
 interface TimeoutDialogProps {
   open: boolean;
@@ -78,7 +79,11 @@ export function TimeoutDialog({
         <DialogFooter className="m-0 flex flex-row items-center justify-center pt-2">
           <Button
             type="button"
-            onClick={onNextStase}
+            onClick={() => {
+              playCtaClickSound();
+              playTransitionChime();
+              onNextStase();
+            }}
             className="h-9 px-6 text-xs font-semibold gap-1.5 shadow-xs"
           >
             <span>Lanjut Sekarang</span>

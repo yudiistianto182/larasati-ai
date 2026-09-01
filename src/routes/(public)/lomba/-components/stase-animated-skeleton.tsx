@@ -1,26 +1,20 @@
-import * as React from "react";
 import {
   ArrowDownUp,
+  ArrowRight,
   Bot,
   Check,
   CheckCircle2,
   Hand,
-  Heart,
   Image as ImageIcon,
   Layers,
+  ListOrdered,
   Magnet,
   Mic,
-  MicOff,
-  MousePointer,
   MousePointerClick,
   Radio,
   Search,
-  Sparkles,
   User,
-  Volume2,
-  Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface StaseAnimatedSkeletonProps {
@@ -29,22 +23,22 @@ interface StaseAnimatedSkeletonProps {
 
 export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProps) {
   return (
-    <div className="relative w-full rounded-2xl border border-[#8c6d23]/40 bg-gradient-to-b from-[#19110a] to-[#0f0a06] p-4 sm:p-5 text-[#f3e5ab] overflow-hidden select-none shadow-inner">
-      {/* Dynamic Keyframes for Accurate Visual Demonstrations */}
+    <div className="relative w-full rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 text-slate-800 overflow-hidden select-none shadow-xs">
+      {/* Dynamic Keyframes for Light-Themed Visual Demonstrations */}
       <style>{`
         /* --- POS 1 & 5: SONAR SIGNAL & CONVERSATION CYCLE --- */
-        @keyframes sonarRingPulse {
+        @keyframes sonarRingPulseLight {
           0% {
             box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.8);
             border-color: #d4af37;
           }
           50% {
             box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
-            border-color: #fff8db;
+            border-color: #fde047;
           }
           100% {
             box-shadow: 0 0 0 0 rgba(212, 175, 55, 0);
-            border-color: #8c6d23;
+            border-color: #b45309;
           }
         }
 
@@ -78,24 +72,24 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
           }
         }
 
-        @keyframes micActiveSequence {
+        @keyframes micActiveSequenceLight {
           0%, 25% {
-            background-color: #22170d;
-            border-color: rgba(140, 109, 35, 0.4);
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
             box-shadow: none;
-            color: rgba(212, 175, 55, 0.5);
+            color: #64748b;
           }
           32%, 68% {
-            background-color: #3b2814;
-            border-color: #d4af37;
-            box-shadow: 0 0 18px rgba(212, 175, 55, 0.6);
-            color: #fff8db;
+            background-color: #fef3c7;
+            border-color: #d97706;
+            box-shadow: 0 0 14px rgba(217, 119, 6, 0.35);
+            color: #78350f;
           }
           76%, 100% {
-            background-color: #22170d;
-            border-color: rgba(140, 109, 35, 0.4);
+            background-color: #f8fafc;
+            border-color: #cbd5e1;
             box-shadow: none;
-            color: rgba(212, 175, 55, 0.5);
+            color: #64748b;
           }
         }
 
@@ -105,228 +99,193 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
           76%, 100% { height: 15%; opacity: 0.3; }
         }
 
-        /* --- POS 2: CARD DRAG DOWN DIRECTLY FLUSH ONTO MAGNETIC BOARD --- */
-        @keyframes dragCardDownToMagnetExact {
+        /* --- POS 2: CARD DRAG RIGHT DIRECTLY FLUSH ONTO MAGNETIC BOARD --- */
+        @keyframes dragCardRightToMagnetLight {
           0%, 12% {
-            transform: translateY(0px) scale(1);
-            border-color: rgba(212, 175, 55, 0.5);
+            transform: translate(0px, 0px) scale(1);
+            border-color: #cbd5e1;
             box-shadow: none;
-            background-color: #24180e;
+            background-color: #ffffff;
             opacity: 1;
           }
           35% {
-            transform: translateY(68px) scale(1.05);
-            border-color: #d4af37;
-            box-shadow: 0 12px 28px rgba(212, 175, 55, 0.6);
-            background-color: #3d2814;
+            transform: translate(calc(100% + 12px), 0px) scale(1.05);
+            border-color: #d97706;
+            box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
+            background-color: #fef3c7;
             opacity: 1;
           }
           48%, 88% {
-            transform: translateY(68px) scale(1);
+            transform: translate(calc(100% + 12px), 0px) scale(1);
             border-color: #10b981;
-            box-shadow: 0 0 18px rgba(16, 185, 129, 0.6);
-            background-color: #15281a;
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+            background-color: #ecfdf5;
             opacity: 1;
           }
           96%, 100% {
-            transform: translateY(0px) scale(1);
+            transform: translate(0px, 0px) scale(1);
             opacity: 0.2;
           }
         }
 
-        /* --- POS 3: REALISTIC CARD DRAG & DROP REORDERING --- */
-        @keyframes draggedStepCard {
-          0%, 15% {
-            transform: translateY(0px) scale(1);
-            z-index: 10;
+        /* --- POS 3: STEP CARD TRANSFERS FROM LEFT TRAY TO RIGHT SEQUENCE BOARD --- */
+        @keyframes transferStepCardToRightLight {
+          0%, 12% {
+            transform: translate(0px, 0px) scale(1);
+            border-color: #cbd5e1;
             box-shadow: none;
-            border-color: #8c6d23;
+            background-color: #ffffff;
+            opacity: 1;
           }
           35% {
-            transform: translateY(38px) scale(1.04) rotate(1deg);
-            z-index: 20;
-            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.5);
-            border-color: #d4af37;
+            transform: translate(calc(100% + 12px), 0px) scale(1.05);
+            border-color: #d97706;
+            box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
+            background-color: #fef3c7;
+            opacity: 1;
           }
-          55%, 85% {
-            transform: translateY(38px) scale(1) rotate(0deg);
-            z-index: 10;
-            box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
-            border-color: #d4af37;
+          48%, 88% {
+            transform: translate(calc(100% + 12px), 0px) scale(1);
+            border-color: #10b981;
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+            background-color: #ecfdf5;
+            opacity: 1;
           }
-          95%, 100% {
-            transform: translateY(0px) scale(1);
-            z-index: 10;
-          }
-        }
-
-        @keyframes displacedStepCard {
-          0%, 15% {
-            transform: translateY(0px);
-          }
-          35%, 85% {
-            transform: translateY(-38px);
-          }
-          95%, 100% {
-            transform: translateY(0px);
+          96%, 100% {
+            transform: translate(0px, 0px) scale(1);
+            opacity: 0.2;
           }
         }
 
         /* --- POS 4: STRICT SYNCHRONIZED HOVER (A -> B -> C) THEN SELECT C (SOLID GOLD) --- */
-        @keyframes capsuleHoverSeqA {
+        @keyframes capsuleHoverSeqALight {
           0%, 20% {
-            border-color: #d4af37;
-            background-color: rgba(212, 175, 55, 0.25);
-            color: #fff8db;
-            transform: scale(1.06);
-            box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+            border-color: #d97706;
+            background-color: #fef3c7;
+            color: #78350f;
+            transform: scale(1.04);
+            box-shadow: 0 0 10px rgba(217, 119, 6, 0.25);
           }
           24%, 100% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background-color: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background-color: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
           }
         }
 
-        @keyframes capsuleHoverSeqB {
+        @keyframes capsuleHoverSeqBLight {
           0%, 22% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background-color: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background-color: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
           }
           26%, 44% {
-            border-color: #d4af37;
-            background-color: rgba(212, 175, 55, 0.25);
-            color: #fff8db;
-            transform: scale(1.06);
-            box-shadow: 0 0 12px rgba(212, 175, 55, 0.4);
+            border-color: #d97706;
+            background-color: #fef3c7;
+            color: #78350f;
+            transform: scale(1.04);
+            box-shadow: 0 0 10px rgba(217, 119, 6, 0.25);
           }
           48%, 100% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background-color: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background-color: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
           }
         }
 
-        @keyframes capsuleHoverSeqC {
+        @keyframes capsuleHoverSeqCLight {
           0%, 46% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background-color: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background-color: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
           }
           50%, 62% {
-            /* Hover stage on C */
-            border-color: #d4af37;
-            background-color: rgba(212, 175, 55, 0.3);
-            color: #fff8db;
-            transform: scale(1.06);
-            box-shadow: 0 0 14px rgba(212, 175, 55, 0.5);
+            border-color: #d97706;
+            background-color: #fef3c7;
+            color: #78350f;
+            transform: scale(1.04);
+            box-shadow: 0 0 12px rgba(217, 119, 6, 0.3);
           }
           64%, 90% {
-            /* Selected Solid Gold stage on C */
-            border-color: #fff8db;
-            background: linear-gradient(135deg, #8c6d23 0%, #d4af37 50%, #8c6d23 100%);
-            color: #14100c;
-            font-weight: 900;
-            box-shadow: 0 0 24px rgba(212, 175, 55, 0.9);
-            transform: scale(1.12);
+            border-color: #b45309;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
+            color: #ffffff;
+            font-weight: 800;
+            box-shadow: 0 0 18px rgba(217, 119, 6, 0.45);
+            transform: scale(1.08);
           }
           96%, 100% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
           }
         }
 
-        @keyframes capsuleHoverSeqD {
+        @keyframes capsuleHoverSeqDLight {
           0%, 100% {
-            border-color: rgba(140, 109, 35, 0.35);
-            background-color: #20160d;
-            color: rgba(243, 229, 171, 0.6);
+            border-color: #e2e8f0;
+            background-color: #ffffff;
+            color: #475569;
             transform: scale(1);
             box-shadow: none;
-          }
-        }
-
-        @keyframes movingCursorTrack {
-          0%, 20% {
-            transform: translate(12%, 0px);
-            opacity: 1;
-          }
-          26%, 44% {
-            transform: translate(37%, 0px);
-            opacity: 1;
-          }
-          50%, 90% {
-            transform: translate(62%, 0px) scale(0.92);
-            opacity: 1;
-          }
-          95%, 100% {
-            transform: translate(12%, 0px);
-            opacity: 0;
           }
         }
       `}</style>
 
-      {/* Background Radial Glow */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#2a1c0e_0%,_transparent_75%)] opacity-50 pointer-events-none" />
-
       {/* ============================================================ */}
-      {/* POS 1 & POS 5: ANAMNESIS & ASUHAN AI SKELETON               */}
-      {/* (Bulat User Icon Sonar + Sequential Dialog + Smart Mic Sync) */}
+      {/* POS 1 & POS 5: ANAMNESIS & ASUHAN SKELETON                   */}
       {/* ============================================================ */}
       {(staseNumber === 1 || staseNumber === 5) && (
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[11px] text-[#e6d59c]/80 border-b border-[#8c6d23]/30 pb-2">
-            <span className="font-serif font-bold text-xs text-[#fff8db] flex items-center gap-1.5">
-              <Bot className="size-3.5 text-[#d4af37]" />{" "}
-              {staseNumber === 1 ? "Simulasi Wawancara Pasien AI" : "Simulasi Konseling Empatik AI"}
+          <div className="flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200 pb-2">
+            <span className="font-serif font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <Bot className="size-3.5 text-amber-600" />{" "}
+              {staseNumber === 1 ? "Simulasi Wawancara Pasien" : "Simulasi Konseling Empatik"}
             </span>
-            <Badge className="bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fff8db] text-[9px] px-1.5 py-0">
+            <Badge className="bg-amber-100 border border-amber-300 text-amber-900 text-[9px] px-1.5 py-0 font-bold">
               Siklus Respons Lisan
             </Badge>
           </div>
 
           <div className="grid grid-cols-12 gap-3 min-h-[155px] items-stretch">
-            {/* Left: User Icon Bulat dengan Hover Border Memancarkan Sinyal Sonar */}
-            <div className="col-span-4 rounded-xl border border-[#8c6d23]/30 bg-[#22170d]/80 p-2 flex flex-col items-center justify-center text-center gap-2">
+            {/* Left: User Icon with Sonar Signal */}
+            <div className="col-span-4 rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 flex flex-col items-center justify-center text-center gap-2">
               <div
-                style={{ animation: "sonarRingPulse 2.5s infinite" }}
-                className="relative size-14 rounded-full border-2 border-[#d4af37] bg-gradient-to-b from-[#3a2512] to-[#1a1109] flex items-center justify-center shadow-[0_0_15px_rgba(212,175,55,0.4)]"
+                style={{ animation: "sonarRingPulseLight 2.5s infinite" }}
+                className="relative size-14 rounded-full border-2 border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 flex items-center justify-center shadow-md"
               >
-                <User className="size-7 text-[#fff8db]" />
-                {/* Sonar beacon pulse */}
-                <div className="absolute inset-0 rounded-full border border-[#d4af37] animate-ping opacity-35" />
+                <User className="size-7 text-white" />
+                <div className="absolute inset-0 rounded-full border border-amber-400 animate-ping opacity-40" />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-[11px] text-[#fff8db]">
-                  {staseNumber === 1 ? "Ny. Ani (Pasien)" : "Pasien Konseling"}
+                <span className="font-bold text-[11px] text-slate-900">
+                  Ny. Ani (45 Tahun)
                 </span>
-                <span className="text-[9px] text-[#d4af37]/80 font-mono">
-                  {staseNumber === 1 ? "Wawancara AI" : "Edukasi Empati"}
+                <span className="text-[9px] text-amber-800 font-mono font-medium">
+                  {staseNumber === 1 ? "Wawancara" : "Edukasi Empati"}
                 </span>
               </div>
             </div>
 
             {/* Right: Sequential Dialog Animation + Synchronized Mic Action */}
-            <div className="col-span-8 rounded-xl border border-[#8c6d23]/30 bg-[#160f09]/90 p-2.5 flex flex-col justify-between gap-2">
+            <div className="col-span-8 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 flex flex-col justify-between gap-2">
               <div className="flex flex-col gap-2 min-h-[75px]">
-                {/* 1. Dialog Pasien (Muncul Pertama) */}
+                {/* 1. Dialog Pasien */}
                 <div
                   style={{ animation: "patientBubbleSequence 6s ease-in-out infinite" }}
-                  className="self-start rounded-lg bg-[#251a10] border border-[#8c6d23]/40 px-2.5 py-1.5 text-[10px] text-[#e6d59c] max-w-[95%] shadow-2xs flex items-start gap-1.5"
+                  className="self-start rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 text-[10px] text-slate-700 max-w-[95%] shadow-xs flex items-start gap-1.5"
                 >
-                  <span className="font-bold text-[#d4af37] shrink-0">Pasien:</span>
+                  <span className="font-bold text-amber-700 shrink-0">Pasien:</span>
                   <span>
                     {staseNumber === 1
                       ? "“Saya sering keputihan berbau dan keluar flek setelah senggama...”"
@@ -334,12 +293,12 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
                   </span>
                 </div>
 
-                {/* 2. Dialog Bidan (Muncul Setelah Bidan Bicara) */}
+                {/* 2. Dialog Bidan */}
                 <div
                   style={{ animation: "midwifeBubbleSequence 6s ease-in-out infinite" }}
-                  className="self-end rounded-lg bg-[#d4af37]/20 border border-[#d4af37]/60 px-2.5 py-1.5 text-[10px] text-[#fff8db] font-semibold max-w-[95%] shadow-2xs flex items-start gap-1.5"
+                  className="self-end rounded-lg bg-amber-100/90 border border-amber-300 px-2.5 py-1.5 text-[10px] text-amber-950 font-semibold max-w-[95%] shadow-xs flex items-start gap-1.5"
                 >
-                  <span className="font-bold text-[#f9f586] shrink-0">Bidan:</span>
+                  <span className="font-bold text-amber-800 shrink-0">Bidan:</span>
                   <span>
                     {staseNumber === 1
                       ? "“Kapan HPHT terakhir dan apakah siklus haid teratur?”"
@@ -350,11 +309,11 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
 
               {/* 3. HIGHLIGHT TARGET: Smart Synchronized Microphone Bar */}
               <div
-                style={{ animation: "micActiveSequence 6s ease-in-out infinite" }}
+                style={{ animation: "micActiveSequenceLight 6s ease-in-out infinite" }}
                 className="relative rounded-lg border-2 p-1.5 flex items-center justify-between transition-all duration-300"
               >
                 <div className="flex items-center gap-1.5 text-[10px] font-bold">
-                  <div className="size-5 rounded-full bg-[#d4af37] text-[#14100c] flex items-center justify-center">
+                  <div className="size-5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-xs">
                     <Mic className="size-3" />
                   </div>
                   <span>[Bicara via Mikrofon]</span>
@@ -362,14 +321,14 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
 
                 {/* Equalizer audio bars that bounce while active */}
                 <div className="flex items-center gap-0.5 h-3">
-                  {[40, 90, 60, 100, 70, 30].map((h, i) => (
+                  {[40, 90, 60, 100, 70, 30].map((_, i) => (
                     <div
                       key={i}
                       style={{
                         animation: "audioBarsSequence 6s ease-in-out infinite",
                         animationDelay: `${i * 0.08}s`,
                       }}
-                      className="w-1 bg-[#f9f586] rounded-full"
+                      className="w-1 bg-amber-600 rounded-full"
                     />
                   ))}
                 </div>
@@ -381,204 +340,213 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
 
       {/* ============================================================ */}
       {/* POS 2: FAKTOR RISIKO MAGNET SKELETON                         */}
-      {/* (Baki di Atas, Papan Magnet di Bawah, Kartu Menempel Turun)  */}
       {/* ============================================================ */}
       {staseNumber === 2 && (
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[11px] text-[#e6d59c]/80 border-b border-[#8c6d23]/30 pb-2">
-            <span className="font-serif font-bold text-xs text-[#fff8db] flex items-center gap-1.5">
-              <Magnet className="size-3.5 text-[#d4af37]" /> Miniatur Papan Magnet Faktor Risiko
+          <div className="flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200 pb-2">
+            <span className="font-serif font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <Magnet className="size-3.5 text-amber-600" /> Miniatur Papan Magnet Faktor Risiko
             </span>
-            <Badge className="bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fff8db] text-[9px] px-1.5 py-0">
-              Baki Atas &rarr; Papan Bawah
+            <Badge className="bg-amber-100 border border-amber-300 text-amber-900 text-[9px] px-1.5 py-0 font-bold">
+              Baki Kiri &rarr; Papan Kanan
             </Badge>
           </div>
 
-          <div className="flex flex-col gap-2.5">
-            {/* 1. ATAS: Baki Kartu Pilihan */}
-            <div className="rounded-xl border border-[#8c6d23]/40 bg-[#22170d] p-2 flex flex-col gap-1">
-              <span className="text-[9px] text-[#e6d59c]/70 font-mono flex items-center gap-1">
-                <Hand className="size-2.5 text-[#d4af37]" /> BAKI PILIHAN KARTU (Pilih & Tarik ke Bawah):
+          <div className="grid grid-cols-2 gap-3 min-h-[140px] items-stretch">
+            {/* 1. KIRI: Baki Kartu Pilihan */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 flex flex-col justify-between gap-1.5">
+              <span className="text-[9px] text-slate-600 font-mono font-bold flex items-center gap-1">
+                <Hand className="size-2.5 text-amber-600" /> BAKI KARTU (Kiri):
               </span>
-              <div className="grid grid-cols-2 gap-2 relative">
+              <div className="flex flex-col gap-2 relative">
                 {/* Static Card in Tray */}
-                <div className="rounded-lg bg-[#19110a] border border-[#8c6d23]/30 p-1.5 text-[10px] text-[#e6d59c]/60 truncate">
+                <div className="rounded-lg bg-white border border-slate-200 p-1.5 text-[10px] text-slate-500 truncate shadow-2xs">
                   Keputihan Patologis
                 </div>
 
-                {/* ANIMATED DRAGGING CARD (Moves from Tray down directly to target board slot) */}
+                {/* ANIMATED DRAGGING CARD */}
                 <div
-                  style={{ animation: "dragCardDownToMagnetExact 3.8s ease-in-out infinite" }}
-                  className="rounded-lg border-2 p-1.5 flex items-center justify-between text-[10px] text-[#fff8db] font-bold z-20"
+                  style={{ animation: "dragCardRightToMagnetLight 3.8s ease-in-out infinite" }}
+                  className="rounded-lg border-2 p-1.5 flex items-center justify-between text-[10px] text-slate-900 font-bold z-20 shadow-xs"
                 >
                   <span className="truncate">Perdarahan Kontak</span>
-                  <CheckCircle2 className="size-3 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
                 </div>
               </div>
+              <span className="text-[8px] text-slate-500 italic">Tarik / Klik kartu</span>
             </div>
 
-            {/* 2. BAWAH: Papan Magnet Dropzone */}
-            <div className="rounded-xl border border-[#d4af37]/50 bg-[#160f09] p-2 flex flex-col gap-1 shadow-inner">
-              <span className="text-[10px] text-[#d4af37] font-mono font-bold flex items-center gap-1">
-                <Magnet className="size-3" /> PAPAN MAGNET (Area Tempel Jawaban)
+            {/* 2. KANAN: Papan Magnet Dropzone */}
+            <div className="rounded-xl border-2 border-amber-300 bg-amber-50/50 p-2.5 flex flex-col justify-between gap-1.5 shadow-inner">
+              <span className="text-[9px] text-amber-900 font-mono font-bold flex items-center gap-1">
+                <Magnet className="size-3" /> PAPAN MAGNET (Kanan):
               </span>
-              <div className="grid grid-cols-2 gap-2 min-h-[32px]">
+              <div className="flex flex-col gap-2 relative">
                 {/* Slot 1: Sudah Ada Kartu Menempel */}
-                <div className="rounded-lg bg-[#2b1e12] border border-[#8c6d23]/50 p-1.5 flex items-center justify-between text-[10px] text-[#fff8db]">
+                <div className="rounded-lg bg-white border border-slate-200 p-1.5 flex items-center justify-between text-[10px] text-slate-800 shadow-2xs">
                   <span className="truncate">Riwayat Multiparitas</span>
                   <Badge className="bg-emerald-600 text-white text-[8px] px-1 py-0">Menempel</Badge>
                 </div>
 
-                {/* Slot 2: Target Slot Tempat Kartu Ditempel (Tepat di bawah jalur jatuhnya kartu) */}
-                <div className="rounded-lg border-2 border-dashed border-[#d4af37]/60 bg-[#d4af37]/5 p-1.5 flex items-center justify-center text-[9px] text-[#f9f586]">
+                {/* Slot 2: Target Slot */}
+                <div className="rounded-lg border-2 border-dashed border-amber-400 bg-white/80 p-1.5 flex items-center justify-center text-[9px] text-amber-800 min-h-[28px] font-medium">
                   <span>[Slot Magnet Target]</span>
                 </div>
               </div>
+              <span className="text-[8px] text-amber-700 italic">Area tempel jawaban</span>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* POS 3: MENGURUTKAN PROSEDUR IVA SKELETON                     */}
-      {/* (Drag Reorder: Kartu Terangkat & Berpindah Posisi)           */}
+      {/* POS 3: MENGURUTKAN PROSEDUR IVA SKELETON (2 KOLOM)           */}
       {/* ============================================================ */}
       {staseNumber === 3 && (
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[11px] text-[#e6d59c]/80 border-b border-[#8c6d23]/30 pb-2">
-            <span className="font-serif font-bold text-xs text-[#fff8db] flex items-center gap-1.5">
-              <Layers className="size-3.5 text-[#d4af37]" /> Miniatur Pengurutan SOP Tindakan IVA
+          <div className="flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200 pb-2">
+            <span className="font-serif font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <Layers className="size-3.5 text-amber-600" /> Miniatur Alur Prosedur IVA (2 Kolom)
             </span>
-            <Badge className="bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fff8db] text-[9px] px-1.5 py-0">
-              Drag & Drop Urutan 1 - 6
+            <Badge className="bg-amber-100 border border-amber-300 text-amber-900 text-[9px] px-1.5 py-0 font-bold">
+              Baki Kiri &rarr; Urutan Kanan
             </Badge>
           </div>
 
-          <div className="flex flex-col gap-1.5 relative">
-            {/* Step 1 (Fixed) */}
-            <div className="rounded-lg bg-[#22170d] border border-[#8c6d23]/40 p-1.5 flex items-center justify-between text-[10px]">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#8c6d23] text-[#14100c] font-mono text-[9px] font-bold px-1.5 py-0">1</Badge>
-                <span className="text-[#fff8db]">Informed consent & pasang spekulum cocor bebek</span>
+          <div className="grid grid-cols-2 gap-3 min-h-[140px] items-stretch">
+            {/* 1. KIRI: Baki Langkah Tersedia */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 flex flex-col justify-between gap-1.5">
+              <span className="text-[9px] text-slate-600 font-mono font-bold flex items-center gap-1">
+                <Layers className="size-2.5 text-amber-600" /> 1. BAKI LANGKAH (Kiri):
+              </span>
+              <div className="flex flex-col gap-2 relative">
+                {/* Static unchosen step */}
+                <div className="rounded-lg bg-white border border-slate-200 p-1.5 text-[10px] text-slate-500 truncate shadow-2xs">
+                  Vulva Hygiene & Bersihkan Lendir
+                </div>
+
+                {/* ANIMATED STEP CARD */}
+                <div
+                  style={{ animation: "transferStepCardToRightLight 3.8s ease-in-out infinite" }}
+                  className="rounded-lg border-2 p-1.5 flex items-center justify-between text-[10px] text-slate-900 font-bold z-20 shadow-xs"
+                >
+                  <span className="truncate">Oleskan Asam Asetat 3-5%</span>
+                  <ArrowRight className="size-3 text-amber-600 shrink-0" />
+                </div>
               </div>
-              <span className="text-[9px] text-[#d4af37]/60 font-mono">SOP #1</span>
+              <span className="text-[8px] text-slate-500 italic">Klik kartu untuk memilih</span>
             </div>
 
-            {/* Step 2 (DRAGGED CARD: Terangkat, Meluncur Turun ke Posisi 3) */}
-            <div
-              style={{ animation: "draggedStepCard 3.6s ease-in-out infinite" }}
-              className="rounded-lg bg-[#3b2814] border-2 border-[#d4af37] p-1.5 flex items-center justify-between text-[10px] text-[#fff8db] font-bold"
-            >
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#d4af37] text-[#14100c] font-mono text-[9px] font-black px-1.5 py-0">2</Badge>
-                <span className="text-[#f9f586]">Oleskan asam asetat 3-5% ke epitel SSK serviks</span>
-              </div>
-              <div className="flex items-center gap-1 text-[9px] text-[#d4af37] font-bold">
-                <ArrowDownUp className="size-3 animate-bounce" />
-                <span>[Geser ke Bawah]</span>
-              </div>
-            </div>
+            {/* 2. KANAN: Papan Urutan SOP Terpilih */}
+            <div className="rounded-xl border-2 border-amber-300 bg-amber-50/50 p-2.5 flex flex-col justify-between gap-1.5 shadow-inner">
+              <span className="text-[9px] text-amber-900 font-mono font-bold flex items-center gap-1">
+                <ListOrdered className="size-3" /> 2. URUTAN TERPILIH (Kanan):
+              </span>
+              <div className="flex flex-col gap-2 relative">
+                {/* Step 01 */}
+                <div className="rounded-lg bg-white border border-slate-200 p-1.5 flex items-center justify-between text-[10px] text-slate-800 shadow-2xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <Badge className="bg-amber-500 text-white font-mono text-[8px] font-black px-1 py-0">01</Badge>
+                    <span className="truncate">Informed consent & cuci tangan</span>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white text-[7px] px-1 py-0">SOP #1</Badge>
+                </div>
 
-            {/* Step 3 (DISPLACED CARD: Tergeser Naik ke Posisi 2) */}
-            <div
-              style={{ animation: "displacedStepCard 3.6s ease-in-out infinite" }}
-              className="rounded-lg bg-[#22170d] border border-[#8c6d23]/40 p-1.5 flex items-center justify-between text-[10px]"
-            >
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#8c6d23] text-[#14100c] font-mono text-[9px] font-bold px-1.5 py-0">3</Badge>
-                <span className="text-[#fff8db]">Bersihkan serviks dari lendir dengan kassa steril</span>
+                {/* Step 02 Target Slot */}
+                <div className="rounded-lg border-2 border-dashed border-amber-400 bg-white/80 p-1.5 flex items-center justify-between text-[9px] text-amber-800 min-h-[28px] font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Badge className="bg-amber-600 text-white font-mono text-[8px] font-bold px-1 py-0">02</Badge>
+                    <span>[Slot Urutan Langkah #2]</span>
+                  </div>
+                  <ArrowDownUp className="size-3 text-amber-600" />
+                </div>
               </div>
-              <span className="text-[9px] text-[#d4af37]/60 font-mono">SOP #2</span>
-            </div>
-
-            {/* Step 4 (Fixed) */}
-            <div className="rounded-lg bg-[#22170d] border border-[#8c6d23]/40 p-1.5 flex items-center justify-between text-[10px]">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#8c6d23] text-[#14100c] font-mono text-[9px] font-bold px-1.5 py-0">4</Badge>
-                <span className="text-[#fff8db]">Tunggu 1 menit dan evaluasi plak asetowhite</span>
-              </div>
-              <span className="text-[9px] text-[#d4af37]/60 font-mono">SOP #4</span>
+              <span className="text-[8px] text-amber-700 italic">Atur urutan 01 - 06</span>
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* POS 4: SINGLE CHOICE IMAGE SKELETON                          */}
-      {/* (Kapsul A -> B -> C Hover, lalu Kapsul C Terpilih Emas Solid)*/}
+      {/* POS 4: INTERPRETASI VISUAL SKELETON (2 KOLOM: FOTO & PILIHAN) */}
       {/* ============================================================ */}
       {staseNumber === 4 && (
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[11px] text-[#e6d59c]/80 border-b border-[#8c6d23]/30 pb-2">
-            <span className="font-serif font-bold text-xs text-[#fff8db] flex items-center gap-1.5">
-              <ImageIcon className="size-3.5 text-[#d4af37]" /> Miniatur Interpretasi Visual & Pilihan Kapsul
+          <div className="flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200 pb-2">
+            <span className="font-serif font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <ImageIcon className="size-3.5 text-amber-600" /> Miniatur Interpretasi Visual (2 Kolom)
             </span>
-            <Badge className="bg-[#d4af37]/20 border border-[#d4af37]/40 text-[#fff8db] text-[9px] px-1.5 py-0">
-              Pilihan Kapsul A, B, C, D
+            <Badge className="bg-amber-100 border border-amber-300 text-amber-900 text-[9px] px-1.5 py-0 font-bold">
+              Foto Kiri &rarr; Pilihan Kanan
             </Badge>
           </div>
 
-          <div className="flex flex-col gap-3">
-            {/* Viewport Foto Serviks Skeleton */}
-            <div className="rounded-xl border border-[#8c6d23]/40 bg-black/90 p-2.5 flex items-center justify-between relative overflow-hidden">
-              <div className="flex items-center gap-3">
-                <div className="relative size-12 rounded-full bg-[#521c1c] border-2 border-[#8c6d23] flex items-center justify-center shrink-0">
-                  <div className="size-3 rounded-full bg-[#200909]" />
-                  <div className="absolute top-1 right-1.5 size-4 rounded-full bg-white/80 border border-[#d4af37]" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-serif font-bold text-[#fff8db]">Foto Inspeksi Asam Asetat 3-5%</span>
-                  <span className="text-[9px] text-[#e6d59c]/70">Amati plak putih asetowhite pada zona SSK</span>
-                </div>
+          <div className="grid grid-cols-2 gap-3 min-h-[140px] items-stretch">
+            {/* 1. KIRI: Foto Serviks Skeleton */}
+            <div className="rounded-xl border border-slate-300 bg-slate-900 p-2.5 flex flex-col justify-between relative overflow-hidden text-white shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] text-slate-300 font-mono">FOTO SERVIKS:</span>
+                <Badge variant="outline" className="border-amber-400/80 text-amber-300 text-[8px] px-1 py-0">
+                  <Search className="size-2 mr-0.5" /> Zoom & Pan
+                </Badge>
               </div>
-              <Badge variant="outline" className="border-[#d4af37]/60 text-[#d4af37] text-[9px]">
-                <Search className="size-2.5 mr-1" /> Zoom & Pan
-              </Badge>
+
+              <div className="flex flex-col items-center justify-center my-auto py-1">
+                <div className="relative size-14 rounded-full bg-[#6b2121] border-2 border-amber-400 flex items-center justify-center shadow-inner">
+                  <div className="size-3.5 rounded-full bg-[#200909]" />
+                  <div className="absolute top-1 right-2 size-4.5 rounded-full bg-white/90 border border-amber-300 shadow-xs" />
+                </div>
+                <span className="text-[9px] text-slate-200 mt-1 font-serif">Plak Asetowhite SSK</span>
+              </div>
+
+              <span className="text-[8px] text-amber-300/80 italic">Scroll untuk zoom</span>
             </div>
 
-            {/* Pilihan Jawaban Kapsul (Hover berurutan A -> B -> C, lalu C Terpilih Emas Solid) */}
-            <div className="flex flex-col gap-1.5 relative">
-              <div className="flex items-center justify-between text-[9px] text-[#e6d59c]/70 font-mono">
-                <span>Pilih Diagnosis (Kapsul A, B, C, D):</span>
-                <span className="text-[#d4af37] flex items-center gap-1">
-                  <MousePointerClick className="size-2.5" /> Simulasi Seleksi Jawaban
-                </span>
+            {/* 2. KANAN: Pilihan Jawaban A, B, C, D Stacked */}
+            <div className="rounded-xl border-2 border-amber-300 bg-slate-50/80 p-2.5 flex flex-col justify-between gap-1.5 shadow-inner">
+              <span className="text-[9px] text-amber-900 font-mono font-bold flex items-center gap-1">
+                <MousePointerClick className="size-3" /> PILIH DIAGNOSIS:
+              </span>
+
+              <div className="flex flex-col gap-1.5">
+                {/* Option A */}
+                <div
+                  style={{ animation: "capsuleHoverSeqALight 5.2s ease-in-out infinite" }}
+                  className="rounded-lg border px-2 py-1 flex items-center justify-between text-[9px] font-serif transition-all"
+                >
+                  <span className="truncate">A. Normal Fisiologis</span>
+                  <span className="font-mono text-[8px]">Opsi A</span>
+                </div>
+
+                {/* Option B */}
+                <div
+                  style={{ animation: "capsuleHoverSeqBLight 5.2s ease-in-out infinite" }}
+                  className="rounded-lg border px-2 py-1 flex items-center justify-between text-[9px] font-serif transition-all"
+                >
+                  <span className="truncate">B. Servisitis Akut</span>
+                  <span className="font-mono text-[8px]">Opsi B</span>
+                </div>
+
+                {/* Option C (Selected Solid Gold) */}
+                <div
+                  style={{ animation: "capsuleHoverSeqCLight 5.2s ease-in-out infinite" }}
+                  className="rounded-lg border px-2 py-1 flex items-center justify-between text-[9px] font-serif transition-all"
+                >
+                  <span className="truncate">C. IVA Positif Lesi Luas</span>
+                  <Check className="size-3 text-white" />
+                </div>
+
+                {/* Option D */}
+                <div
+                  style={{ animation: "capsuleHoverSeqDLight 5.2s ease-in-out infinite" }}
+                  className="rounded-lg border px-2 py-1 flex items-center justify-between text-[9px] font-serif transition-all"
+                >
+                  <span className="truncate">D. Kanker Serviks Invasif</span>
+                  <span className="font-mono text-[8px]">Opsi D</span>
+                </div>
               </div>
 
-              {/* 4 Capsule Grid */}
-              <div className="grid grid-cols-4 gap-2.5">
-                {/* Kapsul A */}
-                <div
-                  style={{ animation: "capsuleHoverSeqA 5.2s ease-in-out infinite" }}
-                  className="h-10 rounded-full border flex items-center justify-center text-xs font-serif font-bold transition-all"
-                >
-                  A
-                </div>
-
-                {/* Kapsul B */}
-                <div
-                  style={{ animation: "capsuleHoverSeqB 5.2s ease-in-out infinite" }}
-                  className="h-10 rounded-full border flex items-center justify-center text-xs font-serif font-bold transition-all"
-                >
-                  B
-                </div>
-
-                {/* Kapsul C (Hover kemudian terpilih Solid Gold) */}
-                <div
-                  style={{ animation: "capsuleHoverSeqC 5.2s ease-in-out infinite" }}
-                  className="h-10 rounded-full border flex items-center justify-center text-xs font-serif font-bold transition-all relative"
-                >
-                  <span>C</span>
-                </div>
-
-                {/* Kapsul D */}
-                <div
-                  style={{ animation: "capsuleHoverSeqD 5.2s ease-in-out infinite" }}
-                  className="h-10 rounded-full border flex items-center justify-center text-xs font-serif font-bold transition-all"
-                >
-                  D
-                </div>
-              </div>
+              <span className="text-[8px] text-slate-500 italic">Pilih 1 jawaban terbaik</span>
             </div>
           </div>
         </div>
@@ -589,17 +557,16 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
       {/* ============================================================ */}
       {staseNumber === 6 && (
         <div className="relative z-10 flex flex-col gap-3">
-          <div className="flex items-center justify-between text-[11px] text-[#e6d59c]/80 border-b border-[#8c6d23]/30 pb-2">
-            <span className="font-serif font-bold text-xs text-[#fff8db] flex items-center gap-1.5">
-              <Radio className="size-3.5 text-red-400" /> Miniatur Perekaman Laporan Klinis
+          <div className="flex items-center justify-between text-[11px] text-slate-600 border-b border-slate-200 pb-2">
+            <span className="font-serif font-bold text-xs text-slate-900 flex items-center gap-1.5">
+              <Radio className="size-3.5 text-rose-500" /> Miniatur Perekaman Laporan Klinis
             </span>
-            <Badge className="bg-red-500/20 border border-red-500/40 text-red-200 text-[9px] px-1.5 py-0">
+            <Badge className="bg-rose-100 border border-rose-300 text-rose-800 text-[9px] px-1.5 py-0 font-bold">
               Audio Examiner
             </Badge>
           </div>
 
-          <div className="rounded-xl border border-[#8c6d23]/30 bg-[#160f09] p-3 flex flex-col items-center justify-center gap-3">
-            {/* Live Audio Visualizer Equalizer */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex flex-col items-center justify-center gap-3">
             <div className="flex items-center gap-1 h-6">
               {[30, 70, 100, 50, 90, 40, 80, 60, 95, 35, 75, 45].map((h, i) => (
                 <div
@@ -609,21 +576,20 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
                     animation: "audioBarsSequence 1.2s ease-in-out infinite",
                     animationDelay: `${i * 0.08}s`,
                   }}
-                  className="w-1 bg-[#d4af37] rounded-full"
+                  className="w-1 bg-amber-500 rounded-full"
                 />
               ))}
             </div>
 
-            {/* HIGHLIGHT TARGET: Pulsing Red Recording Button */}
             <div
-              style={{ animation: "sonarRingPulse 2s infinite" }}
-              className="relative rounded-full border-2 border-red-500 bg-red-600/30 px-4 py-1.5 flex items-center gap-2 text-xs font-bold text-[#fff8db] shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+              style={{ animation: "sonarRingPulseLight 2s infinite" }}
+              className="relative rounded-full border-2 border-rose-500 bg-rose-50 px-4 py-1.5 flex items-center gap-2 text-xs font-bold text-rose-700 shadow-md"
             >
-              <div className="size-3 rounded-full bg-red-500 animate-ping" />
+              <div className="size-3 rounded-full bg-rose-500 animate-ping" />
               <span>[Mulai Rekam Suara Laporan]</span>
             </div>
 
-            <span className="text-[10px] text-[#e6d59c]/70 font-mono">
+            <span className="text-[10px] text-slate-500 font-mono">
               Batas Rekam: 04:00 Menit &bull; Sampaikan kesimpulan & rencana rujukan
             </span>
           </div>

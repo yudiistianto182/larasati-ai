@@ -1,13 +1,11 @@
 import * as React from "react";
 import {
   ArrowRight,
-  CheckCircle2,
   Crown,
   KeyRound,
   Lock,
   ShieldCheck,
   Sparkles,
-  Trophy,
   Users,
 } from "lucide-react";
 
@@ -25,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import type { Contest, KelompokLomba } from "@/stores/contest-store";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
+import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
 
 interface LombaAuthScreenProps {
   contest?: Contest;
@@ -54,6 +53,7 @@ export function LombaAuthScreen({
     },
   ];
 
+  const [username, setUsername] = React.useState<string>("sitinurdhaliza");
   const [selectedKelompokId, setSelectedKelompokId] = React.useState<string>(
     kelompokList[0]?.id || "kel-01",
   );
@@ -77,10 +77,12 @@ export function LombaAuthScreen({
       return;
     }
 
+    playCtaClickSound();
     setIsLoading(true);
 
     setTimeout(() => {
       setIsLoading(false);
+      playTransitionChime();
       onLoginSuccess(selectedKelompok);
     }, 400);
   };
@@ -111,12 +113,12 @@ export function LombaAuthScreen({
 
       {/* Main 2-Column Split Card Container */}
       <div className="relative z-10 grid w-full max-w-6xl grid-cols-1 lg:grid-cols-12 overflow-hidden rounded-3xl border-2 border-[#8c6d23]/50 bg-[#120d08]/95 shadow-[0_0_50px_rgba(0,0,0,0.85)] backdrop-blur-md">
-        
+
         {/* ============================================================ */}
         {/* KOLOM KIRI (HERO SECTION LARASATI DENGAN FOTO OVAL FULL WIDTH) */}
         {/* ============================================================ */}
         <div className="relative lg:col-span-7 flex flex-col justify-between overflow-hidden border-b lg:border-b-0 lg:border-r border-[#8c6d23]/40 bg-gradient-to-br from-[#261a0e] via-[#1a1209] to-[#0d0905] p-6 sm:p-10 text-[#f3e5ab]">
-          
+
           {/* Radial Ambient Gold Light Behind Avatar */}
           <div
             style={{ animation: "glowPulse 4s ease-in-out infinite" }}
@@ -124,29 +126,24 @@ export function LombaAuthScreen({
           />
 
           {/* Top Tag & Badge */}
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge className="bg-[#d4af37] text-[#14100c] font-serif font-extrabold text-[11px] px-2.5 py-0.5 shadow-md uppercase tracking-wider">
-                Midwife Circuit Challenge
-              </Badge>
-              <span className="text-[11px] font-mono text-[#d4af37]/80">
-                {contest?.nama || "OSCE Arena 2026"}
-              </span>
-            </div>
-            <Sparkles className="size-4 text-[#d4af37] animate-pulse" />
+          <div className="relative z-10 flex items-center justify-between mb-4">
+            <Badge className="bg-[#d4af37] text-[#14100c] font-serif font-extrabold text-[11px] px-2.5 py-0.5 shadow-md uppercase tracking-wider">
+              LARASATI JOURNEY
+            </Badge>
           </div>
 
-          {/* Center: Larasati Character Artwork Inside Oval Frame with Full Width */}
-          <div className="relative z-10 my-4 flex flex-col items-center text-center">
+          {/* Center / Side-by-Side: Larasati Photo on Left + Acronym Breakdown on Right */}
+          <div className="relative z-10 my-auto flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
+            {/* Larasati Oval Photo Frame */}
             <div
               style={{ animation: "floatLarasatiHero 4.5s ease-in-out infinite" }}
-              className="relative flex items-center justify-center mb-4"
+              className="relative flex items-center justify-center shrink-0"
             >
-              {/* Grand Golden Oval Frame with Full Width Image */}
-              <div className="relative rounded-[50%/40%] border-2 border-[#d4af37] bg-gradient-to-b from-[#3a2512] via-[#20150a] to-[#120d07] shadow-[0_0_35px_rgba(212,175,55,0.4)] ring-2 ring-[#d4af37]/50 overflow-hidden w-56 sm:w-64 md:w-72 aspect-[4/5] flex items-center justify-center">
+              {/* Grand Golden Oval Frame */}
+              <div className="relative rounded-[50%/40%] border-2 border-[#d4af37] bg-gradient-to-b from-[#3a2512] via-[#20150a] to-[#120d07] shadow-[0_0_35px_rgba(212,175,55,0.45)] ring-2 ring-[#d4af37]/50 overflow-hidden w-44 sm:w-48 md:w-52 aspect-[4/5] flex items-center justify-center">
                 <img
                   src="/images/larasati.png"
-                  alt="Dewi Larasati"
+                  alt="Larasati"
                   className="w-full h-full object-cover object-top filter brightness-105"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = "/images/ny_ani_patient_torso.jpg";
@@ -155,31 +152,37 @@ export function LombaAuthScreen({
               </div>
             </div>
 
-            {/* Grand Golden Title */}
-            <div className="flex flex-col items-center">
-              <h1 className="text-4xl sm:text-5xl font-serif font-black tracking-widest bg-gradient-to-b from-[#fff8db] via-[#d4af37] to-[#997a15] bg-clip-text text-transparent drop-shadow-md">
-                LARASATI
-              </h1>
-              
-              <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-[#d4af37] to-transparent my-2" />
+            {/* Samping Foto: Grand Title & Breakdown Acronym */}
+            <div className="flex flex-col text-left flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-3xl sm:text-4xl font-serif font-black tracking-widest bg-gradient-to-b from-[#fff8db] via-[#d4af37] to-[#997a15] bg-clip-text text-transparent drop-shadow-md">
+                  LARASATI
+                </h1>
+              </div>
 
-              <p className="font-serif text-xs sm:text-sm font-semibold text-[#f9f586] tracking-wide max-w-md">
-                Layanan Asuhan & Reka Skenario Terpadu Kebidanan Berbasis AI Interaktif
-              </p>
-              
-              <p className="text-[11px] text-[#e6d59c]/80 mt-1.5 max-w-sm leading-relaxed">
-                Simulasi Sirkuit Ujian Praktik Klinis Terintegrasi 5 Pos Pemeriksaan & Deteksi Dini IVA Kanker Serviks.
-              </p>
+              <div className="w-20 h-0.5 bg-gradient-to-r from-[#d4af37] to-transparent mb-3" />
+
+              {/* Breakdown Acronym Text */}
+              <div className="text-xs sm:text-[13px] text-[#f3e5ab] leading-relaxed font-serif">
+                <p>
+                  <span className="font-extrabold text-[#fde047] text-sm">L</span>earning through virtual{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">A</span>namnesis,{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">R</span>isk factor,{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">A</span>rrangement of Procedure,{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">S</span>creening,{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">A</span>ssessment and{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">T</span>ransition to{" "}
+                  <span className="font-extrabold text-[#fde047] text-sm">I</span>ntegrated Midwifery Care
+                </p>
+              </div>
+
+              {/* Subtitle Motto Card */}
+              <div className="mt-3.5 p-3 rounded-xl border border-[#8c6d23]/50 bg-[#1a1209]/85 shadow-sm">
+                <p className="text-[11px] font-serif italic text-[#f9f586]/90 leading-snug">
+                  &ldquo;An Interactive Clinical Journey for Cervical Cancer Screening through IVA in Midwifery Students.&rdquo;
+                </p>
+              </div>
             </div>
-          </div>
-
-          {/* Bottom Info Footer */}
-          <div className="relative z-10 flex items-center justify-between border-t border-[#8c6d23]/30 pt-3 text-[11px] text-[#e6d59c]/70">
-            <span className="flex items-center gap-1.5 font-medium">
-              <ShieldCheck className="size-3.5 text-[#d4af37]" />
-              Sistem Penilaian AI Real-time
-            </span>
-            <span className="font-mono text-[#d4af37]">v2.6 Wayang Edition</span>
           </div>
         </div>
 
@@ -187,7 +190,7 @@ export function LombaAuthScreen({
         {/* KOLOM KANAN (FORM LOGIN TIM & AUTENTIKASI PESERTA)          */}
         {/* ============================================================ */}
         <div className="lg:col-span-5 flex flex-col justify-between bg-[#140e08]/90 p-6 sm:p-10 text-[#f3e5ab]">
-          
+
           {/* Form Header */}
           <div className="flex flex-col gap-1.5 border-b border-[#8c6d23]/30 pb-5">
             <div className="flex items-center gap-2">
@@ -199,7 +202,7 @@ export function LombaAuthScreen({
               </h2>
             </div>
             <p className="text-xs text-[#e6d59c]/80 leading-relaxed">
-              Silakan pilih kelompok Anda dan masukkan password/token untuk membuka stase ujian sirkuit.
+              Silakan masukkan username dan password Tim Ketua untuk membuka stase ujian sirkuit.
             </p>
           </div>
 
@@ -212,15 +215,23 @@ export function LombaAuthScreen({
               </div>
             )}
 
-            {/* Select Kelompok */}
+            {/* Input Username */}
             <div className="grid gap-2">
-              <Label htmlFor="auth-kelompok" className="font-serif text-xs font-semibold text-[#fff8db] flex items-center gap-1.5">
+              <Label htmlFor="auth-username" className="font-serif text-xs font-semibold text-[#fff8db] flex items-center gap-1.5">
                 <Users className="size-3.5 text-[#d4af37]" />
-                Pilih Kelompok Peserta <span className="text-red-400">*</span>
+                Username <span className="text-red-400">*</span>
               </Label>
-              <Select
+              <Input
+                id="auth-username"
+                placeholder="Masukkan Username Peserta"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="h-11 bg-[#1d140b] border-[#8c6d23]/60 text-xs text-[#fff8db] placeholder:text-[#e6d59c]/40 focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
+                required
+              />
+              {/* <Select
                 value={selectedKelompokId}
-                onValueChange={setSelectedKelompokId}
+                onValueChange={(val) => setSelectedKelompokId(val || "")}
               >
                 <SelectTrigger
                   id="auth-kelompok"
@@ -247,7 +258,7 @@ export function LombaAuthScreen({
                     ))}
                   </SelectGroup>
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
 
             {/* Input Password / Token */}
@@ -255,11 +266,8 @@ export function LombaAuthScreen({
               <div className="flex items-center justify-between">
                 <Label htmlFor="auth-password" className="font-serif text-xs font-semibold text-[#fff8db] flex items-center gap-1.5">
                   <KeyRound className="size-3.5 text-[#d4af37]" />
-                  Password / PIN Tim <span className="text-red-400">*</span>
+                  Password <span className="text-red-400">*</span>
                 </Label>
-                <span className="text-[10px] text-[#d4af37]/80 font-mono">
-                  Default PIN: 1234
-                </span>
               </div>
               <Input
                 id="auth-password"
@@ -273,7 +281,7 @@ export function LombaAuthScreen({
             </div>
 
             {/* Active Case Preview Badge */}
-            <div className="rounded-xl border border-[#8c6d23]/40 bg-[#1f150b]/60 p-3 flex items-center justify-between text-xs">
+            {/* <div className="rounded-xl border border-[#8c6d23]/40 bg-[#1f150b]/60 p-3 flex items-center justify-between text-xs">
               <div className="flex flex-col">
                 <span className="text-[10px] text-[#e6d59c]/70 uppercase tracking-wider font-mono">
                   Skenario Kasus Terhubung
@@ -285,7 +293,7 @@ export function LombaAuthScreen({
               <Badge variant="outline" className="text-[10px] border-[#d4af37]/50 text-[#d4af37]">
                 5 Pos Soal
               </Badge>
-            </div>
+            </div> */}
 
             {/* Submit Button */}
             <Button

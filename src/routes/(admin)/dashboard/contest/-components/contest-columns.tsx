@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import {
   Calendar,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
   MoreHorizontal,
   Pencil,
@@ -181,6 +182,20 @@ export function getContestColumns(
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52 text-xs">
                 <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-emerald-600 dark:text-emerald-400 font-semibold"
+                    render={
+                      <Link
+                        to="/dashboard/contest/rekap"
+                        search={{ contestId: contest.id }}
+                        className="flex items-center w-full"
+                      />
+                    }
+                  >
+                    <ClipboardCheck className="size-3.5 mr-2" />
+                    <span>Rekap Penilaian</span>
+                  </DropdownMenuItem>
+
                   <DropdownMenuItem
                     className="gap-2 cursor-pointer text-amber-600 dark:text-amber-400 font-semibold"
                     render={

@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 interface FloatingControlsDockProps {
   selectedContestId: string;
   onSelectContestId: (id: string) => void;
-  contests: Array<{ id: string; judul: string; tanggal_mulai: string }>;
+  contests: Array<{ id: string; nama?: string; judul?: string; tanggal_mulai?: string }>;
   isAutoRacing: boolean;
   onSimulateStep: () => void;
   onToggleAutoRace: () => void;
@@ -64,7 +64,7 @@ export function FloatingControlsDock({
           <SelectContent className="bg-[#1e130a] text-[#fef08a] border-[#8c6d23]">
             {contests.map((c) => (
               <SelectItem key={c.id} value={c.id} className="text-xs focus:bg-[#342416] focus:text-white">
-                {c.judul}
+                {c.nama || c.judul}
               </SelectItem>
             ))}
           </SelectContent>

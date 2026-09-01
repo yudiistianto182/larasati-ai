@@ -3,6 +3,7 @@ import { ArrowRight, Check, Trophy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
 
 interface LombaStickyFooterProps {
   currentStep: number;
@@ -35,8 +36,12 @@ export function LombaStickyFooter({
       <Button
         type="button"
         size="sm"
-        onClick={onNext}
-        className="h-10 px-7 text-xs font-serif font-bold tracking-widest uppercase bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] hover:brightness-110 shadow-[0_0_20px_rgba(212,175,55,0.4)] border border-[#fff8db]/60 gap-2"
+        onClick={() => {
+          playCtaClickSound();
+          playTransitionChime();
+          onNext();
+        }}
+        className="h-10 px-7 text-xs font-serif font-bold tracking-widest uppercase bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] hover:brightness-110 shadow-[0_0_20px_rgba(212,175,55,0.4)] border border-[#fff8db]/60 gap-2 cursor-pointer active:scale-98"
       >
         <span>
           {isFinalStase ? "Selesai ke Ringkasan" : "Lanjut Pos Selanjutnya"}

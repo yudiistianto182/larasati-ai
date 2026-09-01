@@ -17,6 +17,7 @@ import { Route as mainDashboardRouteRouteImport } from './routes/(main)/dashboar
 import { Route as mainMailRouteRouteImport } from './routes/(main)/mail/route'
 import { Route as mainUnauthorizedRouteImport } from './routes/(main)/unauthorized'
 import { Route as publicLombaRouteRouteImport } from './routes/(public)/lomba/route'
+import { Route as publicTestRouteRouteImport } from './routes/(public)/test/route'
 import { Route as adminDashboardAdminDefaultRouteRouteImport } from './routes/(admin)/dashboard/admin-default/route'
 import { Route as mainAuthV2RouteRouteImport } from './routes/(main)/auth/v2/route'
 import { Route as mainDashboardIndexRouteImport } from './routes/(main)/dashboard/index'
@@ -45,6 +46,7 @@ import { Route as mainDashboardUsersRouteRouteImport } from './routes/(main)/das
 import { Route as adminDashboardConfigPasienRouteRouteImport } from './routes/(admin)/dashboard/config/pasien/route'
 import { Route as adminDashboardContestIndexRouteImport } from './routes/(admin)/dashboard/contest/index'
 import { Route as adminDashboardContestContestIdRouteRouteImport } from './routes/(admin)/dashboard/contest/$contestId/route'
+import { Route as adminDashboardContestRekapRouteRouteImport } from './routes/(admin)/dashboard/contest/rekap/route'
 import { Route as adminDashboardContestTambahRouteRouteImport } from './routes/(admin)/dashboard/contest/tambah/route'
 import { Route as adminDashboardMasterPasienRouteRouteImport } from './routes/(admin)/dashboard/master/pasien/route'
 import { Route as adminDashboardMasterPeriodeRouteRouteImport } from './routes/(admin)/dashboard/master/periode/route'
@@ -99,6 +101,11 @@ const mainUnauthorizedRoute = mainUnauthorizedRouteImport.update({
 const publicLombaRouteRoute = publicLombaRouteRouteImport.update({
   id: '/(public)/lomba',
   path: '/lomba',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const publicTestRouteRoute = publicTestRouteRouteImport.update({
+  id: '/(public)/test',
+  path: '/test',
   getParentRoute: () => rootRouteImport,
 } as any)
 const adminDashboardAdminDefaultRouteRoute =
@@ -260,6 +267,12 @@ const adminDashboardContestContestIdRouteRoute =
     path: '/contest/$contestId',
     getParentRoute: () => adminDashboardRouteRoute,
   } as any)
+const adminDashboardContestRekapRouteRoute =
+  adminDashboardContestRekapRouteRouteImport.update({
+    id: '/contest/rekap',
+    path: '/contest/rekap',
+    getParentRoute: () => adminDashboardRouteRoute,
+  } as any)
 const adminDashboardContestTambahRouteRoute =
   adminDashboardContestTambahRouteRouteImport.update({
     id: '/contest/tambah',
@@ -353,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof mainChatRouteRoute
   '/mail': typeof mainMailRouteRoute
   '/lomba': typeof publicLombaRouteRoute
+  '/test': typeof publicTestRouteRoute
   '/unauthorized': typeof mainUnauthorizedRoute
   '/': typeof externalIndexRoute
   '/dashboard/admin-default': typeof adminDashboardAdminDefaultRouteRoute
@@ -382,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof mainDashboardIndexRoute
   '/dashboard/config/pasien': typeof adminDashboardConfigPasienRouteRoute
   '/dashboard/contest/$contestId': typeof adminDashboardContestContestIdRouteRoute
+  '/dashboard/contest/rekap': typeof adminDashboardContestRekapRouteRoute
   '/dashboard/contest/tambah': typeof adminDashboardContestTambahRouteRoute
   '/dashboard/master/pasien': typeof adminDashboardMasterPasienRouteRoute
   '/dashboard/master/periode': typeof adminDashboardMasterPeriodeRouteRoute
@@ -405,6 +420,7 @@ export interface FileRoutesByTo {
   '/chat': typeof mainChatRouteRoute
   '/mail': typeof mainMailRouteRoute
   '/lomba': typeof publicLombaRouteRoute
+  '/test': typeof publicTestRouteRoute
   '/unauthorized': typeof mainUnauthorizedRoute
   '/': typeof externalIndexRoute
   '/dashboard/admin-default': typeof adminDashboardAdminDefaultRouteRoute
@@ -433,6 +449,7 @@ export interface FileRoutesByTo {
   '/dashboard/$': typeof mainDashboardSplatRoute
   '/dashboard/config/pasien': typeof adminDashboardConfigPasienRouteRoute
   '/dashboard/contest/$contestId': typeof adminDashboardContestContestIdRouteRoute
+  '/dashboard/contest/rekap': typeof adminDashboardContestRekapRouteRoute
   '/dashboard/contest/tambah': typeof adminDashboardContestTambahRouteRoute
   '/dashboard/master/pasien': typeof adminDashboardMasterPasienRouteRoute
   '/dashboard/master/periode': typeof adminDashboardMasterPeriodeRouteRoute
@@ -458,6 +475,7 @@ export interface FileRoutesById {
   '/(main)/dashboard': typeof mainDashboardRouteRouteWithChildren
   '/(main)/mail': typeof mainMailRouteRoute
   '/(public)/lomba': typeof publicLombaRouteRoute
+  '/(public)/test': typeof publicTestRouteRoute
   '/(main)/unauthorized': typeof mainUnauthorizedRoute
   '/(external)/': typeof externalIndexRoute
   '/(admin)/dashboard/admin-default': typeof adminDashboardAdminDefaultRouteRoute
@@ -487,6 +505,7 @@ export interface FileRoutesById {
   '/(main)/dashboard/': typeof mainDashboardIndexRoute
   '/(admin)/dashboard/config/pasien': typeof adminDashboardConfigPasienRouteRoute
   '/(admin)/dashboard/contest/$contestId': typeof adminDashboardContestContestIdRouteRoute
+  '/(admin)/dashboard/contest/rekap': typeof adminDashboardContestRekapRouteRoute
   '/(admin)/dashboard/contest/tambah': typeof adminDashboardContestTambahRouteRoute
   '/(admin)/dashboard/master/pasien': typeof adminDashboardMasterPasienRouteRoute
   '/(admin)/dashboard/master/periode': typeof adminDashboardMasterPeriodeRouteRoute
@@ -512,6 +531,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/mail'
     | '/lomba'
+    | '/test'
     | '/unauthorized'
     | '/'
     | '/dashboard/admin-default'
@@ -541,6 +561,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/dashboard/config/pasien'
     | '/dashboard/contest/$contestId'
+    | '/dashboard/contest/rekap'
     | '/dashboard/contest/tambah'
     | '/dashboard/master/pasien'
     | '/dashboard/master/periode'
@@ -564,6 +585,7 @@ export interface FileRouteTypes {
     | '/chat'
     | '/mail'
     | '/lomba'
+    | '/test'
     | '/unauthorized'
     | '/'
     | '/dashboard/admin-default'
@@ -592,6 +614,7 @@ export interface FileRouteTypes {
     | '/dashboard/$'
     | '/dashboard/config/pasien'
     | '/dashboard/contest/$contestId'
+    | '/dashboard/contest/rekap'
     | '/dashboard/contest/tambah'
     | '/dashboard/master/pasien'
     | '/dashboard/master/periode'
@@ -616,6 +639,7 @@ export interface FileRouteTypes {
     | '/(main)/dashboard'
     | '/(main)/mail'
     | '/(public)/lomba'
+    | '/(public)/test'
     | '/(main)/unauthorized'
     | '/(external)/'
     | '/(admin)/dashboard/admin-default'
@@ -645,6 +669,7 @@ export interface FileRouteTypes {
     | '/(main)/dashboard/'
     | '/(admin)/dashboard/config/pasien'
     | '/(admin)/dashboard/contest/$contestId'
+    | '/(admin)/dashboard/contest/rekap'
     | '/(admin)/dashboard/contest/tambah'
     | '/(admin)/dashboard/master/pasien'
     | '/(admin)/dashboard/master/periode'
@@ -670,6 +695,7 @@ export interface RootRouteChildren {
   mainDashboardRouteRoute: typeof mainDashboardRouteRouteWithChildren
   mainMailRouteRoute: typeof mainMailRouteRoute
   publicLombaRouteRoute: typeof publicLombaRouteRoute
+  publicTestRouteRoute: typeof publicTestRouteRoute
   mainUnauthorizedRoute: typeof mainUnauthorizedRoute
   externalIndexRoute: typeof externalIndexRoute
   mainAuthV2RouteRoute: typeof mainAuthV2RouteRouteWithChildren
@@ -733,6 +759,13 @@ declare module '@tanstack/react-router' {
       path: '/lomba'
       fullPath: '/lomba'
       preLoaderRoute: typeof publicLombaRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/(public)/test': {
+      id: '/(public)/test'
+      path: '/test'
+      fullPath: '/test'
+      preLoaderRoute: typeof publicTestRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(admin)/dashboard/admin-default': {
@@ -931,6 +964,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof adminDashboardContestContestIdRouteRouteImport
       parentRoute: typeof adminDashboardRouteRoute
     }
+    '/(admin)/dashboard/contest/rekap': {
+      id: '/(admin)/dashboard/contest/rekap'
+      path: '/contest/rekap'
+      fullPath: '/dashboard/contest/rekap'
+      preLoaderRoute: typeof adminDashboardContestRekapRouteRouteImport
+      parentRoute: typeof adminDashboardRouteRoute
+    }
     '/(admin)/dashboard/contest/tambah': {
       id: '/(admin)/dashboard/contest/tambah'
       path: '/contest/tambah'
@@ -1043,6 +1083,7 @@ interface adminDashboardRouteRouteChildren {
   adminDashboardAdminDefaultRouteRoute: typeof adminDashboardAdminDefaultRouteRoute
   adminDashboardConfigPasienRouteRoute: typeof adminDashboardConfigPasienRouteRoute
   adminDashboardContestContestIdRouteRoute: typeof adminDashboardContestContestIdRouteRoute
+  adminDashboardContestRekapRouteRoute: typeof adminDashboardContestRekapRouteRoute
   adminDashboardContestTambahRouteRoute: typeof adminDashboardContestTambahRouteRoute
   adminDashboardMasterPasienRouteRoute: typeof adminDashboardMasterPasienRouteRoute
   adminDashboardMasterPeriodeRouteRoute: typeof adminDashboardMasterPeriodeRouteRoute
@@ -1058,6 +1099,7 @@ const adminDashboardRouteRouteChildren: adminDashboardRouteRouteChildren = {
   adminDashboardConfigPasienRouteRoute: adminDashboardConfigPasienRouteRoute,
   adminDashboardContestContestIdRouteRoute:
     adminDashboardContestContestIdRouteRoute,
+  adminDashboardContestRekapRouteRoute: adminDashboardContestRekapRouteRoute,
   adminDashboardContestTambahRouteRoute: adminDashboardContestTambahRouteRoute,
   adminDashboardMasterPasienRouteRoute: adminDashboardMasterPasienRouteRoute,
   adminDashboardMasterPeriodeRouteRoute: adminDashboardMasterPeriodeRouteRoute,
@@ -1160,6 +1202,7 @@ const rootRouteChildren: RootRouteChildren = {
   mainDashboardRouteRoute: mainDashboardRouteRouteWithChildren,
   mainMailRouteRoute: mainMailRouteRoute,
   publicLombaRouteRoute: publicLombaRouteRoute,
+  publicTestRouteRoute: publicTestRouteRoute,
   mainUnauthorizedRoute: mainUnauthorizedRoute,
   externalIndexRoute: externalIndexRoute,
   mainAuthV2RouteRoute: mainAuthV2RouteRouteWithChildren,

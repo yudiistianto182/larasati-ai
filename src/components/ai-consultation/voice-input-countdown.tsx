@@ -79,7 +79,7 @@ export function VoiceInputCountdown({
     silenceTimeoutMs: 1200,
   });
 
-  // Automatic Voice Turn-Taking when AI finishes speaking
+  // Automatic Voice Turn-Taking when finishes speaking
   const prevAiSpeakingRef = React.useRef(isAiSpeaking);
   React.useEffect(() => {
     if (prevAiSpeakingRef.current && !isAiSpeaking) {
@@ -217,7 +217,7 @@ export function VoiceInputCountdown({
         </div>
       )}
 
-      {/* STATE A: Pasien AI Sedang Berbicara (Mic Otomatis Mati) */}
+      {/* STATE A: Pasien Sedang Berbicara (Mic Otomatis Mati) */}
       {isAiSpeaking && (
         <div
           className={cn(
@@ -235,7 +235,7 @@ export function VoiceInputCountdown({
               )}
             />
             <span className="font-semibold">
-              Pasien AI sedang berbicara... (Perekam suara otomatis aktif setelah pasien selesai)
+              Pasien sedang berbicara... (Perekam suara otomatis aktif setelah pasien selesai)
             </span>
           </div>
           <Badge
@@ -381,9 +381,9 @@ export function VoiceInputCountdown({
             className={cn(
               "relative cursor-text rounded-2xl p-1 transition-all",
               countdownSeconds !== null &&
-                (isWayang
-                  ? "ring-2 ring-[#d4af37]/50 shadow-lg"
-                  : "ring-2 ring-primary/40 shadow-md"),
+              (isWayang
+                ? "ring-2 ring-[#d4af37]/50 shadow-lg"
+                : "ring-2 ring-primary/40 shadow-md"),
             )}
           >
             {/* SVG Animated Perimeter Border */}

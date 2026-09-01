@@ -37,10 +37,10 @@ interface GroupStaseDetailViewProps {
 
 export function GroupStaseDetailView({ group, onClose }: GroupStaseDetailViewProps) {
   const [expandedStase, setExpandedStase] = React.useState<number>(
-    group.pos > 0 && group.pos <= 6 ? group.pos : 1,
+    group.pos > 0 && group.pos <= 5 ? group.pos : 1,
   );
 
-  const stasesList = [1, 2, 3, 4, 5, 6].map((pos) => {
+  const stasesList = [1, 2, 3, 4, 5].map((pos) => {
     return (
       group.staseData[pos] || {
         pos,
@@ -63,28 +63,31 @@ export function GroupStaseDetailView({ group, onClose }: GroupStaseDetailViewPro
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#8c6d23]/40 pb-4 shrink-0">
         <div className="flex items-center gap-3">
           <div
-            className="size-12 rounded-2xl flex items-center justify-center font-black text-base text-black shadow-lg border-2 border-white shrink-0"
-            style={{ backgroundColor: group.color }}
+            className={cn(
+              "size-12 rounded-2xl flex items-center justify-center font-serif font-black text-xl border-2 shrink-0 shadow-lg",
+              group.borderClass,
+            )}
+            style={{ backgroundColor: `${group.color}25`, color: group.color }}
           >
             0{group.groupNum}
           </div>
 
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif font-black text-base sm:text-xl text-[#fff8db] leading-snug">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-base sm:text-lg font-serif font-bold text-[#fff8db]">
                 {group.name}
               </h2>
               <Badge
                 className={cn(
                   "text-[10px] font-bold shadow-xs",
-                  group.pos === 6
+                  group.pos === 5
                     ? "bg-emerald-500 text-black animate-bounce"
                     : group.pos > 0
                       ? "bg-[#d4af37] text-black"
                       : "bg-[#251b11] text-[#d4af37] border border-[#8c6d23]",
                 )}
               >
-                {group.pos === 6 ? "🏆 FINISH" : `Pos Aktif: 0${group.pos} / 06`}
+                {group.pos === 5 ? "🏆 FINISH" : `Pos Aktif: 0${group.pos} / 05`}
               </Badge>
             </div>
             <span className="text-xs text-[#d4af37]/80">
@@ -109,7 +112,7 @@ export function GroupStaseDetailView({ group, onClose }: GroupStaseDetailViewPro
         </div>
       </div>
 
-      {/* 2. Scrollable Stases Detail List (Pos 1 s.d. Pos 6) */}
+      {/* 2. Scrollable Stases Detail List (Pos 1 s.d. Pos 5) */}
       <div className="flex-1 overflow-y-auto mt-4 space-y-3 pr-1.5 scrollbar-thin scrollbar-thumb-[#8c6d23]/50">
         {stasesList.map((stase) => {
           const isPassed = group.pos > stase.pos;
@@ -211,7 +214,7 @@ export function GroupStaseDetailView({ group, onClose }: GroupStaseDetailViewPro
                   {stase.details?.type === "chat" && stase.details.chatMessages && (
                     <div className="flex flex-col gap-2 rounded-xl border border-[#8c6d23]/40 bg-[#120a05] p-3.5">
                       <span className="text-xs font-serif font-bold text-[#d4af37] flex items-center gap-1.5">
-                        <Bot className="size-3.5" /> Transkrip Wawancara Suara & Dialog AI:
+                        <Bot className="size-3.5" /> Transkrip Wawancara Suara & Dialog:
                       </span>
                       <div className="space-y-2 mt-1 max-h-48 overflow-y-auto pr-1">
                         {stase.details.chatMessages.map((msg, mIdx) => (
@@ -258,7 +261,7 @@ export function GroupStaseDetailView({ group, onClose }: GroupStaseDetailViewPro
                   {stase.details?.type === "sequence" && stase.details.items && (
                     <div className="flex flex-col gap-2 rounded-xl border border-[#8c6d23]/40 bg-[#120a05] p-3.5">
                       <span className="text-xs font-serif font-bold text-[#d4af37] flex items-center gap-1.5">
-                        <ListChecks className="size-3.5" /> Urutan Langkah SOP Tindakan IVA:
+                        <ListChecks className="size-3.5" /> Urutan Langkah Prosedur IVA:
                       </span>
                       <div className="space-y-1.5 mt-1">
                         {stase.details.items.map((step, sIdx) => (

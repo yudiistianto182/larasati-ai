@@ -8,6 +8,11 @@ import { defineConfig } from "vite";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  server: {
+    watch: {
+      ignored: ["**/.source/**", "**/*.docx", "**/*.xlsx"],
+    },
+  },
   plugins: [
     devtools({
       injectSource: {

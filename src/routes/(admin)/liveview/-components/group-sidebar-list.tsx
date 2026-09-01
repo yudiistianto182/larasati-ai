@@ -40,7 +40,7 @@ export function GroupSidebarList({
         </div>
 
         <Badge className="bg-[#24170d] text-[#d4af37] border border-[#8c6d23]/50 text-[10px] font-bold">
-          4 Tim
+          {groups.length} Tim
         </Badge>
       </div>
 
@@ -49,7 +49,7 @@ export function GroupSidebarList({
         {sorted.map((grp, idx) => {
           const isSelected = selectedGroupId === grp.id;
           const currentWp = CIRCUIT_WAYPOINTS.find((w) => w.pos === grp.pos) || CIRCUIT_WAYPOINTS[0];
-          const progressPct = Math.round((grp.pos / 6) * 100);
+          const progressPct = Math.round((grp.pos / 5) * 100);
 
           let medal = <span className="text-[11px] font-bold text-[#c4a46a]">#{idx + 1}</span>;
           if (idx === 0 && grp.pos > 0) medal = <span className="text-xs">🥇</span>;
@@ -98,12 +98,12 @@ export function GroupSidebarList({
                     -
                   </button>
                   <span className="font-mono text-[11px] font-bold text-[#d4af37] w-5 text-center">
-                    {grp.pos}/6
+                    {grp.pos}/5
                   </span>
                   <button
                     type="button"
                     onClick={() => onStepGroup(grp.groupNum, 1)}
-                    disabled={grp.pos >= 6}
+                    disabled={grp.pos >= 5}
                     className="size-5 rounded bg-[#160e08] border border-[#8c6d23]/60 text-[#fef08a] hover:bg-[#342416] text-[10px] font-bold flex items-center justify-center transition disabled:opacity-20 cursor-pointer"
                   >
                     +
@@ -115,7 +115,7 @@ export function GroupSidebarList({
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between text-[10px]">
                   <span className="text-[#d4af37]/75 font-medium flex items-center gap-1">
-                    {grp.pos === 6 ? (
+                    {grp.pos === 5 ? (
                       <span className="text-emerald-400 font-bold">🏆 Selesai Finish</span>
                     ) : grp.pos > 0 ? (
                       <span className="text-[#fde047] font-semibold animate-pulse">● Live Pengerjaan</span>

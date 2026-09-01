@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PanduanPengerjaanModal } from "./panduan-pengerjaan-modal";
+import { playCtaClickSound } from "./lomba-sound-effects";
 
 interface LombaTopHeaderProps {
   staseNumber: number;
@@ -40,8 +41,8 @@ export function LombaTopHeader({
   const seconds = durasiRemainingSeconds % 60;
   const timeFormatted = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 
-  const isLowTime = durasiRemainingSeconds <= 60;
-  const isWarningTime = durasiRemainingSeconds <= 120;
+  const isLowTime = durasiRemainingSeconds <= 10;
+  const isWarningTime = durasiRemainingSeconds <= 25;
 
   // Dynamic patient attributes list
   const patientAttributes = [
@@ -68,12 +69,9 @@ export function LombaTopHeader({
               <h2 className="text-base sm:text-lg font-serif font-bold text-[#fff8db] leading-snug truncate">
                 {staseName}
               </h2>
-              <Badge variant="outline" className="border-[#d4af37]/60 text-[#d4af37] font-mono text-[10px] shrink-0">
-                {kodeAmplop}
-              </Badge>
             </div>
             <span className="text-xs text-[#d4af37]/75 truncate">
-              Sirkuit Ujian Kebidanan &bull; {groupName}
+              Sirkuit Ujian Kebidanan
             </span>
           </div>
         </div>
@@ -85,8 +83,11 @@ export function LombaTopHeader({
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setIsGuideOpen(true)}
-            className="h-9 px-3 text-xs font-serif font-semibold bg-[#261b11] text-[#f3e5ab] border-[#8c6d23]/50 hover:bg-[#342416] hover:text-[#fff8db] gap-1.5 shadow-xs"
+            onClick={() => {
+              playCtaClickSound();
+              setIsGuideOpen(true);
+            }}
+            className="h-9 px-3 text-xs font-serif font-semibold bg-[#261b11] text-[#f3e5ab] border-[#8c6d23]/50 hover:bg-[#342416] hover:text-[#fff8db] gap-1.5 shadow-xs cursor-pointer"
           >
             <BookOpen className="size-3.5 text-[#d4af37]" />
             <span className="hidden sm:inline">Panduan Pos</span>
@@ -123,29 +124,10 @@ export function LombaTopHeader({
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-serif font-black text-base text-[#140e08] tracking-tight">
-                Ny. Ani (29 Tahun)
+                Ny. Ani (45 Tahun)
               </span>
-              <Badge className="bg-[#19110a] text-[#fef08a] border border-[#8c6d23] font-extrabold text-[10px] shadow-xs">
-                G2P1A0 &bull; Trimester II
-              </Badge>
             </div>
-            <p className="text-xs text-[#24170d] font-bold leading-tight line-clamp-1 mt-0.5">
-              <strong className="text-[#140e08] font-black">Keluhan:</strong> Keputihan kental kuning kehijauan berbau 2 minggu & flek kontak.
-            </p>
           </div>
-        </div>
-
-        {/* Right: Dynamic Attributes in Dark Lacquer Badges */}
-        <div className="flex flex-wrap items-center gap-1.5 lg:justify-end text-[10px] min-w-0 max-w-full">
-          {patientAttributes.map((attr, idx) => (
-            <div
-              key={idx}
-              className="flex items-center gap-1 rounded-lg border border-[#8c6d23]/60 bg-[#19110a] px-2.5 py-1 shadow-sm shrink-0"
-            >
-              <span className="text-[#d4af37] font-semibold">{attr.label}:</span>
-              <span className="font-extrabold text-[#fff8db]">{attr.value}</span>
-            </div>
-          ))}
         </div>
       </div>
 

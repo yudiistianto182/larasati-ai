@@ -180,7 +180,7 @@ export function NavMain({ items }: NavMainProps) {
                 </div>
                 <div className="flex flex-col">
                   <span className="font-semibold text-xs text-foreground">Tambah Kasus Klinis Baru</span>
-                  <span className="text-[11px] text-muted-foreground">Form 4-Step Wizard Soal Klinis & AI Trigger</span>
+                  <span className="text-[11px] text-muted-foreground">Form 4-Step Wizard Soal Klinis & Trigger</span>
                 </div>
               </CommandItem>
 

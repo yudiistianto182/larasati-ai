@@ -39,18 +39,18 @@ export function LiveviewCommandDeck({
   const raceStatus =
     leaderPos === 0
       ? { text: "Bersiap", badgeClass: "bg-[#382512] text-[#fde047] border-[#eab308]/40" }
-      : leaderPos >= 6
+      : leaderPos >= 5
         ? { text: "Selesai!", badgeClass: "bg-emerald-950 text-emerald-300 border-emerald-500/50 animate-pulse" }
         : { text: "Berlangsung", badgeClass: "bg-[#854d0e] text-[#fffbeb] border-[#fde047]/60" };
 
   return (
     <section className="w-full flex flex-col xl:flex-row gap-5 items-stretch select-none text-[#fef08a]">
-      {/* 1. Left: Dewi Larasati Prominent Profile Card */}
+      {/* 1. Left: Larasati Prominent Profile Card */}
       <div className="rounded-3xl border border-[#eab308]/50 bg-gradient-to-br from-[#1c120b]/95 to-[#100b07]/95 backdrop-blur-md p-5 flex items-center gap-4 shadow-2xl xl:w-[360px] shrink-0">
         <div className="relative w-20 h-24 sm:w-24 sm:h-28 rounded-2xl overflow-hidden border-2 border-[#fde047] shrink-0 shadow-lg bg-[#20140a]">
           <img
             src="/images/larasati.png"
-            alt="Dewi Larasati"
+            alt="Larasati"
             className="w-full h-full object-cover object-top hover:scale-110 transition-transform duration-500"
             onError={(e) => {
               // fallback
@@ -67,7 +67,7 @@ export function LiveviewCommandDeck({
             <span>Tokoh Pemandu</span>
           </div>
           <h3 className="font-serif text-lg sm:text-xl font-bold bg-gradient-to-r from-[#fffbeb] via-[#fde047] to-[#ca8a04] bg-clip-text text-transparent leading-tight">
-            Dewi Larasati
+            Larasati
           </h3>
           <p className="text-[11px] text-[#e6cf9b] italic mt-1 leading-snug">
             &ldquo;Membimbing calon bidan menguasai seni anamnesis & asuhan berbudaya.&rdquo;
@@ -95,11 +95,11 @@ export function LiveviewCommandDeck({
           </span>
         </div>
 
-        {/* 4 Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 2 Groups Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {sortedGroups.map((grp, index) => {
             const isLeader = index === 0 && grp.pos > 0;
-            const progressPct = Math.round((grp.pos / 6) * 100);
+            const progressPct = Math.round((grp.pos / 5) * 100);
             const waypoint = CIRCUIT_WAYPOINTS.find((w) => w.pos === grp.pos) || CIRCUIT_WAYPOINTS[0];
 
             let medalIcon = <span className="text-xs font-bold text-[#c4a46a]">#{index + 1}</span>;
@@ -143,12 +143,12 @@ export function LiveviewCommandDeck({
                       -
                     </button>
                     <span className="font-mono text-[11px] font-bold text-[#fde047] w-6 text-center">
-                      {grp.pos}/6
+                      {grp.pos}/5
                     </span>
                     <button
                       type="button"
                       onClick={() => onStepGroup(grp.groupNum, 1)}
-                      disabled={grp.pos >= 6}
+                      disabled={grp.pos >= 5}
                       className="size-5 rounded bg-[#26190e] border border-[#854d0e] text-[#fef08a] hover:bg-[#3d2714] text-[10px] font-bold flex items-center justify-center transition disabled:opacity-30 cursor-pointer"
                       title="Maju 1 Langkah"
                     >

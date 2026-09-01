@@ -1,10 +1,7 @@
 import * as React from "react";
 import {
   Bot,
-  CheckCircle2,
-  Mic,
   RotateCcw,
-  Sparkles,
   User,
   Volume2,
 } from "lucide-react";
@@ -15,53 +12,46 @@ import { VoiceInputCountdown } from "@/components/ai-consultation/voice-input-co
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { fetchPatientAnamnesisAiReply } from "@/lib/gemini-ai";
+import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
+import { playCountdownTickSound, playCtaClickSound } from "./lomba-sound-effects";
 
 interface Message {
   id: string;
   sender: "ai" | "midwife";
   text: string;
+  category?: string;
   timestamp: string;
 }
 
 interface Step2AnamnesisAiProps {
   isStarted?: boolean;
   onComplete?: () => void;
+  kasus?: Kasus;
 }
 
-const INITIAL_MESSAGES: Message[] = [
-  {
-    id: "msg-1",
-    sender: "ai",
-    text: "Selamat pagi Bu Bidan... Saya Ny. Ani, usia 29 tahun. Saya datang ke sini karena merasa sangat tidak nyaman dengan keputihan yang saya alami beberapa minggu ini...",
-    timestamp: "Baru saja",
-  },
-];
+export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, kasus }: Step2AnamnesisAiProps) {
+  const patientName = kasus?.nama?.split("—")[0]?.trim() || "Ny. Ani";
+  const stase1Data = kasus?.stase_data?.stase1;
+  const triggers = stase1Data?.triggers || [];
 
-const AI_TRIGGERS = [
-  {
-    keywords: ["hpht", "haid", "menstruasi", "siklus"],
-    response: "HPHT saya sekitar 3 bulan yang lalu Bu Bidan. Biasanya siklus haid saya teratur 28 hari, tapi akhir-akhir ini terasa lebih sering ada flek.",
-  },
-  {
-    keywords: ["hubungan", "suami", "senggama", "darah", "flek", "kontak"],
-    response: "Iya Bu Bidan... Minggu lalu setelah berhubungan dengan suami, sempat keluar flek bercak darah sedikit. Saya jadi agak cemas Bu.",
-  },
-  {
-    keywords: ["kb", "kontrasepsi", "suntik", "pil", "iud", "spiral"],
-    response: "Dulu setelah anak pertama lahir saya pakai KB suntik 3 bulan Bu, tapi sudah berhenti sekitar 1 tahun yang lalu.",
-  },
-  {
-    keywords: ["perut", "kram", "nyeri", "sakit", "keluhan"],
-    response: "Bagian perut bawah kadang terasa pegal dan agak kram kalau saya terlalu lelah berdiri atau mencuci pakaian Bu.",
-  },
-  {
-    keywords: ["anak", "persalinan", "hamil", "paritas", "melahirkan"],
-    response: "Ini kehamilan saya yang kedua Bu Bidan (G2P1A0). Anak pertama saya laki-laki usia 4 tahun, dulu lahir normal dan sehat.",
-  },
-];
+  const initialGreeting =
+    triggers[0]?.jawaban_cadangan ||
+    kasus?.teks_perkenalan ||
+    "Selamat pagi Bu Bidan... Saya datang ke sini karena merasa sangat tidak nyaman dengan keluhan yang saya alami...";
 
-export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2AnamnesisAiProps) {
-  const [messages, setMessages] = React.useState<Message[]>(INITIAL_MESSAGES);
+  const [messages, setMessages] = React.useState<Message[]>([
+    {
+      id: "msg-1",
+      sender: "ai",
+      text: initialGreeting,
+      category: triggers[0]?.konteks || "Riwayat keluhan",
+      timestamp: "Baru saja",
+    },
+  ]);
+
+  // Sequential dialogue index: next trigger to be revealed (starts from 1 since trigger 0 was initial greeting)
+  const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(1);
   const [isAiThinking, setIsAiThinking] = React.useState(false);
 
   // 3-second countdown before patient starts speaking (starts only when student clicks Mulai Pengerjaan Pos)
@@ -72,33 +62,53 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
   const { speak, isSpeaking, cancel } = useTextToSpeech();
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
 
+  // Reset when kasus changes
+  React.useEffect(() => {
+    if (triggers.length > 0) {
+      setMessages([
+        {
+          id: `msg-init-${Date.now()}`,
+          sender: "ai",
+          text: triggers[0]?.jawaban_cadangan || initialGreeting,
+          category: triggers[0]?.konteks || "Riwayat keluhan",
+          timestamp: "Baru saja",
+        },
+      ]);
+      setCurrentStepIndex(1);
+    }
+  }, [kasus]);
+
   // Start countdown only when isStarted is true
   React.useEffect(() => {
-    if (isStarted && !hasSpokenInitialRef.current && countdownValue === 3) {
+    if (isStarted && !hasSpokenInitialRef.current && countdownValue === 3 && !isCountingDown) {
       setIsCountingDown(true);
+      playCountdownTickSound(3);
     }
-  }, [isStarted, countdownValue]);
+  }, [isStarted, countdownValue, isCountingDown]);
 
-  // Countdown timer effect
+  // Countdown timer effect with audio tick
   React.useEffect(() => {
     if (!isCountingDown || !isStarted) return;
 
     if (countdownValue > 1) {
       const timer = setTimeout(() => {
-        setCountdownValue((prev) => prev - 1);
+        const nextVal = countdownValue - 1;
+        setCountdownValue(nextVal);
+        playCountdownTickSound(nextVal);
       }, 1000);
       return () => clearTimeout(timer);
     } else if (countdownValue === 1) {
       const timer = setTimeout(() => {
         setIsCountingDown(false);
         setCountdownValue(0);
+        playCountdownTickSound(0);
         hasSpokenInitialRef.current = true;
         // Pasien langsung berbicara setelah hitungan mundur 3 detik selesai
-        speak(INITIAL_MESSAGES[0].text);
+        speak(messages[0]?.text || initialGreeting);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [countdownValue, isCountingDown, isStarted, speak]);
+  }, [countdownValue, isCountingDown, isStarted, messages, initialGreeting, speak]);
 
   React.useEffect(() => {
     return () => {
@@ -119,7 +129,7 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
     }
   };
 
-  const handleUserMessage = (text: string) => {
+  const handleUserMessage = async (text: string) => {
     if (!text.trim()) return;
 
     const userMsg: Message = {
@@ -132,27 +142,47 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
     setMessages((prev) => [...prev, userMsg]);
     setIsAiThinking(true);
 
-    const lowerText = text.toLowerCase();
-    const matchedTrigger = AI_TRIGGERS.find((trg) =>
-      trg.keywords.some((kw) => lowerText.includes(kw)),
-    );
+    try {
+      const historyItems = messages.map((m) => ({ sender: m.sender, text: m.text }));
+      const aiResult = await fetchPatientAnamnesisAiReply({
+        userMessage: text,
+        kasus,
+        chatHistory: [...historyItems, { sender: "midwife", text }],
+      });
 
-    const aiResponseText = matchedTrigger
-      ? matchedTrigger.response
-      : "Iya Bu Bidan... saya mengerti. Saya sangat berharap Bu Bidan bisa memeriksa dan memberikan penjelasan apa yang sebenarnya terjadi dengan kondisi saya.";
-
-    setTimeout(() => {
       setIsAiThinking(false);
       const aiMsg: Message = {
         id: `msg-ai-${Date.now()}`,
         sender: "ai",
-        text: aiResponseText,
+        text: aiResult.replyText,
+        category: aiResult.matchedCategory || "Anamnesis",
+        timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+      setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
+      speak(aiResult.replyText);
+    } catch {
+      setIsAiThinking(false);
+      // Fallback
+      const fallbackReply =
+        triggers[currentStepIndex]?.jawaban_cadangan ||
+        "Iya Bu Bidan, saya mengerti. Mohon bantuannya untuk pemeriksaan selanjutnya ya Bu.";
+      const aiMsg: Message = {
+        id: `msg-ai-${Date.now()}`,
+        sender: "ai",
+        text: fallbackReply,
+        category: triggers[currentStepIndex]?.konteks || "Anamnesis",
         timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, aiMsg]);
-      speak(aiResponseText);
-    }, 1200);
+      setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
+      speak(fallbackReply);
+    }
   };
+
+  const totalSteps = Math.max(triggers.length, 9);
+  const revealedCount = Math.min(currentStepIndex, totalSteps);
 
   return (
     <div className="relative flex flex-col gap-4 w-full select-none text-[#f3e5ab]">
@@ -161,7 +191,7 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
         <div className="absolute inset-0 z-40 rounded-3xl bg-[#0e0a07]/85 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-300">
           <div className="flex flex-col items-center gap-4 text-center p-6 max-w-md">
             <Badge className="bg-[#d4af37] text-[#14100c] font-serif font-black text-xs px-3.5 py-1 uppercase tracking-widest shadow-md">
-              Pos 1: Anamnesis Pasien Virtual
+              Pos 1: Anamnesis Pasien Virtual ({patientName})
             </Badge>
 
             <span className="text-sm font-serif font-bold text-[#fff8db]">
@@ -183,14 +213,14 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Left 5 Cols: AI Video Patient Avatar (Equal Height: 540px) */}
+        {/* Left 5 Cols: Video Patient Avatar (Equal Height: 540px) */}
         <div className="lg:col-span-5 flex flex-col justify-between gap-3 h-[540px]">
           <div className="flex-1 rounded-2xl border-2 border-[#8c6d23]/50 overflow-hidden shadow-xl bg-black relative">
             <AiVideoAvatar
               isSpeaking={isSpeaking}
               isAiThinking={isAiThinking}
-              patientName="Ny. Ani"
-              patientAge={29}
+              patientName={patientName}
+              patientAge={parseInt(kasus?.atribut?.find((a) => a.key === "Usia")?.value || "45", 10) || 45}
               patientSubtitle="Pasien Virtual Poli KIA"
               avatarImageUrl="/images/ny_ani_patient_torso.jpg"
               backgroundImageUrl="/images/puskesmas_clinic_empty.jpg"
@@ -200,9 +230,11 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-[#8c6d23]/40 bg-[#1a130d]/90 px-3.5 py-2 text-xs shrink-0">
-            <span className="text-[#d4af37]/80 flex items-center gap-1.5 font-medium">
-              <Volume2 className="size-3.5 text-[#d4af37]" /> Audio Sintesis AI Aktif
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[#d4af37]/80 flex items-center gap-1.5 font-medium">
+                <Volume2 className="size-3.5 text-[#d4af37]" /> Audio Sintesis
+              </span>
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -211,7 +243,7 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
               className="h-6 text-[11px] gap-1 bg-[#261b11] text-[#f3e5ab] border-[#8c6d23]/50 hover:bg-[#342416]"
             >
               <RotateCcw className="size-3 text-[#d4af37]" />
-              <span>Putar Ulang Suara</span>
+              <span>Putar Ulang</span>
             </Button>
           </div>
         </div>
@@ -223,13 +255,15 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
             <div className="flex items-center gap-2">
               <div className="size-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="font-serif font-bold text-xs text-[#fff8db]">
-                Transkrip Sesi Wawancara Klinis
+                Transkrip Wawancara Klinis Pasien
               </span>
             </div>
 
-            <Badge variant="outline" className="text-[10px] font-mono border-[#d4af37]/40 text-[#d4af37] bg-[#1a130d]">
-              {messages.length} Pesan
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[10px] font-mono border-[#d4af37]/40 text-[#d4af37] bg-[#1a130d]">
+                Langkah {revealedCount} dari {totalSteps}
+              </Badge>
+            </div>
           </div>
 
           {/* Chat Messages List */}
@@ -244,9 +278,17 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
                     : "mr-auto bg-[#261b11] text-[#f3e5ab] border border-[#8c6d23]/40 rounded-tl-xs",
                 )}
               >
-                <div className="flex items-center justify-between gap-2 mb-0.5 text-[10px] opacity-80">
-                  <span className="font-bold">
-                    {msg.sender === "midwife" ? "Anda (Bidan)" : "Ny. Ani (Pasien)"}
+                <div className="flex items-center justify-between gap-2 mb-1 text-[10px] opacity-80">
+                  <span className="font-bold flex items-center gap-1.5">
+                    {msg.sender === "midwife" ? (
+                      <>
+                        <User className="size-3" /> Anda (Bidan)
+                      </>
+                    ) : (
+                      <>
+                        <Bot className="size-3 text-[#d4af37]" /> {patientName}
+                      </>
+                    )}
                   </span>
                   <span className="font-mono text-[9px]">{msg.timestamp}</span>
                 </div>
@@ -257,7 +299,7 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
             {isAiThinking && (
               <div className="mr-auto flex items-center gap-2 rounded-2xl bg-[#261b11] border border-[#8c6d23]/30 px-3.5 py-2 text-xs text-[#d4af37] animate-pulse">
                 <Bot className="size-3.5" />
-                <span>Ny. Ani sedang menyusun jawaban...</span>
+                <span>{patientName} sedang menyusun jawaban...</span>
               </div>
             )}
           </div>
@@ -277,3 +319,4 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete }: Step2Anamnes
     </div>
   );
 }
+

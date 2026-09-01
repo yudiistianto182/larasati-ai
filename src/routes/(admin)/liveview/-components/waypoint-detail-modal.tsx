@@ -43,7 +43,7 @@ export function WaypointDetailModal({
         <div className="flex items-start justify-between border-b border-[#8c6d23]/40 pb-4 shrink-0">
           <div className="flex items-center gap-3.5">
             <div className="size-12 rounded-2xl bg-gradient-to-br from-[#8c6d23] to-[#d4af37] text-[#14100c] flex items-center justify-center font-serif font-black text-lg shadow-lg">
-              {waypoint.pos === 0 ? "00" : waypoint.pos === 6 ? <Trophy className="size-6 stroke-[2.5]" /> : `0${waypoint.pos}`}
+              {waypoint.pos === 0 ? "00" : waypoint.pos === 5 ? <Trophy className="size-6 stroke-[2.5]" /> : `0${waypoint.pos}`}
             </div>
 
             <div className="flex flex-col">
@@ -170,7 +170,7 @@ export function WaypointDetailModal({
 
                         {waypointPos === 3 && (
                           <div className="rounded-xl bg-[#140b05] border border-[#8c6d23]/40 p-2.5 text-[11px]">
-                            <span className="font-bold text-[#d4af37] block mb-0.5">Urutan Prosedur SOP:</span>
+                            <span className="font-bold text-[#d4af37] block mb-0.5">Urutan Prosedur:</span>
                             <span className="text-emerald-400 font-semibold flex items-center gap-1">
                               <CheckCircle2 className="size-3" /> Langkah 1 s.d. 6 Tersusun Rapi & Valid
                             </span>
@@ -188,17 +188,10 @@ export function WaypointDetailModal({
 
                         {waypointPos === 5 && (
                           <div className="rounded-xl bg-[#140b05] border border-[#8c6d23]/40 p-2.5 text-[11px]">
-                            <span className="font-bold text-[#d4af37] block mb-0.5">Asuhan & Konseling AI:</span>
+                            <span className="font-bold text-[#d4af37] block mb-0.5">Asuhan & Konseling:</span>
                             <p className="text-[#fff8db]/90 line-clamp-2">
                               Edukasi empatik berhasil disampaikan. Pasien tenang memahami lesi pra-kanker dapat diobati.
                             </p>
-                          </div>
-                        )}
-
-                        {waypointPos === 6 && (
-                          <div className="rounded-xl bg-[#140b05] border border-[#8c6d23]/40 p-2.5 text-[11px] flex items-center justify-between">
-                            <span className="font-bold text-[#d4af37]">Rekaman Suara:</span>
-                            <span className="text-emerald-400 font-bold">Tersedia (03:14)</span>
                           </div>
                         )}
 

@@ -1,20 +1,13 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import {
-  Activity,
   ArrowLeft,
-  Crown,
-  Expand,
-  Eye,
   Layers,
   LayoutGrid,
   Map as MapIcon,
   Maximize2,
   Minimize2,
-  Sparkles,
   Trophy,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +27,7 @@ interface LiveviewHeaderProps {
   onModeChange: (mode: LiveviewMode) => void;
   selectedContestId: string;
   onSelectContestId: (id: string) => void;
-  contests: Array<{ id: string; judul: string; tanggal_mulai: string }>;
+  contests: Array<{ id: string; nama?: string; judul?: string; tanggal_mulai?: string }>;
 }
 
 const VIEW_MODES: Array<{
@@ -139,14 +132,14 @@ export function LiveviewHeader({
       {/* Right: Contest Selector & Fullscreen Toggle */}
       <div className="flex items-center gap-2.5 w-full lg:w-auto justify-end">
         {/* Contest Select */}
-        <Select value={selectedContestId} onValueChange={onSelectContestId}>
+        <Select value={selectedContestId} onValueChange={(val) => onSelectContestId(val || "")}>
           <SelectTrigger className="h-8.5 text-xs bg-[#24160c] text-[#fef08a] border-[#854d0e]/70 rounded-xl max-w-[200px] shadow-sm">
             <SelectValue placeholder="Pilih Lomba" />
           </SelectTrigger>
           <SelectContent className="bg-[#1e130a] text-[#fef08a] border-[#854d0e]">
             {contests.map((c) => (
               <SelectItem key={c.id} value={c.id} className="text-xs focus:bg-[#382313] focus:text-[#fff]">
-                {c.judul}
+                {c.nama || c.judul}
               </SelectItem>
             ))}
           </SelectContent>

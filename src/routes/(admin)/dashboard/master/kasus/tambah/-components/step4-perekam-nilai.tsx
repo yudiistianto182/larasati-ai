@@ -216,7 +216,7 @@ export function Step4PerekamNilai({
           <div className="flex items-center gap-1.5 rounded-md bg-card p-2 border">
             <Bot className="size-3.5 text-blue-500 shrink-0" />
             <div className="flex flex-col truncate">
-              <span className="font-semibold truncate">1. Interaktif AI</span>
+              <span className="font-semibold truncate">1. Interaktif</span>
               <span className="text-[10px] text-muted-foreground">{staseData.stase1.triggers.length} triggers ({totalScoreStase1}p)</span>
             </div>
           </div>
@@ -248,7 +248,7 @@ export function Step4PerekamNilai({
           <div className="flex items-center gap-1.5 rounded-md bg-card p-2 border">
             <HeartHandshake className="size-3.5 text-rose-500 shrink-0" />
             <div className="flex flex-col truncate">
-              <span className="font-semibold truncate">5. Interaktif AI</span>
+              <span className="font-semibold truncate">5. Interaktif</span>
               <span className="text-[10px] text-muted-foreground">{staseData.stase5.triggers.length} asuhan ({totalScoreStase5}p)</span>
             </div>
           </div>

@@ -1,24 +1,18 @@
 import * as React from "react";
-import {
-  Bot,
-  MessageSquare,
-  RotateCcw,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
+
+import { Bot, MessageSquare, RotateCcw, Sparkles, Volume2, VolumeX, X, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DEFAULT_OUT_OF_SCOPE_FALLBACK_MESSAGE,
+  fetchPatientAnamnesisAiReply,
+  fetchPatientCounselingAiReply,
+  type GeminiChatHistoryItem,
+} from "@/lib/gemini-ai";
 import { cn } from "@/lib/utils";
-import type { AiKeywordTrigger } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
+import type { AiKeywordTrigger, Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 
 import { AiVideoAvatar } from "./ai-video-avatar";
 import { useTextToSpeech } from "./use-text-to-speech";
@@ -30,6 +24,7 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   matchedTriggerContext?: string;
+  source?: "gemini-api" | "rule-trigger-fallback";
 }
 
 interface InteractiveAiConsultationModalProps {
@@ -49,7 +44,7 @@ interface InteractiveAiConsultationModalProps {
 export function InteractiveAiConsultationModal({
   open,
   onOpenChange,
-  staseTitle = "Simulasi Anamnesis AI",
+  staseTitle = "Simulasi Anamnesis",
   patientName = "Ny. Ani",
   patientAge = "29",
   patientParity = "G2P1A0",
@@ -62,6 +57,7 @@ export function InteractiveAiConsultationModal({
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [isAiThinking, setIsAiThinking] = React.useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = React.useState(true);
+  const [engineMode, setEngineMode] = React.useState<"gemini" | "fallback">("gemini");
 
   const { speak, cancel: cancelSpeech, isSpeaking } = useTextToSpeech();
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
@@ -74,6 +70,7 @@ export function InteractiveAiConsultationModal({
         sender: "pasien",
         text: `Selamat pagi Bu Bidan, terima kasih sudah menerima saya di Poli KIA. Saya ingin berkonsultasi mengenai keluhan keputihan yang sangat mengganggu dan agak perih akhir-akhir ini...`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        source: "rule-trigger-fallback",
       };
       setMessages([initialGreeting]);
 
@@ -105,7 +102,7 @@ export function InteractiveAiConsultationModal({
     }
   };
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
     cancelSpeech();
@@ -121,54 +118,133 @@ export function InteractiveAiConsultationModal({
     setMessages((prev) => [...prev, userMsg]);
     setIsAiThinking(true);
 
-    // Analyze text against configured triggers
-    const lowerText = text.toLowerCase();
-    let matchedTrigger: AiKeywordTrigger | undefined;
+    const isAsuhan =
+      staseTitle.toLowerCase().includes("asuhan") ||
+      staseTitle.toLowerCase().includes("konseling") ||
+      staseTitle.toLowerCase().includes("stase 5");
 
-    for (const trg of triggers) {
-      const keywords = trg.keyword
-        .split(",")
-        .map((k) => k.trim().toLowerCase())
-        .filter(Boolean);
+    // Construct mock Kasus payload for gemini-ai helper
+    const mockKasus: Kasus = {
+      id: "KSS-SIMULASI",
+      nama: `${patientName} (${patientAge} tahun)`,
+      tipe: "Utama",
+      deskripsi: `Simulasi Kasus Telekonsultasi KIA - ${patientName}`,
+      atribut: [
+        { id: "attr-sim-1", key: "Status Obstetri", value: patientParity },
+        { id: "attr-sim-2", key: "Usia", value: String(patientAge) },
+        { id: "attr-sim-3", key: "Keluhan Utama", value: triggers[0]?.jawaban_cadangan || "Keputihan abnormal" },
+      ],
+      stase_data: {
+        stase1: {
+          header: { nama_stase: staseTitle, kode_amplop: "SIM-01", durasi_menit: 7, petunjuk_soal: "" },
+          ai_system_prompt: aiSystemPrompt || "",
+          triggers: triggers,
+        },
+        stase2: {
+          header: { nama_stase: "Pos 2", kode_amplop: "SIM-02", durasi_menit: 5, petunjuk_soal: "" },
+          faktor_risiko: [],
+        },
+        stase3: {
+          header: { nama_stase: "Pos 3", kode_amplop: "SIM-03", durasi_menit: 7, petunjuk_soal: "" },
+          sop_items: [],
+        },
+        stase4: {
+          header: { nama_stase: "Pos 4", kode_amplop: "SIM-04", durasi_menit: 5, petunjuk_soal: "" },
+          soal_mcq: [],
+        },
+        stase5: {
+          header: { nama_stase: staseTitle, kode_amplop: "SIM-05", durasi_menit: 7, petunjuk_soal: "" },
+          ai_system_prompt: aiSystemPrompt || "",
+          triggers: triggers,
+        },
+      },
+    };
 
-      const hasMatch = keywords.some((kw) => lowerText.includes(kw));
-      if (hasMatch) {
-        matchedTrigger = trg;
-        break;
+    let replyText = "";
+    let matchedCategory: string | undefined;
+    let replySource: "gemini-api" | "rule-trigger-fallback" = "rule-trigger-fallback";
+
+    if (engineMode === "gemini") {
+      try {
+        const history: GeminiChatHistoryItem[] = messages.slice(-6).map((m) => ({
+          sender: m.sender === "bidan" ? "midwife" : "ai",
+          text: m.text,
+        }));
+
+        const result = isAsuhan
+          ? await fetchPatientCounselingAiReply({
+            userMessage: text.trim(),
+            kasus: mockKasus,
+            chatHistory: history,
+            customSystemPrompt: aiSystemPrompt,
+          })
+          : await fetchPatientAnamnesisAiReply({
+            userMessage: text.trim(),
+            kasus: mockKasus,
+            chatHistory: history,
+            customSystemPrompt: aiSystemPrompt,
+          });
+
+        replyText = result.replyText;
+        matchedCategory = result.matchedCategory;
+        replySource = result.source || "gemini-api";
+      } catch (err) {
+        console.error("Gemini fetch error during simulation:", err);
+        replyText = DEFAULT_OUT_OF_SCOPE_FALLBACK_MESSAGE;
+        replySource = "rule-trigger-fallback";
       }
-    }
+    } else {
+      // Local Rule Trigger Fallback Mode (Instant Matcher)
+      const lowerText = text.toLowerCase();
+      let matchedTrigger: AiKeywordTrigger | undefined;
 
-    // Generate response after realistic thinking pause
-    setTimeout(() => {
-      let replyText = "";
+      for (const trg of triggers) {
+        const keywords = trg.keyword
+          .split(/[,|]/)
+          .map((k) => k.trim().toLowerCase())
+          .filter(Boolean);
+
+        if (keywords.some((kw) => lowerText.includes(kw))) {
+          matchedTrigger = trg;
+          break;
+        }
+      }
 
       if (matchedTrigger && matchedTrigger.jawaban_cadangan) {
-        replyText = matchedTrigger.jawaban_cadangan;
-      } else if (matchedTrigger) {
-        replyText = `Mengenai ${matchedTrigger.konteks}, keluhan tersebut memang sempat saya rasakan Bu Bidan. Biasanya terasa lebih berat jika saya kecapekan setelah mengurus rumah tangga.`;
-      } else if (lowerText.includes("halo") || lowerText.includes("selamat") || lowerText.includes("pagi") || lowerText.includes("siang")) {
-        replyText = `Selamat pagi Bu Bidan, mohon bantuannya ya Bu, saya merasa tidak nyaman dengan kondisi keputihan saya ini.`;
-      } else if (lowerText.includes("obat") || lowerText.includes("resep") || lowerText.includes("terapi")) {
-        replyText = `Apakah kondisi ini bisa sembuh total dengan obat atau tindakan Bu? Saya takut sekali kalau ini berbahaya untuk kehamilan saya.`;
+        replyText = matchedTrigger.jawaban_cadangan.replace(/^["'\s\\]+|["'\s\\]+$/g, "").trim();
+        matchedCategory = matchedTrigger.konteks;
+      } else if (
+        lowerText.includes("keluhan") ||
+        lowerText.includes("kenapa") ||
+        lowerText.includes("alasan") ||
+        lowerText.includes("merasa")
+      ) {
+        replyText = (triggers[0]?.jawaban_cadangan || "Saya keputihan sudah beberapa waktu ini Bu Bidan.")
+          .replace(/^["'\s\\]+|["'\s\\]+$/g, "")
+          .trim();
+        matchedCategory = triggers[0]?.konteks || "Riwayat Keluhan";
       } else {
-        replyText = `Iya Bu Bidan, keputihannya terasa gatal, kental dan warnanya agak kuning kehijauan. Kadang perut bagian bawah saya juga terasa pegal kalau berdiri lama.`;
+        replyText = DEFAULT_OUT_OF_SCOPE_FALLBACK_MESSAGE;
+        matchedCategory = "Di Luar Konteks / Scope";
       }
+      replySource = "rule-trigger-fallback";
+    }
 
-      const aiMsg: ChatMessage = {
-        id: `msg-${Date.now()}-ai`,
-        sender: "pasien",
-        text: replyText,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        matchedTriggerContext: matchedTrigger?.konteks,
-      };
+    const aiMsg: ChatMessage = {
+      id: `msg-${Date.now()}-ai`,
+      sender: "pasien",
+      text: replyText,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      matchedTriggerContext: matchedCategory,
+      source: replySource,
+    };
 
-      setMessages((prev) => [...prev, aiMsg]);
-      setIsAiThinking(false);
+    setMessages((prev) => [...prev, aiMsg]);
+    setIsAiThinking(false);
 
-      if (autoPlayAudio) {
-        speak(replyText);
-      }
-    }, 1000);
+    if (autoPlayAudio) {
+      speak(replyText);
+    }
   };
 
   const handleResetChat = () => {
@@ -178,6 +254,7 @@ export function InteractiveAiConsultationModal({
       sender: "pasien",
       text: `Selamat pagi Bu Bidan, saya ingin berkonsultasi mengenai keluhan yang saya alami akhir-akhir ini...`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      source: "rule-trigger-fallback",
     };
     setMessages([initialGreeting]);
     if (autoPlayAudio) {
@@ -192,25 +269,62 @@ export function InteractiveAiConsultationModal({
         className="flex max-h-[94vh] w-[96vw] sm:max-w-6xl md:max-w-6xl flex-col overflow-hidden p-0 gap-0 border-border/80 shadow-2xl"
       >
         {/* Modal Header */}
-        <DialogHeader className="flex flex-row items-center justify-between border-b px-5 py-3.5 bg-card shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+        <DialogHeader className="flex flex-row items-center justify-between border-b px-5 py-3 bg-card shrink-0 gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <Bot className="size-5" />
             </div>
-            <div>
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <span>{staseTitle}</span>
-                <Badge variant="outline" className="text-[10px] font-normal border-blue-500/30 text-blue-600 dark:text-blue-400">
-                  Uji Coba Prompt Klinis
+            <div className="min-w-0">
+              <DialogTitle className="text-sm sm:text-base font-bold flex items-center gap-2 truncate">
+                <span className="truncate">{staseTitle}</span>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-normal border-blue-500/30 text-blue-600 dark:text-blue-400 hidden sm:inline-flex"
+                >
+                  Uji Coba Persona
                 </Badge>
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                Simulasi telekonsultasi audio & chat dengan pasien virtual ({patientName}, {patientAge} th).
+              <DialogDescription className="text-[11px] truncate">
+                Simulasi telekonsultasi dengan pasien ({patientName}, {patientAge} th).
               </DialogDescription>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* 🎛️ TOGGLE ENGINE: GOOGLE GEMINI VS LOCAL RULE FALLBACK */}
+            <div className="flex items-center rounded-lg border border-border/80 bg-muted/60 p-0.5 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setEngineMode("gemini")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
+                  engineMode === "gemini"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Gunakan Google Gemini API untuk respons generatif alami"
+              >
+                <Sparkles className="size-3.5" />
+                <span className="hidden sm:inline">Google Gemini</span>
+                <span className="sm:hidden">Gemini</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEngineMode("fallback")}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
+                  engineMode === "fallback"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                title="Gunakan Local Rule Trigger Fallback (Tanpa API, Pencocokan Kata Kunci Langsung)"
+              >
+                <Zap className="size-3.5" />
+                <span className="hidden sm:inline">Local Fallback</span>
+                <span className="sm:hidden">Fallback</span>
+              </button>
+            </div>
+
             {/* Button Putar Ulang Suara Terakhir dari Pasien */}
             <Button
               type="button"
@@ -218,11 +332,11 @@ export function InteractiveAiConsultationModal({
               size="xs"
               onClick={handleReplayLastPatientAudio}
               disabled={!lastPatientMessage}
-              className="h-7 gap-1.5 text-xs font-semibold border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/5 hover:bg-blue-500/10"
+              className="h-7 gap-1.5 text-xs font-semibold border-blue-500/40 text-blue-600 dark:text-blue-400 bg-blue-500/5 hover:bg-blue-500/10 hidden md:flex"
               title="Putar ulang suara respon pasien terakhir"
             >
               <RotateCcw className="size-3.5" />
-              <span>Putar Ulang Suara Pasien</span>
+              <span>Putar Suara</span>
             </Button>
 
             <Button
@@ -231,10 +345,14 @@ export function InteractiveAiConsultationModal({
               size="xs"
               onClick={() => setAutoPlayAudio((prev) => !prev)}
               className="h-7 gap-1 text-xs"
-              title={autoPlayAudio ? "Matikan Suara AI Otomatis" : "Aktifkan Suara AI Otomatis"}
+              title={autoPlayAudio ? "Matikan Suara Otomatis" : "Aktifkan Suara Otomatis"}
             >
-              {autoPlayAudio ? <Volume2 className="size-3.5 text-blue-500" /> : <VolumeX className="size-3.5 text-muted-foreground" />}
-              <span>{autoPlayAudio ? "Audio Aktif" : "Mute"}</span>
+              {autoPlayAudio ? (
+                <Volume2 className="size-3.5 text-blue-500" />
+              ) : (
+                <VolumeX className="size-3.5 text-muted-foreground" />
+              )}
+              <span className="hidden sm:inline">{autoPlayAudio ? "Audio On" : "Mute"}</span>
             </Button>
 
             <Button
@@ -246,12 +364,12 @@ export function InteractiveAiConsultationModal({
               title="Reset Percakapan"
             >
               <RotateCcw className="size-3.5" />
-              <span>Reset Chat</span>
+              <span className="hidden sm:inline">Reset</span>
             </Button>
 
             <div className="h-4 w-px bg-border/80 mx-1" />
 
-            {/* Seamless Header Close Button aligned with all other action buttons */}
+            {/* Seamless Header Close Button */}
             <Button
               type="button"
               variant="ghost"
@@ -299,9 +417,7 @@ export function InteractiveAiConsultationModal({
                     <Volume2 className="size-3" /> Putar Suara Terakhir
                   </button>
                 )}
-                <span className="text-[11px] text-muted-foreground">
-                  &bull; {messages.length} Pesan
-                </span>
+                <span className="text-[11px] text-muted-foreground">&bull; {messages.length} Pesan</span>
               </div>
             </div>
 
@@ -321,10 +437,23 @@ export function InteractiveAiConsultationModal({
                     )}
                   >
                     <div className="flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
-                      <span className="font-semibold">
-                        {isUser ? "Anda (Bidan)" : patientName}
-                      </span>
+                      <span className="font-semibold">{isUser ? "Anda (Bidan)" : patientName}</span>
                       <span>&bull; {msg.timestamp}</span>
+                      {!isUser && msg.source === "gemini-api" && (
+                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <Sparkles className="size-2.5" /> Gemini
+                        </span>
+                      )}
+                      {!isUser && msg.source === "rule-trigger-fallback" && (
+                        <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <Zap className="size-2.5" /> Fallback Trigger
+                        </span>
+                      )}
+                      {!isUser && msg.matchedTriggerContext && (
+                        <span className="text-[9px] text-muted-foreground/80 hidden sm:inline">
+                          ({msg.matchedTriggerContext})
+                        </span>
+                      )}
                     </div>
 
                     <div
@@ -352,7 +481,7 @@ export function InteractiveAiConsultationModal({
                 );
               })}
 
-              {/* AI Thinking Bubble */}
+              {/* Thinking Bubble */}
               {isAiThinking && (
                 <div className="flex flex-col gap-1 max-w-[80%] self-start items-start">
                   <div className="flex items-center gap-1.5 px-1 text-[10px] text-muted-foreground">

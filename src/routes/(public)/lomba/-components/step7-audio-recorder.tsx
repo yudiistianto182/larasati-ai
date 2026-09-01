@@ -1,14 +1,10 @@
 import * as React from "react";
 import {
-  Check,
-  CheckCircle2,
   Mic,
   Pause,
   Play,
-  RotateCcw,
   Square,
   Trash2,
-  Volume2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

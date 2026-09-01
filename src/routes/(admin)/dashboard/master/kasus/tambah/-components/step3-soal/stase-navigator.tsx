@@ -25,9 +25,9 @@ export interface StaseInfo {
 export const STASE_LIST: StaseInfo[] = [
   {
     id: 1,
-    title: "Pos 1: Interaktif dengan AI",
-    shortTitle: "1. Interaktif AI",
-    badgeLabel: "Wawancara AI",
+    title: "Pos 1: Interaktif dengan",
+    shortTitle: "1. Interaktif",
+    badgeLabel: "Wawancara",
     icon: Bot,
     colorClass: "text-blue-500 bg-blue-500/10 border-blue-500/20",
   },
@@ -57,9 +57,9 @@ export const STASE_LIST: StaseInfo[] = [
   },
   {
     id: 5,
-    title: "Pos 5: Interaktif dengan AI",
-    shortTitle: "5. Interaktif AI",
-    badgeLabel: "Konseling AI",
+    title: "Pos 5: Interaktif dengan",
+    shortTitle: "5. Interaktif",
+    badgeLabel: "Konseling",
     icon: HeartHandshake,
     colorClass: "text-rose-500 bg-rose-500/10 border-rose-500/20",
   },

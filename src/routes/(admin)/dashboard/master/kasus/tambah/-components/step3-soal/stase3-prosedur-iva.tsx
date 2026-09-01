@@ -101,7 +101,7 @@ export function Stase3ProsedurIva({
           </div>
           <div>
             <h4 className="text-sm font-bold text-foreground">
-              Pos 3: Mengurutkan Langkah (SOP Prosedur IVA)
+              Pos 3: Mengurutkan Langkah (Prosedur IVA)
             </h4>
             <p className="text-[11px] text-muted-foreground">
               Susun tahapan prosedur klinis. Anda dapat mengubah urutan langkah secara bebas dan memilih tata letak List atau Grid.

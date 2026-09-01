@@ -70,10 +70,10 @@ export function Stase5AsuhanKebidanan({
           </div>
           <div>
             <h4 className="text-sm font-bold text-foreground">
-              Pos 5: Interaktif dengan AI (Asuhan & Konseling Pasien)
+              Pos 5: Interaktif dengan (Asuhan & Konseling Pasien)
             </h4>
             <p className="text-[11px] text-muted-foreground">
-              Tentukan parameter konseling pasca pemeriksaan dan evaluasi respon empati bidan saat berinteraksi dengan AI.
+              Tentukan parameter konseling pasca pemeriksaan dan evaluasi respon empati bidan saat berinteraksi dengan.
             </p>
           </div>
         </div>
@@ -87,7 +87,7 @@ export function Stase5AsuhanKebidanan({
             className="h-7 gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs"
           >
             <Play className="size-3 fill-current" />
-            <span>Uji Simulasi Konseling AI</span>
+            <span>Uji Simulasi Konseling</span>
           </Button>
 
           <Badge variant="outline" className="h-7 bg-background text-xs font-semibold text-rose-600 dark:text-rose-400">
@@ -96,11 +96,11 @@ export function Stase5AsuhanKebidanan({
         </div>
       </div>
 
-      {/* 1. Kepribadian AI System (System Persona Prompt) */}
+      {/* 1. Kepribadian System (System Persona Prompt) */}
       <div className="flex flex-col gap-2 rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs">
         <div className="flex items-center justify-between">
           <Label htmlFor="stase5-ai-prompt" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <UserCog className="size-3.5 text-rose-500" /> Kepribadian AI System (Karakter Pasien Pasca Pemeriksaan)
+            <UserCog className="size-3.5 text-rose-500" /> Kepribadian System (Karakter Pasien Pasca Pemeriksaan)
           </Label>
           <div className="flex items-center gap-2">
             <Button
@@ -122,7 +122,7 @@ export function Stase5AsuhanKebidanan({
               rows={6}
               value={aiSystemPrompt}
               onChange={(e) => onAiSystemPromptChange(e.target.value)}
-              placeholder="Masukkan instruksi kepribadian, kekhawatiran pasien, dan batasan respon AI..."
+              placeholder="Masukkan instruksi kepribadian, kekhawatiran pasien, dan batasan respon..."
               className="text-xs leading-relaxed font-mono bg-muted/20"
             />
             <span className="text-[10px] text-muted-foreground">
@@ -253,11 +253,11 @@ export function Stase5AsuhanKebidanan({
         </Button>
       </div>
 
-      {/* Interactive AI Teleconsultation Simulation Modal */}
+      {/* Interactive Teleconsultation Simulation Modal */}
       <InteractiveAiConsultationModal
         open={isSimModalOpen}
         onOpenChange={setIsSimModalOpen}
-        staseTitle="Simulasi Stase 5: Asuhan Kebidanan & Konseling AI"
+        staseTitle="Simulasi Stase 5: Asuhan Kebidanan & Konseling"
         patientName="Ny. Ani"
         patientAge={29}
         patientParity="G2P1A0"

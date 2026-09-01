@@ -2,8 +2,6 @@ import * as React from "react";
 import {
   ArrowRight,
   Bot,
-  Calendar,
-  CheckCircle2,
   Clock,
   Crown,
   FileCheck,
@@ -13,17 +11,14 @@ import {
   ListChecks,
   Quote,
   ShieldAlert,
-  Sparkles,
   Tag,
-  User,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import { calculateAge, fallbackPasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
-import type { KelompokLomba } from "@/stores/contest-store";
+import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
 
 interface Step1IntroLarasatiProps {
   onStart: () => void;
@@ -38,7 +33,7 @@ export function Step1IntroLarasati({
 }: Step1IntroLarasatiProps) {
   const groupName = kelompok?.nama || "Kelompok A (Stase Pagi)";
   const caseName = kasus?.nama || "Deteksi Dini Kanker Serviks & Pemeriksaan IVA Positif";
-  
+
   // Find linked patient or fallback to first patient Ny. Ani
   const linkedPasienId = kasus?.pasien_ids?.[0];
   const pasienData = fallbackPasien.find((p) => p.id === linkedPasienId) || fallbackPasien[0];
@@ -48,7 +43,7 @@ export function Step1IntroLarasati({
     ? `${calculateAge(pasienData.tanggal_lahir)} Tahun`
     : pasienData?.umur
       ? `${pasienData.umur} Tahun`
-      : "29 Tahun";
+      : "45 Tahun";
 
   const caseIntroText =
     kasus?.teks_perkenalan ||
@@ -61,9 +56,9 @@ export function Step1IntroLarasati({
   const circuitStations = [
     {
       pos: 1,
-      title: "Pos 1: Interaktif Anamnesis AI",
+      title: "Pos 1: Anamnesis",
       desc: "Wawancara klinis langsung menggunakan mikrofon dengan pasien virtual untuk menggali keluhan.",
-      durasi: `${staseData?.stase1?.header?.durasi_menit ?? 7} Menit`,
+      durasi: "3 Menit",
       icon: Bot,
       color: "text-blue-400 border-blue-500/30 bg-blue-500/10",
     },
@@ -71,15 +66,15 @@ export function Step1IntroLarasati({
       pos: 2,
       title: "Pos 2: Multi Select Faktor Risiko",
       desc: "Identifikasi faktor risiko klinis dan patologis kanker serviks pada papan magnet interaktif.",
-      durasi: `${staseData?.stase2?.header?.durasi_menit ?? 5} Menit`,
+      durasi: "1 Menit",
       icon: ShieldAlert,
       color: "text-amber-400 border-amber-500/30 bg-amber-500/10",
     },
     {
       pos: 3,
       title: "Pos 3: Mengurutkan Prosedur IVA",
-      desc: "Susun urutan 6 langkah SOP tindakan pemeriksaan Inspeksi Visual Asam Asetat secara tepat.",
-      durasi: `${staseData?.stase3?.header?.durasi_menit ?? 6} Menit`,
+      desc: "Susun urutan 6 langkah Prosedur pemeriksaan Inspeksi Visual Asam Asetat secara tepat.",
+      durasi: "1 Menit",
       icon: ListChecks,
       color: "text-purple-400 border-purple-500/30 bg-purple-500/10",
     },
@@ -87,15 +82,15 @@ export function Step1IntroLarasati({
       pos: 4,
       title: "Pos 4: Interpretasi Hasil IVA (Single Choice)",
       desc: "Analisis foto porsio serviks beresolusi tinggi dan tegakkan kesimpulan diagnosis klinis.",
-      durasi: `${staseData?.stase4?.header?.durasi_menit ?? 5} Menit`,
+      durasi: "30 Detik",
       icon: ImageIcon,
       color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
     },
     {
       pos: 5,
-      title: "Pos 5: Asuhan Kebidanan & Konseling AI",
-      desc: "Bimbingan konseling empatik AI mengenai hasil IVA positif, opsi krioterapi, dan edukasi rujukan.",
-      durasi: `${staseData?.stase5?.header?.durasi_menit ?? 8} Menit`,
+      title: "Pos 5: Asuhan Kebidanan & Konseling",
+      desc: "Bimbingan konseling empatik mengenai hasil IVA positif, opsi krioterapi, dan edukasi rujukan.",
+      durasi: "2 Menit",
       icon: HeartHandshake,
       color: "text-rose-400 border-rose-500/30 bg-rose-500/10",
     },
@@ -116,11 +111,11 @@ export function Step1IntroLarasati({
       <div className="relative z-10 w-full flex flex-col items-center text-center mb-6">
         <div className="flex items-center gap-2 mb-2">
           <Badge className="bg-[#d4af37] text-[#14100c] font-serif font-extrabold text-xs px-3 py-1 shadow-md uppercase tracking-wider">
-            Arena Sirkuit Siap Dimulai
+            Larasati Journey Siap Dimulai
           </Badge>
-          <Badge variant="outline" className="border-[#d4af37]/50 text-[#d4af37] text-xs font-mono">
+          {/* <Badge variant="outline" className="border-[#d4af37]/50 text-[#d4af37] text-xs font-mono">
             {groupName}
-          </Badge>
+          </Badge> */}
         </div>
 
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-[#fff8db] tracking-wide">
@@ -133,12 +128,12 @@ export function Step1IntroLarasati({
 
       {/* Main Content Split: Left (Kasus & Pasien Detail) + Right (5 Stase dengan Keterangan Waktu) */}
       <div className="relative z-10 grid w-full grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
+
         {/* ============================================================ */}
         {/* 1. DATA PASIEN & KASUS KLINIS (KOLOM KIRI)                   */}
         {/* ============================================================ */}
         <div className="lg:col-span-5 flex flex-col gap-4 rounded-2xl border border-[#8c6d23]/40 bg-[#1a120a]/90 p-5 shadow-lg">
-          
+
           {/* Header Pasien Profile */}
           <div className="flex items-center gap-3 border-b border-[#8c6d23]/30 pb-3.5">
             <div className="relative size-14 rounded-xl overflow-hidden border border-[#d4af37]/50 shrink-0 bg-[#2b1c0e] shadow-md">
@@ -186,7 +181,7 @@ export function Step1IntroLarasati({
           </div>
 
           {/* Atribut Kasus */}
-          <div className="flex flex-col gap-1.5 text-xs">
+          {/* <div className="flex flex-col gap-1.5 text-xs">
             <span className="font-serif font-semibold text-[#d4af37] flex items-center gap-1.5">
               <Tag className="size-3.5" /> Atribut & Karakteristik Kasus:
             </span>
@@ -218,7 +213,7 @@ export function Step1IntroLarasati({
                 Atribut klinis terkonfigurasi standar
               </div>
             )}
-          </div>
+          </div> */}
         </div>
 
         {/* ============================================================ */}
@@ -253,9 +248,6 @@ export function Step1IntroLarasati({
                         <span className="font-serif font-bold text-xs text-[#fff8db]">
                           {st.title}
                         </span>
-                        <p className="text-[11px] text-[#e6d59c]/80 leading-relaxed mt-0.5">
-                          {st.desc}
-                        </p>
                       </div>
                     </div>
 
@@ -274,17 +266,16 @@ export function Step1IntroLarasati({
 
           {/* CTA Button: Mulai Perjalanan Sirkuit */}
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#8c6d23]/30 pt-4">
-            <div className="flex items-center gap-2 text-xs text-[#e6d59c]/80">
-              <Crown className="size-4 text-[#d4af37]" />
-              <span>Tim: <strong className="text-[#fff8db]">{groupName}</strong></span>
-            </div>
-
             <Button
               type="button"
-              onClick={onStart}
+              onClick={() => {
+                playCtaClickSound();
+                playTransitionChime();
+                onStart();
+              }}
               className="h-12 px-8 w-full sm:w-auto rounded-xl bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] text-xs font-serif font-bold tracking-widest uppercase shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:brightness-110 hover:scale-102 transition-all cursor-pointer border border-[#fff8db]/60 gap-2 active:scale-98"
             >
-              <span>Mulai Perjalanan Sirkuit</span>
+              <span>Start</span>
               <ArrowRight className="size-4 stroke-[2.5]" />
             </Button>
           </div>

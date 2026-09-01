@@ -45,7 +45,7 @@ export function StaseHeaderForm({
             id={`stase-${staseNumber}-nama`}
             value={header.nama_stase}
             onChange={(e) => handleFieldChange("nama_stase", e.target.value)}
-            placeholder="Contoh: Anamnesis AI (Wawancara Klinis)"
+            placeholder="Contoh: Anamnesis (Wawancara Klinis)"
             className="h-8 text-xs font-medium"
           />
         </div>

@@ -25,7 +25,7 @@ export const fallbackContests: ContestRow[] = [
     contest_periode_id: 3,
     contest_datestart: "2026-03-01T08:00:00Z",
     contest_dateend: "2026-03-05T17:00:00Z",
-    contest_desc: "Kompetisi sirkuit stase klinis kebidanan terintegrasi AI & SOP IVA.",
+    contest_desc: "Kompetisi sirkuit stase klinis kebidanan terintegrasi & SOP IVA.",
   },
   {
     contest_id: 2,
