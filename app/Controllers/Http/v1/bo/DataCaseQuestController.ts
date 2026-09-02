@@ -130,18 +130,25 @@ export default class DataCaseController {
                         break;
 
                     case '4': 
-                        for (let index = 0; index < post.quest.length; index++) {
+                        const quest_image = request.allFiles().quest_image || [];
+                        for (const item of quest_image) {
+                            const file = item.file;
+                            await file.move('storage/recordings');
+                            const filePath = file.filePath;
+                            
                             let data_insert = {
                                 casequestci_casequest_id: post.casequest_id,
                                 casequestci_name: post.quest[index].name,
-                                casequestci_image: image,
+                                casequestci_image: filePath,
 
                             }
                             await trx
                                 .insertQuery()
                                 .table('data_case_quest_os')
                                 .insert(data_insert);
+                            
                         }
+
                         break;
                 
                     default:

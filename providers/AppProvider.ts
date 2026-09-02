@@ -1,4 +1,5 @@
 import type { ApplicationContract } from '@ioc:Adonis/Core/Application'
+import SshTunnel from 'App/Services/SshTunnel'
 
 export default class AppProvider {
   constructor (protected app: ApplicationContract) {
@@ -10,6 +11,7 @@ export default class AppProvider {
 
   public async boot () {
     // IoC container is ready
+    await SshTunnel.createTunnel()
   }
 
   public async ready () {
@@ -18,5 +20,7 @@ export default class AppProvider {
 
   public async shutdown () {
     // Cleanup, since app is going down
+    await SshTunnel.closeTunnel()
   }
 }
+

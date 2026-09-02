@@ -1,5 +1,16 @@
 {
   "commands": {
+    "test:db": {
+      "settings": {
+        "loadApp": true
+      },
+      "commandPath": "./commands/TestDb",
+      "commandName": "test:db",
+      "description": "Test MySQL connection (including SSH Tunnel if enabled)",
+      "args": [],
+      "aliases": [],
+      "flags": []
+    },
     "dump:rcfile": {
       "settings": {},
       "commandPath": "@adonisjs/core/build/commands/DumpRc",

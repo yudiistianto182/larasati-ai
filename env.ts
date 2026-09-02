@@ -21,4 +21,23 @@ export default Env.rules({
 	APP_NAME: Env.schema.string(),
   DRIVE_DISK: Env.schema.enum(['local'] as const),
 	NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
+
+	// Database config
+	DB_CONNECTION: Env.schema.string(),
+	MYSQL_HOST: Env.schema.string.optional(),
+	MYSQL_PORT: Env.schema.number.optional(),
+	MYSQL_USER: Env.schema.string.optional(),
+	MYSQL_PASSWORD: Env.schema.string.optional(),
+	MYSQL_DB_NAME: Env.schema.string.optional(),
+
+	// SSH Tunnel config
+	SSH_TUNNEL_ENABLED: Env.schema.boolean.optional(),
+	SSH_HOST: Env.schema.string.optional(),
+	SSH_PORT: Env.schema.number.optional(),
+	SSH_USER: Env.schema.string.optional(),
+	SSH_PASSWORD: Env.schema.string.optional(),
+	SSH_KEY_PATH: Env.schema.string.optional(),
+	SSH_KEY_PASSPHRASE: Env.schema.string.optional(),
+	SSH_DST_HOST: Env.schema.string.optional(),
+	SSH_DST_PORT: Env.schema.number.optional(),
 })

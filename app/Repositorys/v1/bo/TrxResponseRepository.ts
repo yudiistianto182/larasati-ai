@@ -53,4 +53,26 @@ export default class TrxResponseRepository {
 
         return await query;
     }
+
+    async getDetail(id) {
+        let column = [
+            'a.*',
+            'b.contestteam_name',
+            'c.contest_name',
+            'd.case_name',
+            'e.patient_id'
+        ];
+
+        let query = Database.query()
+                            .select(column)
+                            .from('trx_response as a')
+                            .leftJoin('data_contest_team as b', 'b.contestteam_id', 'a.response_contestteam_id')
+                            .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contestteam_id')
+                            .leftJoin('data_case as d', 'd.case_id', 'a.response_case_id')
+                            .leftJoin('data_patient as e', 'e.patient_id', 'a.response_patient_id')
+                            .where('a.reponse_id', id)
+                            .first();
+
+        return await query;
+    }
 }
