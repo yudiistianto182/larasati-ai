@@ -10,9 +10,9 @@ const TrxResponse = new TrxResponseRepository()
 const TrxResponseAnswer = new TrxResponseAnswerRepository()
 
 export default class TrxResponseAnswerController {
-    public async store ({request, response}) {
+    public async store({ request, response }) {
         let result: object = {};
-        
+
         const validationSchema = schema.create({
             response_id: schema.string([
                 rules.minLength(1)
@@ -21,7 +21,7 @@ export default class TrxResponseAnswerController {
                 rules.minLength(1)
             ])
         });
-        
+
         try {
             await request.validate({ schema: validationSchema });
 
@@ -38,7 +38,7 @@ export default class TrxResponseAnswerController {
                     .insertQuery()
                     .table('trx_response')
                     .insert(data_insert);
-        
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -47,8 +47,8 @@ export default class TrxResponseAnswerController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -62,37 +62,34 @@ export default class TrxResponseAnswerController {
         }
     }
 
-    public async detail ({request, params, response}) {
+    public async detail({ request, params, response }) {
         let result: object = {};
 
-        // let where = { response_id: params.id };
-        // let data = await TrxResponse.getWhereRowObject('data_contest', where);
-        let data = await TrxResponse.getDetail(params.id);
+        let data = await TrxResponseAnswer.getDetail(params.id);
         if (data) {
-            data.answer = await TrxResponseAnswer.getDetailByResponse(params.id);
+            data.quest_pos = 'POS: ' + data.casequest_order + ': ' + data.casequest_name;
             for (let index = 0; index < data.answer.length; index++) {
                 const element = data.answer[index];
-                
+
                 switch (element.casequest_method_id) {
                     case 1:
-                        return false;
-                        
+                        // data.answer = await
                         break;
-                
+
                     default:
                         break;
                 }
             }
             result = {
-                'status' 	: true,
-                'message'   : 'Success',
-                'data'		: data
+                'status': true,
+                'message': 'Success',
+                'data': data
             }
             response.send(result);
         } else {
             result = {
-                'status' 	: false,
-                'message'   : 'Data not found !'
+                'status': false,
+                'message': 'Data not found !'
             }
             response.status(404).send(result);
         }

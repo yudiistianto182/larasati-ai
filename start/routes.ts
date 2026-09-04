@@ -28,6 +28,9 @@ Route.post('/v1/auth/login', 'v1/AuthController.login');
 Route.get('/v1/auth/profile', 'v1/AuthController.profile');
 Route.get('/v1/auth/logout', 'v1/AuthController.logout');
 
+Route.get('/v1/sys_config', 'v1/bo/SysConfigController.index').middleware('jwtauth');
+Route.get('/v1/sys_config/:id', 'v1/bo/SysConfigController.detail').middleware('jwtauth');
+
 Route.get('/v1/sys_role', 'v1/bo/SysRoleController.index').middleware('jwtauth');
 
 Route.get('/v1/sys_user', 'v1/bo/SysUserController.index').middleware('jwtauth');
@@ -69,7 +72,12 @@ Route.put('/v1/data_case/:id', 'v1/bo/DataCaseController.update').middleware(['j
 Route.delete('/v1/data_case/:id', 'v1/bo/DataCaseController.destroy').middleware(['jwtauth']);
 
 Route.get('/v1/trx_response', 'v1/bo/TrxResponseController.index').middleware('jwtauth');
-Route.get('/v1/trx_response/:id', 'v1/bo/TrxResponseController.detail').middleware('jwtauth');
+Route.get('/v1/trx_response/:id', 'v1/bo/TrxResponseController.detail');
 Route.post('/v1/trx_response', 'v1/bo/TrxResponseController.store').middleware('jwtauth');
 Route.put('/v1/trx_response/:id', 'v1/bo/TrxResponseController.update').middleware(['jwtauth']);
 Route.delete('/v1/trx_response/:id', 'v1/bo/TrxResponseController.destroy').middleware(['jwtauth']);
+
+Route.get('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.detail').middleware('jwtauth');
+Route.post('/v1/data_case_quest', 'v1/bo/DataCaseQuestController.store').middleware('jwtauth');
+Route.put('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.update').middleware(['jwtauth']);
+Route.delete('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.destroy').middleware(['jwtauth']);
