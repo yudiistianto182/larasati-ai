@@ -8,7 +8,7 @@ const General = new GeneralRepository()
 const DataCase = new DataCaseRepository()
 
 export default class DataCaseController {
-    public async index({request, response}) {
+    public async index({ request, response }) {
         let data: Array<string> = [];
         let result: object = {};
         let where: object = {};
@@ -16,32 +16,32 @@ export default class DataCaseController {
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_case', 'case_id', 'case_name', where);
         } else {
-            data = await DataCase.getAll({request});
+            data = await DataCase.getAll({ request });
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
-                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * ( data.currentPage - 1 )) + index + 1;
+                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
                 }
-            } 
+            }
         }
 
         if (typeof data.length != 'undefined' || data.data[0]) {
             result = {
-                status : true,
-                message : 'Success',
-                data : data
+                status: true,
+                message: 'Success',
+                data: data
             }
             response.send(result);
         } else {
             result = {
-                status : false,
-                message : 'Data not found !',
-                data : data
+                status: false,
+                message: 'Data not found !',
+                data: data
             }
             response.status(404).send(result);
         }
     }
 
-    public async detail ({request, params, response}) {
+    public async detail({ request, params, response }) {
         let result: object = {};
 
         let where = { case_id: params.id };
@@ -62,21 +62,21 @@ export default class DataCaseController {
                 data.patient[index].patient.attribute = await General.getWhereObject('data_patient_attribute', { patientattribute_patient_id: data.patient[index].casepatient_patient_id });
             }
             result = {
-                'status' 	: true,
-                'message'   : 'Success',
-                'data'		: data
+                'status': true,
+                'message': 'Success',
+                'data': data
             }
             response.send(result);
         } else {
             result = {
-                'status' 	: false,
-                'message'   : 'Data not found !'
+                'status': false,
+                'message': 'Data not found !'
             }
             response.status(404).send(result);
         }
     }
 
-    public async store ({request, response}) {
+    public async store({ request, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -125,7 +125,7 @@ export default class DataCaseController {
                 })
             )
         });
-        
+
         try {
             await request.validate({ schema: validationSchema });
 
@@ -139,9 +139,9 @@ export default class DataCaseController {
                     insert_user_id: request.
                 }
                 let case_id = await trx
-                                    .insertQuery()
-                                    .table('data_case')
-                                    .insert(data_insert);
+                    .insertQuery()
+                    .table('data_case')
+                    .insert(data_insert);
 
                 for (let index = 0; index < post.attribute.length; index++) {
                     let data_insert_attribute = {
@@ -153,7 +153,7 @@ export default class DataCaseController {
                         .insertQuery()
                         .table('data_case_attribute')
                         .insert(data_insert_attribute);
-                }  
+                }
 
                 for (let index = 0; index < post.quest.length; index++) {
                     let data_insert_quest = {
@@ -167,7 +167,7 @@ export default class DataCaseController {
                         .insertQuery()
                         .table('data_case_quest')
                         .insert(data_insert_quest);
-                }  
+                }
 
                 for (let index = 0; index < post.patient.length; index++) {
                     let data_insert_patient = {
@@ -178,8 +178,8 @@ export default class DataCaseController {
                         .insertQuery()
                         .table('data_case_patient')
                         .insert(data_insert_patient);
-                }  
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -188,8 +188,8 @@ export default class DataCaseController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -203,7 +203,7 @@ export default class DataCaseController {
         }
     }
 
-    public async update ({request, params, response}) {
+    public async update({ request, params, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -257,7 +257,7 @@ export default class DataCaseController {
             await request.validate({ schema: validationSchema });
 
             let post = request.body();
-                   
+
             const trx = await Database.transaction();
             try {
                 let where_update = { case_id: params.id }
@@ -299,7 +299,7 @@ export default class DataCaseController {
                         .insertQuery()
                         .table('data_case_attribute')
                         .insert(data_insert_attribute);
-                }  
+                }
 
                 for (let index = 0; index < post.quest.length; index++) {
                     let data_insert_quest = {
@@ -324,8 +324,8 @@ export default class DataCaseController {
                         .insertQuery()
                         .table('data_case_patient')
                         .insert(data_insert_patient);
-                }   
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -334,8 +334,8 @@ export default class DataCaseController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -346,12 +346,12 @@ export default class DataCaseController {
                 message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
             }
             response.badRequest(result);
-        } 
+        }
     }
 
-    public async destroy ({request, params, response}) {
+    public async destroy({ request, params, response }) {
         let result: object = {};
-                 
+
         const trx = await Database.transaction();
         try {
             let where_attribute = { caseattribute_case_id: params.id };
@@ -380,12 +380,12 @@ export default class DataCaseController {
             await trx.commit();
         } catch (error) {
             result = {
-                status : false,
-                message : error.sqlMessage
+                status: false,
+                message: error.sqlMessage
             }
             response.badRequest(result);
             await trx.rollback();
-        } 
+        }
     }
 
     private async calculateAge(birthDate) {
@@ -397,7 +397,7 @@ export default class DataCaseController {
         const hasNotHadBirthday =
             today.getMonth() < birth.getMonth() ||
             (today.getMonth() === birth.getMonth() &&
-            today.getDate() < birth.getDate());
+                today.getDate() < birth.getDate());
 
         if (hasNotHadBirthday) {
             age--;

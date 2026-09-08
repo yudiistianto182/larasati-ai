@@ -14,6 +14,11 @@ export default class DataCaseController {
         let where = { casequest_id: params.id };
         let data = await General.getWhereRowObject('data_case_quest', where);
         if (data) {
+            data.rule = await General.getWhereObject('ref_method_rule', { methodrule_method_id: data.casequest_method_id });
+            for (let index = 0; index < data.rule.length; index++) {
+                data.rule[index].detail = await General.getWhereObject('ref_method_rule_detail', { methodruledetail_methodrule_id: data.rule[index].methodrule_id })
+            }
+
             switch (data.casequest_method_id) {
                 case 1:
                     data.answer = await DataCaseQuest.getQuestIa(params.id);

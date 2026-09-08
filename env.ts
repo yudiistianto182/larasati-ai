@@ -40,4 +40,8 @@ export default Env.rules({
 	SSH_KEY_PASSPHRASE: Env.schema.string.optional(),
 	SSH_DST_HOST: Env.schema.string.optional(),
 	SSH_DST_PORT: Env.schema.number.optional(),
+
+	// Gemini AI config
+	GEMINI_API_KEY: Env.schema.string.optional(),
+	GEMINI_MODEL: Env.schema.string.optional(),
 })
