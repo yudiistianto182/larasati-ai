@@ -27,6 +27,10 @@ export default class TestDb extends BaseCommand {
       for (const row of dbs[0]) {
         this.logger.info(` - ${row.Database}`)
       }
+
+
+
+
     } catch (error) {
       this.logger.error('Database query error:')
       this.logger.error(error.message)

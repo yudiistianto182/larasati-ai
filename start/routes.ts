@@ -86,3 +86,8 @@ Route.delete('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.destroy')
 Route.get('/v1/ai/test', 'v1/AiController.test');
 Route.post('/v1/ai/ask', 'v1/AiController.ask');
 Route.post('/v1/ai/patient-chat', 'v1/AiController.patientChat');
+
+// IA (Intelligent Assistant) Routes
+Route.get('/v1/ia', 'v1/bo/IaController.index').middleware('jwtauth');
+Route.post('/v1/ia', 'v1/bo/IaController.store').middleware('jwtauth');
+Route.post('/v1/ia/ask', 'v1/bo/IaController.ask').middleware('jwtauth');
