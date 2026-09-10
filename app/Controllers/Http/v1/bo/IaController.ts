@@ -8,22 +8,117 @@ const geminiService = new GeminiService()
 
 export default class IaController {
     /**
-     * GET /v1/ia
-     * Information or status check for IA service
+     * GET /v1/ia?response_id=xxx
+     * Menampilkan riwayat percakapan berdasarkan response_id.
+     * Jika response_id tidak diberikan, tampilkan info endpoint.
      */
-    public async index({ response }) {
-        return response.send({
-            status: true,
-            message: 'Larasati AI Service is active',
-            usage: {
-                endpoint: 'POST /v1/ia or POST /v1/ia/ask',
-                payload: {
-                    response_id: 'string | number (required) - ID response dari trx_response',
-                    message: 'string (required) - Pertanyaan dari dokter / user',
-                    casequest_id: 'number (optional) - ID case quest jika tersedia',
+    public async index({ request, response }) {
+        const responseId = request.input('response_id')
+
+        // Jika tidak ada response_id, tampilkan info endpoint
+        if (!responseId) {
+            return response.send({
+                status: true,
+                message: 'Larasati AI Service is active',
+                usage: {
+                    endpoint: 'POST /v1/ia or POST /v1/ia/ask',
+                    payload: {
+                        response_id: 'string | number (required) - ID response dari trx_response',
+                        message: 'string (required) - Pertanyaan dari dokter / user',
+                        casequest_id: 'number (optional) - ID case quest jika tersedia',
+                    },
                 },
-            },
-        })
+            })
+        }
+
+        try {
+            // 1. Ambil data response, pasien, dan kasus berdasarkan response_id
+            const trxResponse = await Database.query()
+                .select([
+                    'a.response_id',
+                    'a.response_case_id',
+                    'a.response_patient_id',
+                    'p.patient_id',
+                    'p.patient_name',
+                    'p.patient_gender',
+                    'p.patient_birthdate',
+                    'c.case_name',
+                ])
+                .from('trx_response as a')
+                .leftJoin('data_patient as p', 'p.patient_id', 'a.response_patient_id')
+                .leftJoin('data_case as c', 'c.case_id', 'a.response_case_id')
+                .where('a.response_id', responseId)
+                .first()
+
+            if (!trxResponse) {
+                return response.status(404).send({
+                    status: false,
+                    message: `Data response dengan response_id ${responseId} tidak ditemukan.`,
+                })
+            }
+
+            // 2. Olah data pasien
+            const age = this.calculateAge(trxResponse.patient_birthdate)
+            const genderInfo = this.formatGender(trxResponse.patient_gender)
+
+            // 3. Ambil semua riwayat percakapan berdasarkan response_id, urut dari yang terlama
+            const chatHistory = await Database.query()
+                .select([
+                    'responseia_id',
+                    'responseia_sender',
+                    'responseia_text',
+                    'responseia_casequest_id',
+                    'insert_timestamp',
+                ])
+                .from('trx_response_ia')
+                .where('responseia_response_id', responseId)
+                .orderBy('responseia_id', 'asc')
+
+            // 4. Format percakapan ke dalam array yang mudah dibaca
+            const patientLabel = trxResponse.patient_name
+                ? `${genderInfo.honorific}. ${trxResponse.patient_name}${age !== null ? ` (${age} tahun)` : ''}`
+                : 'Pasien'
+
+            const conversation = chatHistory.map((chat) => {
+                const isPatient = chat.responseia_sender === 2
+                const sender = isPatient ? patientLabel : 'Anda (Bidan)'
+                return {
+                    responseia_id: chat.responseia_id,
+                    sender: sender,
+                    sender_type: isPatient ? 'patient' : 'bidan',
+                    message: chat.responseia_text,
+                    casequest_id: chat.responseia_casequest_id,
+                    insert_timestamp: chat.insert_timestamp,
+                    // Format teks tampilan: "Pengirim pesan"
+                    display: `${sender} ${chat.responseia_text}`,
+                }
+            })
+
+            return response.send({
+                status: true,
+                message: 'Berhasil mengambil riwayat percakapan',
+                data: {
+                    response_id: trxResponse.response_id,
+                    patient: {
+                        patient_id: trxResponse.patient_id,
+                        patient_name: trxResponse.patient_name,
+                        patient_gender: trxResponse.patient_gender,
+                        patient_gender_text: genderInfo.label,
+                        patient_honorific: genderInfo.honorific,
+                        patient_age: age,
+                        patient_label: patientLabel,
+                    },
+                    case_name: trxResponse.case_name || null,
+                    total_messages: conversation.length,
+                    conversation: conversation,
+                },
+            })
+        } catch (error: any) {
+            return response.badRequest({
+                status: false,
+                message: error.message || 'Gagal mengambil riwayat percakapan',
+            })
+        }
     }
 
     /**
@@ -197,17 +292,17 @@ export default class IaController {
                     if (defaultQuest) {
                         casequestId = defaultQuest.casequest_id
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
 
             // Simpan pertanyaan dari peserta ke tabel trx_response_ia (sender = 2: peserta)
-            await this.saveChatHistory(responseId, casequestId, 2, messageText)
+            const userChatId = await this.saveChatHistory(responseId, casequestId, 2, messageText)
 
             // 4. Jika keyword ditemukan pada data_case_quest_ia, langsung kembalikan value dari casequestia_score_correct
             if (matchedQuestIa) {
                 const scoreValue =
                     matchedQuestIa.casequestia_score_correct !== undefined &&
-                    matchedQuestIa.casequestia_score_correct !== null
+                        matchedQuestIa.casequestia_score_correct !== null
                         ? matchedQuestIa.casequestia_score_correct
                         : matchedQuestIa.casequestia_scorer ?? 0
 
@@ -261,6 +356,33 @@ export default class IaController {
                 body.system_instruction || request.input('system_instruction')
             )
 
+            // Insert ke tabel trx_response_req sebelum melakukan request ke Gemini
+            const provideId =
+                body.responsereq_provide_id ||
+                body.provide_id ||
+                request.input('provide_id') ||
+                1
+
+            const responseReqId = await this.saveResponseReq({
+                responsereq_responseia_id:
+                    body.responsereq_responseia_id ||
+                    body.responseia_id ||
+                    userChatId ||
+                    null,
+                responsereq_provide_id: provideId,
+                responsereq_prompt: body.responsereq_prompt || messageText,
+                responsereq_response: body.responsereq_response || null,
+                responsereq_answer_id:
+                    body.responsereq_answer_id ||
+                    body.answer_id ||
+                    casequestId ||
+                    null,
+                responsereq_confidence:
+                    body.responsereq_confidence ||
+                    body.confidence ||
+                    null,
+            })
+
             const aiAnswer = await geminiService.generateContent({
                 prompt: messageText,
                 systemInstruction: systemInstruction,
@@ -268,6 +390,9 @@ export default class IaController {
                 maxOutputTokens: body.max_tokens ?? request.input('max_tokens') ?? 500,
                 model: body.model ?? request.input('model'),
             })
+
+            // Update responsereq_response di trx_response_req setelah response didapatkan
+            await this.updateResponseReq(responseReqId, aiAnswer)
 
             // Simpan jawaban AI ke tabel trx_response_ia (sender = 1: response AI)
             await this.saveChatHistory(responseId, casequestId, 1, aiAnswer)
@@ -293,6 +418,7 @@ export default class IaController {
                     message: messageText,
                     answer: aiAnswer,
                     source: 'gemini_ai',
+                    responsereq_id: responseReqId,
                 },
             })
         } catch (error: any) {
@@ -322,16 +448,68 @@ export default class IaController {
         casequestId: string | number | null | undefined,
         sender: number,
         text: string
-    ): Promise<void> {
+    ): Promise<number | string | null> {
         try {
-            await Database.table('trx_response_ia').insert({
+            const now = moment().format('YYYY-MM-DD HH:mm:ss')
+            const result = await Database.table('trx_response_ia').insert({
                 responseia_response_id: responseId,
                 responseia_casequest_id: casequestId || null,
                 responseia_sender: sender,
                 responseia_text: text,
+                insert_timestamp: now,
             })
+            const insertedId = Array.isArray(result) ? result[0] : result
+            return insertedId || null
         } catch (err: any) {
             console.warn('[IaController] Failed to save chat to trx_response_ia:', err.message)
+            return null
+        }
+    }
+
+    /**
+     * Simpan data request ke tabel trx_response_req sebelum memanggil Gemini AI
+     */
+    private async saveResponseReq(data: {
+        responsereq_responseia_id?: string | number | null
+        responsereq_provide_id?: string | number | null
+        responsereq_prompt: string
+        responsereq_response?: string | null
+        responsereq_answer_id?: string | number | null
+        responsereq_confidence?: string | number | null
+    }): Promise<number | string | null> {
+        try {
+            const result = await Database.table('trx_response_req').insert({
+                responsereq_responseia_id: data.responsereq_responseia_id || null,
+                responsereq_provide_id: data.responsereq_provide_id || 1,
+                responsereq_prompt: data.responsereq_prompt,
+                responsereq_response: data.responsereq_response || null,
+                responsereq_answer_id: data.responsereq_answer_id || null,
+                responsereq_confidence: data.responsereq_confidence || null,
+            })
+            const insertedId = Array.isArray(result) ? result[0] : result
+            return insertedId || null
+        } catch (err: any) {
+            console.warn('[IaController] Failed to insert into trx_response_req:', err.message)
+            return null
+        }
+    }
+
+    /**
+     * Update response pada tabel trx_response_req setelah respon dari Gemini didapatkan
+     */
+    private async updateResponseReq(
+        responseReqId: number | string | null,
+        aiResponse: string
+    ): Promise<void> {
+        if (!responseReqId) return
+        try {
+            await Database.from('trx_response_req')
+                .where('responsereq_id', responseReqId)
+                .update({
+                    responsereq_response: aiResponse,
+                })
+        } catch (err: any) {
+            console.warn('[IaController] Failed to update response in trx_response_req:', err.message)
         }
     }
 
