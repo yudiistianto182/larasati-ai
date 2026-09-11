@@ -68,6 +68,7 @@ export default class TrxResponseRepository {
             'e.patient_birthdate',
             'e.patient_photo',
             'e.patient_photo_path',
+            'e.patient_avatar_id',
             'd.case_introduction'
         ];
 

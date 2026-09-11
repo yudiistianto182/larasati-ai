@@ -4,19 +4,25 @@ import Config from '@ioc:Adonis/Core/Config'
 import Env from '@ioc:Adonis/Core/Env'
 
 export interface GenerateContentParams {
-    prompt: string
+    prompt?: string
+    contents?: any
     systemInstruction?: string
     temperature?: number
     maxOutputTokens?: number
+    topP?: number
     model?: string
+    timeout?: number
 }
 
 export interface PatientAnswerParams {
     systemInstruction: string
-    prompt: string
+    prompt?: string
+    contents?: any
     temperature?: number
     maxOutputTokens?: number
+    topP?: number
     model?: string
+    timeout?: number
 }
 
 export default class GeminiService {
@@ -39,13 +45,17 @@ export default class GeminiService {
 
     /**
      * Generate answer simulating a patient based on clinical scenario instructions and doctor/user prompt.
+     * Defaults to generationConfig from documentation: temperature 0.6, maxOutputTokens 65, topP 0.9, timeout 3500ms
      */
     public async generatePatientAnswer(params: PatientAnswerParams): Promise<string> {
         return this.generateContent({
             prompt: params.prompt,
+            contents: params.contents,
             systemInstruction: params.systemInstruction,
-            temperature: params.temperature ?? 0.2,
-            maxOutputTokens: params.maxOutputTokens ?? 300,
+            temperature: params.temperature ?? 0.6,
+            maxOutputTokens: params.maxOutputTokens ?? 150,
+            topP: params.topP ?? 0.9,
+            timeout: params.timeout ?? 3500,
             model: params.model,
         })
     }
@@ -62,18 +72,35 @@ export default class GeminiService {
         ]
 
         let lastError: any = null
+        const timeoutMs = params.timeout ?? 10000
 
         for (const modelName of candidateModels) {
             try {
-                const response = await this.client.models.generateContent({
+                const contentsPayload = params.contents || params.prompt || ''
+
+                const config: any = {
+                    systemInstruction: params.systemInstruction,
+                    temperature: params.temperature ?? 0.6,
+                    maxOutputTokens: params.maxOutputTokens ?? 1000,
+                    topP: params.topP ?? 0.9,
+                }
+
+                const apiCall = this.client.models.generateContent({
                     model: modelName,
-                    contents: params.prompt,
-                    config: {
-                        systemInstruction: params.systemInstruction,
-                        temperature: params.temperature ?? 0.7,
-                        maxOutputTokens: params.maxOutputTokens ?? 1000,
-                    },
+                    contents: contentsPayload,
+                    config: config,
                 })
+
+                // Wrap with timeout race
+                let timer: any = null
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timer = setTimeout(() => {
+                        reject(new Error(`Gemini API call timed out after ${timeoutMs}ms`))
+                    }, timeoutMs)
+                })
+
+                const response: any = await Promise.race([apiCall, timeoutPromise])
+                if (timer) clearTimeout(timer)
 
                 return response.text?.trim() ?? ''
             } catch (error: any) {
@@ -86,10 +113,11 @@ export default class GeminiService {
                     errorStr.includes('429') ||
                     errorStr.includes('RESOURCE_EXHAUSTED') ||
                     errorStr.includes('404') ||
+                    errorStr.includes('timed out') ||
                     errorStr.includes('no longer available')
 
                 if (isRetryable) {
-                    console.warn(`[GeminiService] Model ${modelName} unavailable, attempting fallback to next model...`)
+                    console.warn(`[GeminiService] Model ${modelName} unavailable (${errorStr.slice(0, 100)}), attempting fallback to next model...`)
                     continue
                 }
 

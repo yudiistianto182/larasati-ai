@@ -136,7 +136,8 @@ export default class DataCaseController {
                     case_name: post.name,
                     case_desc: post.desc,
                     case_introduction: post.introduction,
-                    insert_user_id: request.
+                    insert_user_id: await request.auth.user_id,
+                    insert_timestamp: date.format(new Date(), 'YYYY-MM-DD HH:mm:ss')
                 }
                 let case_id = await trx
                     .insertQuery()
@@ -163,10 +164,73 @@ export default class DataCaseController {
                         casequest_limit_time: post.quest[index].limit_time,
                         casequest_order: post.quest[index].order
                     }
-                    await trx
+                    let casequest_id = await trx
                         .insertQuery()
                         .table('data_case_quest')
                         .insert(data_insert_quest);
+
+                    switch (post.quest[index].method_id) {
+                        case '1':
+                            let data_insert_ia = {
+                                casequestia_casequest_id: casequest_id[0],
+                                casequestia_personality: post.quest[index].personality
+                            }
+                            await trx
+                                .insertQuery()
+                                .table('data_case_quest_ia')
+                                .insert(data_insert_ia);
+
+                            for (let index2 = 0; index2 < post.quest[index].trigger.length; index2++) {
+                                const element2 = post.quest[index].trigger[index2];
+                                let data_insert_trigger = {
+                                    casequestiatrigger_casequest_id: casequest_id[0],
+                                    casequestiatrigger_name: element2.name,
+                                    casequestiatrigger_key: element2.key,
+                                    casequestiatrigger_response: element2.response,
+                                    casequestiatrigger_score: element2.score
+                                }
+                                await trx
+                                    .insertQuery()
+                                    .table('data_case_quest_ia_trigger')
+                                    .insert(data_insert_trigger);
+                            }
+                            break;
+
+                        case '2':
+                            for (let index2 = 0; index2 < post.quest[index].mc.length; index2++) {
+                                const element2 = post.quest[index].mc[index2];
+                                let data_insert_mc = {
+                                    casequestmc_casequest_id: casequest_id[0],
+                                    casequestmc_name: element2.name,
+                                    casequestmc_score: element2.score,
+                                    casequestmc_required_id: element2.required_id
+                                }
+                                await trx
+                                    .insertQuery()
+                                    .table('data_case_quest_mc')
+                                    .insert(data_insert_mc);
+                            }
+                            break;
+
+
+                        case '3':
+                            for (let index2 = 0; index2 < post.quest[index].os.length; index2++) {
+                                const element2 = post.quest[index].os[index2];
+                                let data_insert_os = {
+                                    casequestos_casequest_id: casequest_id[0],
+                                    casequestos_name: element2.name,
+                                    casequestos_order: element2.order,
+                                    casequestos_score: element2.score
+                                }
+                                await trx
+                                    .insertQuery()
+                                    .table('data_case_quest_os')
+                                    .insert(data_insert_os);
+                            }
+                            break;
+                        default:
+                            break;
+                    }
                 }
 
                 for (let index = 0; index < post.patient.length; index++) {

@@ -8,7 +8,7 @@ const General = new GeneralRepository()
 const DataPatient = new DataPatientRepository()
 
 export default class DataPatientController {
-    public async index({request, response}) {
+    public async index({ request, response }) {
         let data: Array<string> = [];
         let result: object = {};
         let where: object = {};
@@ -16,37 +16,37 @@ export default class DataPatientController {
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_patient', 'patient_id', 'patient_name', where);
         } else {
-            data = await DataPatient.getAll({request});
+            data = await DataPatient.getAll({ request });
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
-                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * ( data.currentPage - 1 )) + index + 1;
+                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
                     // data.rows[index].patient_birthdate_text = date.format(new Date(data.rows[index].patient_birthdate), 'YYYY-MM-DD');
                 }
             } else {
                 for (let index = 0; index < data.length; index++) {
                     // data[index].patient_birthdate_text = date.format(new Date(data[index].patient_birthdate), 'YYYY-MM-DD');
-                }   
+                }
             }
         }
 
         if (typeof data.length != 'undefined' || data.data[0]) {
             result = {
-                status : true,
-                message : 'Success',
-                data : data
+                status: true,
+                message: 'Success',
+                data: data
             }
             response.send(result);
         } else {
             result = {
-                status : false,
-                message : 'Data not found !',
-                data : data
+                status: false,
+                message: 'Data not found !',
+                data: data
             }
             response.status(404).send(result);
         }
     }
 
-    public async detail ({request, params, response}) {
+    public async detail({ request, params, response }) {
         let result: object = {};
 
         let where = { patient_id: params.id };
@@ -56,21 +56,21 @@ export default class DataPatientController {
             let where_patient_attribute = { patientattribute_patient_id: params.id };
             data.attribute = await General.getWhereObject('data_patient_attribute', where_patient_attribute);
             result = {
-                'status' 	: true,
-                'message'   : 'Success',
-                'data'		: data
+                'status': true,
+                'message': 'Success',
+                'data': data
             }
             response.send(result);
         } else {
             result = {
-                'status' 	: false,
-                'message'   : 'Data not found !'
+                'status': false,
+                'message': 'Data not found !'
             }
             response.status(404).send(result);
         }
     }
 
-    public async store ({request, response}) {
+    public async store({ request, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -81,6 +81,9 @@ export default class DataPatientController {
                 rules.minLength(1)
             ]),
             gender: schema.string([
+                rules.minLength(1)
+            ]),
+            avatar_id: schema.string([
                 rules.minLength(1)
             ]),
             attribute: schema.array().members(
@@ -94,7 +97,7 @@ export default class DataPatientController {
                 })
             )
         });
-        
+
         try {
             await request.validate({ schema: validationSchema });
 
@@ -105,12 +108,12 @@ export default class DataPatientController {
                     patient_name: post.name,
                     patient_birthdate: post.birthdate,
                     patient_gender: post.gender,
-                    patient_birthdate: post.birthdate
+                    patient_avatar_id: post.avatar_id
                 }
                 let contest_id = await trx
-                                    .insertQuery()
-                                    .table('data_patient')
-                                    .insert(data_insert);
+                    .insertQuery()
+                    .table('data_patient')
+                    .insert(data_insert);
 
                 for (let index = 0; index < post.attribute.length; index++) {
                     let data_insert_attribute = {
@@ -122,8 +125,8 @@ export default class DataPatientController {
                         .insertQuery()
                         .table('data_patient_attribute')
                         .insert(data_insert_attribute);
-                }   
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -132,8 +135,8 @@ export default class DataPatientController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -147,7 +150,7 @@ export default class DataPatientController {
         }
     }
 
-    public async update ({request, params, response}) {
+    public async update({ request, params, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -158,6 +161,9 @@ export default class DataPatientController {
                 rules.minLength(1)
             ]),
             gender: schema.string([
+                rules.minLength(1)
+            ]),
+            avatar_id: schema.string([
                 rules.minLength(1)
             ]),
             attribute: schema.array().members(
@@ -176,14 +182,15 @@ export default class DataPatientController {
             await request.validate({ schema: validationSchema });
 
             let post = request.body();
-                   
+
             const trx = await Database.transaction();
             try {
                 let where_update = { patient_id: params.id }
-                let data_update = {
+                let data_update: Record<string, any> = {
                     patient_name: post.name,
                     patient_birthdate: post.birthdate,
-                    patient_gender: post.gender
+                    patient_gender: post.gender,
+                    patient_avatar_id: post.avatar_id
                 }
                 await trx
                     .from('data_patient')
@@ -206,8 +213,8 @@ export default class DataPatientController {
                         .insertQuery()
                         .table('data_patient_attribute')
                         .insert(data_insert_attribute);
-                }  
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -216,8 +223,8 @@ export default class DataPatientController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -228,12 +235,12 @@ export default class DataPatientController {
                 message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
             }
             response.badRequest(result);
-        } 
+        }
     }
 
-    public async destroy ({request, params, response}) {
+    public async destroy({ request, params, response }) {
         let result: object = {};
-                 
+
         const trx = await Database.transaction();
         try {
             let where_update = { patient_id: params.id }
@@ -242,7 +249,7 @@ export default class DataPatientController {
                 .from('data_patient')
                 .where(where_update)
                 .update(data_update);
-                
+
             result = {
                 status: true,
                 message: 'Success !'
@@ -251,11 +258,11 @@ export default class DataPatientController {
             await trx.commit();
         } catch (error) {
             result = {
-                status : false,
-                message : error.sqlMessage
+                status: false,
+                message: error.sqlMessage
             }
             response.badRequest(result);
             await trx.rollback();
-        } 
+        }
     }
 }
