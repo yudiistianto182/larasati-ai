@@ -77,6 +77,23 @@ Route.post('/v1/trx_response', 'v1/bo/TrxResponseController.store').middleware('
 Route.put('/v1/trx_response/:id', 'v1/bo/TrxResponseController.update').middleware(['jwtauth']);
 Route.delete('/v1/trx_response/:id', 'v1/bo/TrxResponseController.destroy').middleware(['jwtauth']);
 
+// -----------------------------------------------------------------------
+// Jawaban Respondent Per-Pos
+// -----------------------------------------------------------------------
+// PENTING: POST routes statis harus di atas GET /:id (parameterized)
+// agar AdonisJS tidak salah routing ke detail handler
+// POST /v1/trx_response_answer/mc     — Pos 2: Multiple Choice
+// POST /v1/trx_response_answer/os     — Pos 3: Ordering
+// POST /v1/trx_response_answer/ci     — Pos 4: Image Choice
+// POST /v1/trx_response_answer/submit — Submit final & hitung skor
+// GET  /v1/trx_response_answer/:id    — Semua jawaban per response_id
+Route.post('/v1/trx_response_answer', 'v1/bo/TrxResponseAnswerController.store').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/mc', 'v1/bo/TrxResponseAnswerController.storeMc').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/os', 'v1/bo/TrxResponseAnswerController.storeOs').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/ci', 'v1/bo/TrxResponseAnswerController.storeCi').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/submit', 'v1/bo/TrxResponseAnswerController.submit').middleware('jwtauth');
+Route.get('/v1/trx_response_answer/:id', 'v1/bo/TrxResponseAnswerController.detail').middleware('jwtauth');
+
 Route.get('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.detail').middleware('jwtauth');
 Route.post('/v1/data_case_quest', 'v1/bo/DataCaseQuestController.store').middleware('jwtauth');
 Route.put('/v1/data_case_quest/:id', 'v1/bo/DataCaseQuestController.update').middleware(['jwtauth']);
