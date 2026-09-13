@@ -49,26 +49,96 @@ export default class DataPatientController {
     public async detail({ request, params, response }) {
         let result: object = {};
 
-        let where = { patient_id: params.id };
-        let data = await General.getWhereRowObject('data_patient', where);
+        let where = { case_id: params.id };
+        let data = await General.getWhereRowObject('data_case', where);
         if (data) {
-            data.patient_birthdate_text = date.format(new Date(data.patient_birthdate), 'YYYY-MM-DD');
-            let where_patient_attribute = { patientattribute_patient_id: params.id };
-            data.attribute = await General.getWhereObject('data_patient_attribute', where_patient_attribute);
+            if (data.insert_timestamp) {
+                try {
+                    data.insert_timestamp_text = date.format(new Date(data.insert_timestamp), 'YYYY-MM-DD HH:mm:ss');
+                } catch (e) {
+                    data.insert_timestamp_text = data.insert_timestamp;
+                }
+            }
+
+            // 1. Data Attribute Kasus
+            data.attribute = await General.getWhereObject('data_case_attribute', { caseattribute_case_id: params.id });
+
+            // 2. Data Quest (Pos Soal 1 s/d 4) beserta detail sub-tabelnya
+            let quests = await Database.query()
+                .from('data_case_quest')
+                .where('casequest_case_id', params.id)
+                .orderBy('casequest_order', 'asc');
+
+            for (let index = 0; index < quests.length; index++) {
+                const quest = quests[index];
+                let where_method = { method_id: quest.casequest_method_id };
+                let method = await General.getWhereRowObject('ref_method', where_method);
+                quest.method_name = method ? method.method_name : null;
+
+                switch (String(quest.casequest_method_id)) {
+                    case '1': { // Pos 1: IA (Intelligent Assistant)
+                        const ia = await General.getWhereRowObject('data_case_quest_ia', { casequestia_casequest_id: quest.casequest_id });
+                        quest.personality = ia ? ia.casequestia_personality : null;
+                        quest.trigger = await General.getWhereObject('data_case_quest_ia_trigger', { casequestiatrigger_casequest_id: quest.casequest_id });
+                        break;
+                    }
+                    case '2': { // Pos 2: MC (Multiple Choice)
+                        quest.mc = await General.getWhereObject('data_case_quest_mc', { casequestmc_casequest_id: quest.casequest_id });
+                        break;
+                    }
+                    case '3': { // Pos 3: OS (Ordering Step)
+                        quest.os = await Database.query()
+                            .from('data_case_quest_os')
+                            .where('casequestos_casequest_id', quest.casequest_id)
+                            .orderBy('casequestos_order', 'asc');
+                        break;
+                    }
+                    case '4': { // Pos 4: CI (Clinical Inquiry / Image Choice)
+                        quest.ci = await General.getWhereObject('data_case_quest_ci', { casequestci_casequest_id: quest.casequest_id });
+                        quest.ci_option = await General.getWhereObject('data_case_quest_ci_option', { casequestcioption_casequest_id: quest.casequest_id });
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            }
+            data.quest = quests;
+
+            // 3. Data Pasien beserta atribut & format umur
+            data.patient = await General.getWhereObject('data_case_patient', { casepatient_case_id: params.id });
+            for (let index = 0; index < data.patient.length; index++) {
+                let where_patient = { patient_id: data.patient[index].casepatient_patient_id };
+                let patientData = await General.getWhereRowObject('data_patient', where_patient);
+                if (patientData) {
+                    if (patientData.patient_birthdate) {
+                        try {
+                            patientData.patient_birthdate_text = date.format(new Date(patientData.patient_birthdate), 'YYYY-MM-DD');
+                        } catch (e) {
+                            patientData.patient_birthdate_text = patientData.patient_birthdate;
+                        }
+                        patientData.patient_age = await this.calculateAge(patientData.patient_birthdate);
+                    }
+                    patientData.patient_gender_text = patientData.patient_gender === 'M' ? 'Laki-laki' : 'Perempuan';
+                    patientData.attribute = await General.getWhereObject('data_patient_attribute', { patientattribute_patient_id: patientData.patient_id });
+                    data.patient[index].patient = patientData;
+                }
+            }
+
             result = {
-                'status': true,
-                'message': 'Success',
-                'data': data
+                status: true,
+                message: 'Success',
+                data: data
             }
             response.send(result);
         } else {
             result = {
-                'status': false,
-                'message': 'Data not found !'
+                status: false,
+                message: 'Data not found !'
             }
             response.status(404).send(result);
         }
     }
+
 
     public async store({ request, response }) {
         let result: object = {};

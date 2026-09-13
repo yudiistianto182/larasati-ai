@@ -54,4 +54,17 @@ export default class TrxResponseAnswerRepository {
 
         return await query;
     }
+
+    async getQuestRecord(id) {
+        let column = [
+            'a.*'
+        ];
+
+        let query = Database.query()
+            .select(column)
+            .from('data_case_quest_record as a')
+            .where('a.casequestrecord_casequest_id', id)
+
+        return await query;
+    }
 }

@@ -101,8 +101,8 @@ export default class TrxResponseController {
             const trx = await Database.transaction();
             try {
                 let data_insert = {
-                    response_contest_id: post.response_contest_id,
-                    response_contestteam_id: post.response_contestteam_id,
+                    response_contest_id: post.contest_id,
+                    response_contestteam_id: post.contestteam_id,
                     response_case_id: post.case_id,
                     response_patient_id: post.patient_id
                 }
@@ -191,6 +191,33 @@ export default class TrxResponseController {
                 message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
             }
             response.badRequest(result);
+        }
+    }
+
+    public async destroy({ request, params, response }) {
+        let result: object = {};
+
+        const trx = await Database.transaction();
+        try {
+            let where = { response_id: params.id };
+            await trx
+                .from('trx_response')
+                .where(where)
+                .delete();
+
+            result = {
+                status: true,
+                message: 'Success !'
+            }
+            response.send(result);
+            await trx.commit();
+        } catch (error) {
+            result = {
+                status: false,
+                message: error.detail
+            }
+            response.badRequest(result);
+            await trx.rollback();
         }
     }
 

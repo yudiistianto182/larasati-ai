@@ -8,7 +8,7 @@ const General = new GeneralRepository()
 const DataContestTeam = new DataContestTeamRepository()
 
 export default class DataContestTeamController {
-    public async index({request, response}) {
+    public async index({ request, response }) {
         let data: Array<string> = [];
         let result: object = {};
         let where: object = {};
@@ -16,35 +16,35 @@ export default class DataContestTeamController {
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_contest_team', 'contestteam_id', 'contestteam_name', where);
         } else {
-            data = await DataContestTeam.getAll({request});
+            data = await DataContestTeam.getAll({ request });
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
-                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * ( data.currentPage - 1 )) + index + 1;
+                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
                 }
             } else {
                 for (let index = 0; index < data.length; index++) {
-                }   
+                }
             }
         }
 
         if (typeof data.length != 'undefined' || data.data[0]) {
             result = {
-                status : true,
-                message : 'Success',
-                data : data
+                status: true,
+                message: 'Success',
+                data: data
             }
             response.send(result);
         } else {
             result = {
-                status : false,
-                message : 'Data not found !',
-                data : data
+                status: false,
+                message: 'Data not found !',
+                data: data
             }
             response.status(404).send(result);
         }
     }
 
-    public async detail ({request, params, response}) {
+    public async detail({ request, params, response }) {
         let result: object = {};
 
         let where = { contestteam_id: params.id };
@@ -52,21 +52,21 @@ export default class DataContestTeamController {
         if (data) {
             data.member = await DataContestTeam.getTeamMember(params.id);
             result = {
-                'status' 	: true,
-                'message'   : 'Success',
-                'data'		: data
+                'status': true,
+                'message': 'Success',
+                'data': data
             }
             response.send(result);
         } else {
             result = {
-                'status' 	: false,
-                'message'   : 'Data not found !'
+                'status': false,
+                'message': 'Data not found !'
             }
             response.status(404).send(result);
         }
     }
 
-    public async store ({request, response}) {
+    public async store({ request, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -80,7 +80,6 @@ export default class DataContestTeamController {
                 schema.object().members({
                     user_id: schema.string([
                         rules.minLength(1),
-                        rules.maxLength(1),
                         rules.exists({ table: 'sys_user', column: 'user_id' })
                     ]),
                     is_leader: schema.string([
@@ -90,7 +89,7 @@ export default class DataContestTeamController {
                 })
             )
         });
-        
+
         try {
             await request.validate({ schema: validationSchema });
 
@@ -101,15 +100,18 @@ export default class DataContestTeamController {
                     contestteam_name: post.name,
                     contestteam_contest_id: post.contest_id
                 }
-                let contestteam_id = await trx
+                let insertResult = await trx
                     .insertQuery()
                     .table('data_contest_team')
-                    .insert(data_insert)
-                    .returning(['contestteam_id']);
+                    .insert(data_insert);
+
+                let teamId = Array.isArray(insertResult)
+                    ? (typeof insertResult[0] === 'object' && insertResult[0] !== null ? (insertResult[0].contestteam_id || Object.values(insertResult[0])[0]) : insertResult[0])
+                    : insertResult;
 
                 for (let index = 0; index < post.member.length; index++) {
                     let data_insert_member = {
-                        contestteammember_contestteam_id: contestteam_id[0],
+                        contestteammember_contestteam_id: teamId,
                         contestteammember_user_id: post.member[index].user_id,
                         contestteammember_is_leader: post.member[index].is_leader
                     }
@@ -117,8 +119,8 @@ export default class DataContestTeamController {
                         .insertQuery()
                         .table('data_contest_team_member')
                         .insert(data_insert_member);
-                }   
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -128,8 +130,8 @@ export default class DataContestTeamController {
             } catch (error) {
                 console.log(error);
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage || error.message
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -143,7 +145,7 @@ export default class DataContestTeamController {
         }
     }
 
-    public async update ({request, params, response}) {
+    public async update({ request, params, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -157,7 +159,6 @@ export default class DataContestTeamController {
                 schema.object().members({
                     user_id: schema.string([
                         rules.minLength(1),
-                        rules.maxLength(1),
                         rules.exists({ table: 'sys_user', column: 'user_id' })
                     ]),
                     is_leader: schema.string([
@@ -172,7 +173,7 @@ export default class DataContestTeamController {
             await request.validate({ schema: validationSchema });
 
             let post = request.body();
-                   
+
             const trx = await Database.transaction();
             try {
                 let where_update = { contestteam_id: params.id }
@@ -185,12 +186,13 @@ export default class DataContestTeamController {
                     .where(where_update)
                     .update(data_update);
 
+
                 let where_member = { contestteammember_contestteam_id: params.id };
                 await trx
                     .from('data_contest_team_member')
                     .where(where_member)
                     .delete();
-                    
+
                 for (let index = 0; index < post.member.length; index++) {
                     let data_insert_member = {
                         contestteammember_contestteam_id: params.id,
@@ -201,7 +203,7 @@ export default class DataContestTeamController {
                         .insertQuery()
                         .table('data_contest_team_member')
                         .insert(data_insert_member);
-                }   
+                }
 
                 result = {
                     status: true,
@@ -211,8 +213,8 @@ export default class DataContestTeamController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -223,12 +225,12 @@ export default class DataContestTeamController {
                 message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
             }
             response.badRequest(result);
-        } 
+        }
     }
 
-    public async destroy ({request, params, response}) {
+    public async destroy({ request, params, response }) {
         let result: object = {};
-        
+
         const trx = await Database.transaction();
         try {
             let where_member = { contestteammember_contestteam_id: params.id };
@@ -251,8 +253,8 @@ export default class DataContestTeamController {
             await trx.commit();
         } catch (error) {
             result = {
-                status : false,
-                message : error.sqlMessage
+                status: false,
+                message: error.sqlMessage
             }
             response.badRequest(result);
             await trx.rollback();
