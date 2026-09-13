@@ -77,6 +77,8 @@ Route.post('/v1/trx_response', 'v1/bo/TrxResponseController.store').middleware('
 Route.put('/v1/trx_response/:id', 'v1/bo/TrxResponseController.update').middleware(['jwtauth']);
 Route.delete('/v1/trx_response/:id', 'v1/bo/TrxResponseController.destroy').middleware(['jwtauth']);
 
+Route.get('/v1/api_health', 'v1/bo/ApiHealthController.index')
+
 // -----------------------------------------------------------------------
 // Jawaban Respondent Per-Pos
 // -----------------------------------------------------------------------
