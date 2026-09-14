@@ -84,12 +84,16 @@ Route.get('/v1/api_health', 'v1/bo/ApiHealthController.index')
 // -----------------------------------------------------------------------
 // PENTING: POST routes statis harus di atas GET /:id (parameterized)
 // agar AdonisJS tidak salah routing ke detail handler
+// POST /v1/trx_response_answer/ia     — Pos 1: IA Chat & Triggers
+// POST /v1/trx_response_answer/chat   — Pos 1: Simpan 1 baris chat
 // POST /v1/trx_response_answer/mc     — Pos 2: Multiple Choice
 // POST /v1/trx_response_answer/os     — Pos 3: Ordering
 // POST /v1/trx_response_answer/ci     — Pos 4: Image Choice
 // POST /v1/trx_response_answer/submit — Submit final & hitung skor
 // GET  /v1/trx_response_answer/:id    — Semua jawaban per response_id
 Route.post('/v1/trx_response_answer', 'v1/bo/TrxResponseAnswerController.store').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/ia', 'v1/bo/TrxResponseAnswerController.storeIa').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/chat', 'v1/bo/TrxResponseAnswerController.storeChat').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/mc', 'v1/bo/TrxResponseAnswerController.storeMc').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/os', 'v1/bo/TrxResponseAnswerController.storeOs').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/ci', 'v1/bo/TrxResponseAnswerController.storeCi').middleware('jwtauth');

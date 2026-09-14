@@ -79,6 +79,8 @@ export default class DataPatientController {
                     case '1': { // Pos 1: IA (Intelligent Assistant)
                         const ia = await General.getWhereRowObject('data_case_quest_ia', { casequestia_casequest_id: quest.casequest_id });
                         quest.personality = ia ? ia.casequestia_personality : null;
+                        quest.initmsg = ia ? ia.casequestia_initmsg : null;
+                        quest.casequestia_initmsg = ia ? ia.casequestia_initmsg : null;
                         quest.trigger = await General.getWhereObject('data_case_quest_ia_trigger', { casequestiatrigger_casequest_id: quest.casequest_id });
                         break;
                     }

@@ -9,15 +9,14 @@ export default class TrxResponseAnswerRepository {
             .select([
                 'a.*',
                 'b.casequestmc_name',
-                'b.casequestmc_score_correct',
-                'b.casequestmc_score_incorrect',
+                'b.casequestmc_score',
             ])
-            .from('trx_response_answer_mc as a')
-            .leftJoin('data_case_quest_mc as b', 'b.casequestmc_id', 'a.responseanswermc_casequestmc_id')
-            .where('a.responseanswermc_response_id', response_id)
+            .from('trx_response_mc as a')
+            .leftJoin('data_case_quest_mc as b', 'b.casequestmc_id', 'a.responsemc_casequestmc_id')
+            .where('a.responsemc_response_id', response_id)
 
         if (casequest_id) {
-            query = query.where('a.responseanswermc_casequest_id', casequest_id)
+            query = query.where('a.responsemc_casequest_id', casequest_id)
         }
 
         return await query
@@ -32,15 +31,14 @@ export default class TrxResponseAnswerRepository {
                 'a.*',
                 'b.casequestos_name',
                 'b.casequestos_order',
-                'b.casequestos_score_correct',
-                'b.casequestos_score_incorrect',
+                'b.casequestos_score',
             ])
-            .from('trx_response_answer_os as a')
-            .leftJoin('data_case_quest_os as b', 'b.casequestos_id', 'a.responseansweros_casequestos_id')
-            .where('a.responseansweros_response_id', response_id)
+            .from('trx_response_os as a')
+            .leftJoin('data_case_quest_os as b', 'b.casequestos_id', 'a.responseos_casequestos_id')
+            .where('a.responseos_response_id', response_id)
 
         if (casequest_id) {
-            query = query.where('a.responseansweros_casequest_id', casequest_id)
+            query = query.where('a.responseos_casequest_id', casequest_id)
         }
 
         return await query
@@ -53,33 +51,16 @@ export default class TrxResponseAnswerRepository {
         let query = Database.query()
             .select([
                 'a.*',
-                'b.casequestci_name',
-                'b.casequestci_image',
-                'b.casequestci_score_correct',
+                'b.casequestcioption_code',
+                'b.casequestcioption_name',
+                'b.casequestcioption_score',
             ])
-            .from('trx_response_answer as a')
-            .leftJoin('data_case_quest_ci as b', 'b.casequestci_id', 'a.responseanswer_casequest_id')
-            .where('a.responseanswer_response_id', response_id)
+            .from('trx_response_ci as a')
+            .leftJoin('data_case_quest_ci_option as b', 'b.casequestcioption_id', 'a.responseci_casequestcioption_id')
+            .where('a.responseci_response_id', response_id)
 
         if (casequest_id) {
-            query = query.where('a.responseanswer_casequest_id', casequest_id)
-        }
-
-        return await query
-    }
-
-    /**
-     * Ambil semua jawaban general (trx_response_answer) per response_id
-     */
-    async getAnswerGeneral(response_id: number | string, casequest_id?: number | string) {
-        let query = Database.query()
-            .select(['a.*', 'b.casequest_name', 'b.casequest_method_id', 'b.casequest_order'])
-            .from('trx_response_answer as a')
-            .leftJoin('data_case_quest as b', 'b.casequest_id', 'a.responseanswer_casequest_id')
-            .where('a.responseanswer_response_id', response_id)
-
-        if (casequest_id) {
-            query = query.where('a.responseanswer_casequest_id', casequest_id)
+            query = query.where('a.responseci_casequest_id', casequest_id)
         }
 
         return await query
@@ -89,45 +70,41 @@ export default class TrxResponseAnswerRepository {
      * Hitung total skor dari semua pos untuk sebuah response_id
      */
     async getTotalScore(response_id: number | string) {
-        // Skor dari MC
+        const iaScore = await Database.query()
+            .from('trx_response_ia_trigger')
+            .where('responseiatrigger_response_id', response_id)
+            .sum('responseiatrigger_score as total')
+            .first()
+
         const mcScore = await Database.query()
-            .from('trx_response_answer_mc')
-            .where('responseanswermc_response_id', response_id)
-            .sum('responseanswermс_score as total')
+            .from('trx_response_mc')
+            .where('responsemc_response_id', response_id)
+            .sum('responsemc_score as total')
             .first()
 
-        // Skor dari OSresponseanswermс_response_id
         const osScore = await Database.query()
-            .from('trx_response_answer_os')
-            .where('responseansweros_response_id', response_id)
-            .sum('responseansweros_score as total')
+            .from('trx_response_os')
+            .where('responseos_response_id', response_id)
+            .sum('responseos_score as total')
             .first()
 
-        // Skor dari CI (trx_response_answer)
         const ciScore = await Database.query()
-            .from('trx_response_answer')
-            .where('responseanswer_response_id', response_id)
-            .sum('responseanswer_score as total')
+            .from('trx_response_ci')
+            .where('responseci_response_id', response_id)
+            .sum('responseci_score as total')
             .first()
+
+        const ia = Number(iaScore?.total || 0)
+        const mc = Number(mcScore?.total || 0)
+        const os = Number(osScore?.total || 0)
+        const ci = Number(ciScore?.total || 0)
 
         return {
-            mc: Number(mcScore?.total || 0),
-            os: Number(osScore?.total || 0),
-            ci: Number(ciScore?.total || 0),
-            total: Number(mcScore?.total || 0) + Number(osScore?.total || 0) + Number(ciScore?.total || 0),
+            ia,
+            mc,
+            os,
+            ci,
+            total: ia + mc + os + ci,
         }
-    }
-
-    /**
-     * @deprecated - Gunakan method spesifik per tipe pos
-     */
-    async getDetail(id) {
-        let column = ['a.*', 'b.*']
-        let query = Database.query()
-            .select(column)
-            .from('trx_response_answer as a')
-            .leftJoin('data_case_quest as b', 'b.casequest_id', 'a.responseanswer_casequest_id')
-            .where('a.responseanswer_id', id)
-        return await query
     }
 }
