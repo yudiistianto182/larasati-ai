@@ -76,7 +76,7 @@ export default class DataCaseController {
             introduction: schema.string([
                 rules.minLength(1)
             ]),
-            attribute: schema.array().members(
+            attribute: schema.array.optional().members(
                 schema.object().anyMembers({
                     name: schema.string([
                         rules.minLength(1)
@@ -86,7 +86,7 @@ export default class DataCaseController {
                     ])
                 })
             ),
-            quest: schema.array().members(
+            quest: schema.array.optional().members(
                 schema.object().anyMembers({
                     name: schema.string([
                         rules.minLength(1)
@@ -103,7 +103,7 @@ export default class DataCaseController {
                     ])
                 })
             ),
-            patient: schema.array().members(
+            patient: schema.array.optional().members(
                 schema.object().anyMembers({
                     patient_id: schema.string([
                         rules.minLength(1),
@@ -131,211 +131,81 @@ export default class DataCaseController {
                     .table('data_case')
                     .insert(data_insert);
 
-                for (let index = 0; index < post.attribute.length; index++) {
-                    let data_insert_attribute = {
-                        caseattribute_case_id: case_id[0],
-                        caseattribute_name: post.attribute[index].name,
-                        caseattribute_value: post.attribute[index].value
+                if (post.attribute && Array.isArray(post.attribute)) {
+                    for (let index = 0; index < post.attribute.length; index++) {
+                        let data_insert_attribute = {
+                            caseattribute_case_id: case_id[0],
+                            caseattribute_name: post.attribute[index].name,
+                            caseattribute_value: post.attribute[index].value
+                        }
+                        await trx
+                            .insertQuery()
+                            .table('data_case_attribute')
+                            .insert(data_insert_attribute);
                     }
-                    await trx
-                        .insertQuery()
-                        .table('data_case_attribute')
-                        .insert(data_insert_attribute);
                 }
 
-                for (let index = 0; index < post.quest.length; index++) {
-                    let data_insert_quest = {
-                        casequest_case_id: case_id[0],
-                        casequest_name: post.quest[index].name,
-                        casequest_method_id: post.quest[index].method_id,
-                        casequest_limit_time: post.quest[index].limit_time,
-                        casequest_order: post.quest[index].order
-                    }
-                    let casequest_id = await trx
-                        .insertQuery()
-                        .table('data_case_quest')
-                        .insert(data_insert_quest);
+                if (post.quest && Array.isArray(post.quest)) {
+                    for (let index = 0; index < post.quest.length; index++) {
+                        let data_insert_quest = {
+                            casequest_case_id: case_id[0],
+                            casequest_name: post.quest[index].name,
+                            casequest_method_id: post.quest[index].method_id,
+                            casequest_limit_time: post.quest[index].limit_time,
+                            casequest_order: post.quest[index].order
+                        }
+                        let casequest_id = await trx
+                            .insertQuery()
+                            .table('data_case_quest')
+                            .insert(data_insert_quest);
 
-                    switch (String(post.quest[index].method_id)) {
-                        case '1':
-                            let data_insert_ia = {
-                                casequestia_casequest_id: casequest_id[0],
-                                casequestia_personality: post.quest[index].personality,
-                                casequestia_initmsg: post.quest[index].initmsg ?? post.quest[index].casequestia_initmsg ?? null
-                            }
-                            await trx
-                                .insertQuery()
-                                .table('data_case_quest_ia')
-                                .insert(data_insert_ia);
-
-                            for (let index2 = 0; index2 < post.quest[index].trigger.length; index2++) {
-                                const element2 = post.quest[index].trigger[index2];
-                                let data_insert_trigger = {
-                                    casequestiatrigger_casequest_id: casequest_id[0],
-                                    casequestiatrigger_name: element2.name,
-                                    casequestiatrigger_key: element2.key,
-                                    casequestiatrigger_response: element2.response,
-                                    casequestiatrigger_score: element2.score
+                        switch (String(post.quest[index].method_id)) {
+                            case '1':
+                                let data_insert_ia = {
+                                    casequestia_casequest_id: casequest_id[0],
+                                    casequestia_personality: post.quest[index].personality,
+                                    casequestia_initmsg: post.quest[index].initmsg ?? post.quest[index].casequestia_initmsg ?? null
                                 }
                                 await trx
                                     .insertQuery()
-                                    .table('data_case_quest_ia_trigger')
-                                    .insert(data_insert_trigger);
-                            }
-                            break;
+                                    .table('data_case_quest_ia')
+                                    .insert(data_insert_ia);
 
-                        case '2':
-                            for (let index2 = 0; index2 < post.quest[index].mc.length; index2++) {
-                                const element2 = post.quest[index].mc[index2];
-                                let data_insert_mc = {
-                                    casequestmc_casequest_id: casequest_id[0],
-                                    casequestmc_name: element2.name,
-                                    casequestmc_score: element2.score,
-                                    casequestmc_required_id: element2.required_id
-                                }
-                                await trx
-                                    .insertQuery()
-                                    .table('data_case_quest_mc')
-                                    .insert(data_insert_mc);
-                            }
-                            break;
-
-
-                        case '3':
-                            for (let index2 = 0; index2 < post.quest[index].os.length; index2++) {
-                                const element2 = post.quest[index].os[index2];
-                                let data_insert_os = {
-                                    casequestos_casequest_id: casequest_id[0],
-                                    casequestos_name: element2.name,
-                                    casequestos_order: element2.order,
-                                    casequestos_score: element2.score
-                                }
-                                await trx
-                                    .insertQuery()
-                                    .table('data_case_quest_os')
-                                    .insert(data_insert_os);
-                            }
-                            break;
-
-                        case '4':
-                            for (let index2 = 0; index2 < post.quest[index].ci.length; index2++) {
-                                const element2 = post.quest[index].ci[index2];
-                                let image: string | null = element2.image || null;
-
-                                // Upload / simpan gambar ke folder storage/
-                                const allFiles = request.allFiles() as any;
-                                const fileFromRequest =
-                                    request.file(`quest[${index}][ci][${index2}][image]`) ||
-                                    request.file(`quest.${index}.ci.${index2}.image`) ||
-                                    allFiles?.quest?.[index]?.ci?.[index2]?.image ||
-                                    allFiles?.[`quest[${index}][ci][${index2}][image]`] ||
-                                    allFiles?.[`quest.${index}.ci.${index2}.image`] ||
-                                    (element2 && typeof element2.image === 'object' && element2.image?.move ? element2.image : null);
-
-                                if (fileFromRequest) {
-                                    const ext = fileFromRequest.extname || (fileFromRequest.clientName ? path.extname(fileFromRequest.clientName).replace('.', '') : 'jpg') || 'jpg';
-                                    const fileName = `ci_${Date.now()}_${index}_${index2}.${ext}`;
-                                    await fileFromRequest.move(Application.makePath('storage'), {
-                                        name: fileName,
-                                        overwrite: true
-                                    });
-                                    image = `storage/${fileName}`;
-                                } else if (typeof element2.image === 'string' && element2.image.startsWith('data:image/')) {
-                                    // Handle base64 data URL
-                                    const matches = element2.image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-                                    if (matches) {
-                                        const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                                        const base64Data = matches[2];
-                                        const fileName = `ci_${Date.now()}_${index}_${index2}.${ext}`;
-                                        const storageDir = Application.makePath('storage');
-                                        if (!fs.existsSync(storageDir)) {
-                                            fs.mkdirSync(storageDir, { recursive: true });
+                                if (post.quest[index].trigger && Array.isArray(post.quest[index].trigger)) {
+                                    for (let index2 = 0; index2 < post.quest[index].trigger.length; index2++) {
+                                        const element2 = post.quest[index].trigger[index2];
+                                        let data_insert_trigger = {
+                                            casequestiatrigger_casequest_id: casequest_id[0],
+                                            casequestiatrigger_name: element2.name,
+                                            casequestiatrigger_key: element2.key,
+                                            casequestiatrigger_response: element2.response,
+                                            casequestiatrigger_score: element2.score
                                         }
-                                        const filePath = path.join(storageDir, fileName);
-                                        fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
-                                        image = `storage/${fileName}`;
+                                        await trx
+                                            .insertQuery()
+                                            .table('data_case_quest_ia_trigger')
+                                            .insert(data_insert_trigger);
                                     }
-                                } else if (typeof element2.image === 'string' && /^[A-Za-z0-9+/=]+$/.test(element2.image) && element2.image.length > 100) {
-                                    // Handle raw base64 string
-                                    const fileName = `ci_${Date.now()}_${index}_${index2}.jpg`;
-                                    const storageDir = Application.makePath('storage');
-                                    if (!fs.existsSync(storageDir)) {
-                                        fs.mkdirSync(storageDir, { recursive: true });
-                                    }
-                                    const filePath = path.join(storageDir, fileName);
-                                    fs.writeFileSync(filePath, Buffer.from(element2.image, 'base64'));
-                                    image = `storage/${fileName}`;
                                 }
-                                let data_insert_ci = {
-                                    casequestci_casequest_id: casequest_id[0],
-                                    casequestci_name: element2.name,
-                                    casequestci_desc: element2.desc,
-                                    casequestci_score: element2.score,
-                                    casequestci_image: image
-                                }
-                                await trx
-                                    .insertQuery()
-                                    .table('data_case_quest_ci')
-                                    .insert(data_insert_ci);
-                            }
+                                break;
 
-                            for (let index2 = 0; index2 < post.quest[index].ci_option.length; index2++) {
-                                const element2 = post.quest[index].ci_option[index2];
-                                let data_insert_ci_option = {
-                                    casequestcioption_casequest_id: casequest_id[0],
-                                    casequestcioption_code: element2.code,
-                                    casequestcioption_name: element2.name,
-                                    casequestcioption_score: element2.score
-                                }
-
-                                await trx
-                                    .insertQuery()
-                                    .table('data_case_quest_ci_option')
-                                    .insert(data_insert_ci_option);
-                            }
-                            break;
-
-                        case '5':
-                            let isActiveRecord = 0;
-                            if (post.quest[index].record !== undefined) {
-                                if (typeof post.quest[index].record === 'object' && post.quest[index].record !== null) {
-                                    isActiveRecord = post.quest[index].record.is_active ?? post.quest[index].record.casequestrecord_is_active ?? 0;
-                                } else {
-                                    isActiveRecord = Number(post.quest[index].record) ? 1 : 0;
-                                }
-                            } else if (post.quest[index].is_active !== undefined) {
-                                isActiveRecord = Number(post.quest[index].is_active) ? 1 : 0;
-                            } else if (post.quest[index].is_active_record !== undefined) {
-                                isActiveRecord = Number(post.quest[index].is_active_record) ? 1 : 0;
-                            } else if (post.quest[index].casequestrecord_is_active !== undefined) {
-                                isActiveRecord = Number(post.quest[index].casequestrecord_is_active) ? 1 : 0;
-                            } else if (post.quest[index].record_is_active !== undefined) {
-                                isActiveRecord = Number(post.quest[index].record_is_active) ? 1 : 0;
-                            }
-
-                            let data_insert_record = {
-                                casequestrecord_casequest_id: casequest_id[0],
-                                casequestrecord_is_active: isActiveRecord
-                            };
-                            await trx
-                                .insertQuery()
-                                .table('data_case_quest_record')
-                                .insert(data_insert_record);
-                            break;
-                        default:
-                            break;
+                            default:
+                                break;
+                        }
                     }
                 }
 
-                for (let index = 0; index < post.patient.length; index++) {
-                    let data_insert_patient = {
-                        casepatient_case_id: case_id[0],
-                        casepatient_patient_id: post.patient[index].patient_id
+                if (post.patient && Array.isArray(post.patient)) {
+                    for (let index = 0; index < post.patient.length; index++) {
+                        let data_insert_patient = {
+                            casepatient_case_id: case_id[0],
+                            casepatient_patient_id: post.patient[index].patient_id
+                        }
+                        await trx
+                            .insertQuery()
+                            .table('data_case_patient')
+                            .insert(data_insert_patient);
                     }
-                    await trx
-                        .insertQuery()
-                        .table('data_case_patient')
-                        .insert(data_insert_patient);
                 }
 
                 result = {
@@ -344,18 +214,25 @@ export default class DataCaseController {
                 }
                 response.send(result);
                 await trx.commit();
-            } catch (error) {
+            } catch (error: any) {
+                console.error('[DataCase.store] Database/Runtime Error:', error);
                 result = {
                     status: false,
-                    message: error.sqlMessage
+                    message: error.sqlMessage || error.message || 'Gagal menyimpan data kasus.',
+                    error_detail: error.toString()
                 }
                 response.badRequest(result);
                 await trx.rollback();
             }
-        } catch (error) {
+        } catch (error: any) {
+            console.error('[DataCase.store] Validation Error:', error);
+            const errMsg = error.messages?.errors?.[0]
+                ? `${error.messages.errors[0].field} ${error.messages.errors[0].message}`
+                : (error.message || 'Validation error');
             result = {
                 status: false,
-                message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
+                message: errMsg,
+                validation_errors: error.messages?.errors
             }
             response.badRequest(result);
         }
@@ -469,7 +346,6 @@ export default class DataCaseController {
                     // await trx.from('trx_response_answer').whereIn('responseanswer_casequest_id', questIds).delete();
 
                     // Hapus sub-tabel data_case_quest & jawaban
-                    await trx.from('data_case_quest_answer').whereIn('casequestanswer_casequest_id', questIds).delete();
                     await trx.from('data_case_quest_ia_trigger').whereIn('casequestiatrigger_casequest_id', questIds).delete();
                     await trx.from('data_case_quest_ia').whereIn('casequestia_casequest_id', questIds).delete();
                     await trx.from('data_case_quest_mc').whereIn('casequestmc_casequest_id', questIds).delete();
@@ -805,7 +681,6 @@ export default class DataCaseController {
                 // await trx.from('trx_response_answer').whereIn('responseanswer_casequest_id', questIds).delete();
 
                 // Hapus sub-tabel data_case_quest & jawaban
-                await trx.from('data_case_quest_answer').whereIn('casequestanswer_casequest_id', questIds).delete();
                 await trx.from('data_case_quest_ia_trigger').whereIn('casequestiatrigger_casequest_id', questIds).delete();
                 await trx.from('data_case_quest_ia').whereIn('casequestia_casequest_id', questIds).delete();
                 await trx.from('data_case_quest_mc').whereIn('casequestmc_casequest_id', questIds).delete();

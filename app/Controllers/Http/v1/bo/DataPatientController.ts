@@ -100,6 +100,15 @@ export default class DataPatientController {
                         quest.ci_option = await General.getWhereObject('data_case_quest_ci_option', { casequestcioption_casequest_id: quest.casequest_id });
                         break;
                     }
+                    case '5': { // Pos 5: Record
+                        const record = await General.getWhereRowObject('data_case_quest_record', { casequestrecord_casequest_id: quest.casequest_id });
+                        quest.record = record ? (record.casequestrecord_is_active ?? 0) : 0;
+                        quest.is_active = record ? (record.casequestrecord_is_active ?? 0) : 0;
+                        quest.is_active_record = record ? (record.casequestrecord_is_active ?? 0) : 0;
+                        quest.casequestrecord_is_active = record ? (record.casequestrecord_is_active ?? 0) : 0;
+                        quest.record_detail = record || null;
+                        break;
+                    }
                     default:
                         break;
                 }

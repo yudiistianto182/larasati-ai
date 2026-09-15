@@ -97,6 +97,7 @@ Route.post('/v1/trx_response_answer/chat', 'v1/bo/TrxResponseAnswerController.st
 Route.post('/v1/trx_response_answer/mc', 'v1/bo/TrxResponseAnswerController.storeMc').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/os', 'v1/bo/TrxResponseAnswerController.storeOs').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/ci', 'v1/bo/TrxResponseAnswerController.storeCi').middleware('jwtauth');
+Route.post('/v1/trx_response_answer/record', 'v1/bo/TrxResponseAnswerController.storeRecord').middleware('jwtauth');
 Route.post('/v1/trx_response_answer/submit', 'v1/bo/TrxResponseAnswerController.submit').middleware('jwtauth');
 Route.get('/v1/trx_response_answer/:id', 'v1/bo/TrxResponseAnswerController.detail').middleware('jwtauth');
 

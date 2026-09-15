@@ -1,11 +1,13 @@
 import Application from '@ioc:Adonis/Core/Application'
 import { schema, rules, validator } from '@ioc:Adonis/Core/Validator'
 import GeneralRepository from 'App/Repositorys/v1/GeneralRepository'
+import ApiHealthController from './ApiHealthController'
 import Database from '@ioc:Adonis/Lucid/Database'
 import date from 'date-and-time'
 import moment from 'moment'
 
 const General = new GeneralRepository()
+const ApiHealth = new ApiHealthController()
 
 export default class TrxResponseAnswerController {
 
@@ -68,17 +70,44 @@ export default class TrxResponseAnswerController {
 
                 switch (Number(quest.casequest_method_id)) {
                     case 1: { // Pos 1: IA (Intelligent Assistant)
-                        let chats = await Database.query()
-                            .select('responseia_text')
+                        let rawChats = await Database.query()
+                            .select([
+                                'responseia_id',
+                                'responseia_sender',
+                                'responseia_text',
+                                'insert_timestamp',
+                            ])
                             .from('trx_response_ia')
                             .where('responseia_response_id', responseId)
                             .where('responseia_casequest_id', quest.casequest_id)
                             .orderBy('responseia_id', 'asc')
 
+                        let chats = rawChats.map((c: any) => {
+                            const senderLabel = c.responseia_sender === 1 ? 'Pasien' : 'Bidan'
+                            const chatTime = c.insert_timestamp ? moment(c.insert_timestamp).format('HH:mm:ss') : null
+                            return {
+                                responseia_id: c.responseia_id,
+                                responseia_sender: c.responseia_sender,
+                                sender: senderLabel,
+                                responseia_text: c.responseia_text,
+                                insert_timestamp: c.insert_timestamp,
+                                chat_time: chatTime,
+                            }
+                        })
+
                         // Selalu pastikan chat pertama merupakan pesan pembuka dari casequestia_initmsg
                         const iaConfig = await General.getWhereRowObject('data_case_quest_ia', { casequestia_casequest_id: quest.casequest_id })
                         if (iaConfig && iaConfig.casequestia_initmsg) {
-                            const initMsgObj = { responseia_text: iaConfig.casequestia_initmsg }
+                            const initTimestamp = chats.length > 0 ? chats[0].insert_timestamp : null
+                            const initChatTime = initTimestamp ? moment(initTimestamp).format('HH:mm:ss') : null
+                            const initMsgObj = {
+                                responseia_id: null,
+                                responseia_sender: 1,
+                                sender: 'Pasien',
+                                responseia_text: iaConfig.casequestia_initmsg,
+                                insert_timestamp: initTimestamp,
+                                chat_time: initChatTime,
+                            }
                             if (!chats || chats.length === 0) {
                                 chats = [initMsgObj]
                             } else if (chats[0]?.responseia_text !== iaConfig.casequestia_initmsg) {
@@ -93,14 +122,13 @@ export default class TrxResponseAnswerController {
                             .where('a.responseiatrigger_casequest_id', quest.casequest_id)
                             .select('a.*', 'b.casequestiatrigger_name', 'b.casequestiatrigger_key')
 
-                        posData.chats = chats
-                        posData.triggers = triggers
                         posData.answers = { chats, triggers }
                         posData.total_score = triggers.reduce((sum: number, t: any) => sum + Number(t.responseiatrigger_score || 0), 0)
                         break
                     }
 
                     case 2: { // Pos 2: MC (Multiple Choice)
+                        const mc = await General.getWhereObject('data_case_quest_mc', { casequestmc_casequest_id: quest.casequest_id })
                         const mcAnswers = await Database.query()
                             .from('trx_response_mc as a')
                             .leftJoin('data_case_quest_mc as b', 'b.casequestmc_id', 'a.responsemc_casequestmc_id')
@@ -108,12 +136,17 @@ export default class TrxResponseAnswerController {
                             .where('a.responsemc_casequest_id', quest.casequest_id)
                             .select('a.*', 'b.casequestmc_name')
 
+                        posData.mc = mc
                         posData.answers = mcAnswers
                         posData.total_score = mcAnswers.reduce((sum: number, a: any) => sum + Number(a.responsemc_score || 0), 0)
                         break
                     }
 
                     case 3: { // Pos 3: OS (Ordering Step)
+                        const os = await Database.query()
+                            .from('data_case_quest_os')
+                            .where('casequestos_casequest_id', quest.casequest_id)
+                            .orderBy('casequestos_order', 'asc')
                         const osAnswers = await Database.query()
                             .from('trx_response_os as a')
                             .leftJoin('data_case_quest_os as b', 'b.casequestos_id', 'a.responseos_casequestos_id')
@@ -122,12 +155,15 @@ export default class TrxResponseAnswerController {
                             .orderBy('a.responseos_order', 'asc')
                             .select('a.*', 'b.casequestos_name', 'b.casequestos_order as correct_order')
 
+                        posData.os = os
                         posData.answers = osAnswers
                         posData.total_score = osAnswers.reduce((sum: number, a: any) => sum + Number(a.responseos_score || 0), 0)
                         break
                     }
 
                     case 4: { // Pos 4: CI (Clinical Inquiry / Image Choice)
+                        const ci = await General.getWhereObject('data_case_quest_ci', { casequestci_casequest_id: quest.casequest_id })
+                        const ci_option = await General.getWhereObject('data_case_quest_ci_option', { casequestcioption_casequest_id: quest.casequest_id })
                         const ciAnswers = await Database.query()
                             .from('trx_response_ci as a')
                             .leftJoin('data_case_quest_ci_option as b', 'b.casequestcioption_id', 'a.responseci_casequestcioption_id')
@@ -135,17 +171,23 @@ export default class TrxResponseAnswerController {
                             .where('a.responseci_casequest_id', quest.casequest_id)
                             .select('a.*', 'b.casequestcioption_code', 'b.casequestcioption_name')
 
+                        posData.ci = ci
+                        posData.ci_option = ci_option
                         posData.answers = ciAnswers
                         posData.total_score = ciAnswers.reduce((sum: number, a: any) => sum + Number(a.responseci_score || 0), 0)
                         break
                     }
 
                     case 5: { // Pos 5: Record
+                        const recordConfig = await General.getWhereRowObject('data_case_quest_record', { casequestrecord_casequest_id: quest.casequest_id })
                         const recordAnswers = await Database.query()
                             .from('trx_response_record')
                             .where('responserecord_response_id', responseId)
                             .where('responserecord_casequest_id', quest.casequest_id)
 
+                        posData.record = recordConfig ? (recordConfig.casequestrecord_is_active ?? 0) : 0
+                        posData.is_active_record = recordConfig ? (recordConfig.casequestrecord_is_active ?? 0) : 0
+                        posData.record_detail = recordConfig || null
                         posData.answers = recordAnswers
                         posData.total_score = 0
                         break
@@ -183,42 +225,52 @@ export default class TrxResponseAnswerController {
     // Body: { response_id, casequest_id, ...answers }
     // =====================================================================
     public async store({ request, response }) {
-        const post = request.all()
+        try {
+            const post = request.all()
 
-        if (!post.response_id || !post.casequest_id) {
-            return response.badRequest({
-                status: false,
-                message: 'response_id dan casequest_id wajib diisi.',
-            })
-        }
-
-        const data_case_quest = await General.getWhereRowObject('data_case_quest', {
-            casequest_id: post.casequest_id,
-        })
-
-        if (!data_case_quest) {
-            return response.status(404).send({
-                status: false,
-                message: `Data quest dengan casequest_id ${post.casequest_id} tidak ditemukan.`,
-            })
-        }
-
-        switch (String(data_case_quest.casequest_method_id)) {
-            case '1':
-                return await this.storeIa({ request, response })
-            case '2':
-                return await this.storeMc({ request, response })
-            case '3':
-                return await this.storeOs({ request, response })
-            case '4':
-                return await this.storeCi({ request, response })
-            case '5':
-                return await this.storeRecord({ request, response })
-            default:
+            if (!post.response_id || !post.casequest_id) {
                 return response.badRequest({
                     status: false,
-                    message: `Metode quest (${data_case_quest.casequest_method_id}) tidak didukung.`,
+                    message: 'response_id dan casequest_id wajib diisi.',
+                    received_body: post,
                 })
+            }
+
+            const data_case_quest = await General.getWhereRowObject('data_case_quest', {
+                casequest_id: post.casequest_id,
+            })
+
+            if (!data_case_quest) {
+                return response.status(404).send({
+                    status: false,
+                    message: `Data quest dengan casequest_id ${post.casequest_id} tidak ditemukan di tabel data_case_quest.`,
+                })
+            }
+
+            switch (String(data_case_quest.casequest_method_id)) {
+                case '1':
+                    return await this.storeIa({ request, response })
+                case '2':
+                    return await this.storeMc({ request, response })
+                case '3':
+                    return await this.storeOs({ request, response })
+                case '4':
+                    return await this.storeCi({ request, response })
+                case '5':
+                    return await this.storeRecord({ request, response })
+                default:
+                    return response.badRequest({
+                        status: false,
+                        message: `Metode quest (${data_case_quest.casequest_method_id}) tidak didukung.`,
+                    })
+            }
+        } catch (error: any) {
+            console.error('[TrxResponseAnswer.store] Error:', error)
+            return response.badRequest({
+                status: false,
+                message: error.sqlMessage || error.message || 'Gagal memproses jawaban quest.',
+                error_detail: error.toString(),
+            })
         }
     }
 
@@ -293,20 +345,40 @@ export default class TrxResponseAnswerController {
                     responseiatrigger_trigger_id: matchedTrigger.casequestiatrigger_id,
                     responseiatrigger_score: matchedTrigger.casequestiatrigger_score ?? 0,
                 }
-                const trgResult = await dbInstance
-                    .insertQuery()
-                    .table('trx_response_ia_trigger')
-                    .insert(triggerInsert)
-                const trgId = Array.isArray(trgResult) ? trgResult[0] : trgResult
 
-                savedTrigger = {
-                    responseiatrigger_id: trgId,
-                    ...triggerInsert,
-                    trigger_name: matchedTrigger.casequestiatrigger_name,
-                    trigger_key: matchedTrigger.casequestiatrigger_key,
+                // Check exist triger
+                const checkTriger = await dbInstance
+                    .query()
+                    .from('trx_response_ia_trigger')
+                    .where('responseiatrigger_response_id', response_id)
+                    .where('responseiatrigger_casequest_id', casequest_id)
+                    .where('responseiatrigger_trigger_id', matchedTrigger.casequestiatrigger_id)
+                    .first()
+
+                if (!checkTriger) {
+                    const trgResult = await dbInstance
+                        .insertQuery()
+                        .table('trx_response_ia_trigger')
+                        .insert(triggerInsert)
+                    const trgId = Array.isArray(trgResult) ? trgResult[0] : trgResult
+
+                    savedTrigger = {
+                        responseiatrigger_id: trgId,
+                        ...triggerInsert,
+                        trigger_name: matchedTrigger.casequestiatrigger_name,
+                        trigger_key: matchedTrigger.casequestiatrigger_key,
+                    }
                 }
 
-                aiText = matchedTrigger.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+                // cek apakah API online / offline
+                let status_api_gemini = await ApiHealth.checkGemini()
+
+                if (status_api_gemini.connected) {
+                    // minta response ke gemini sesuai dengan promp;
+                    aiText = matchedTrigger.casequestiatrigger_response;
+                } else {
+                    aiText = matchedTrigger.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+                }
             } else {
                 // Default fallback jika tidak ditemukan keyword yang cocok
                 aiText = 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
@@ -413,24 +485,18 @@ export default class TrxResponseAnswerController {
 
     // =====================================================================
     // POST /v1/trx_response_answer/ia
-    // Pos 1: IA (Intelligent Assistant) — Simpan percakapan & keyword triggers
+    // Pos 1: IA (Intelligent Assistant) — Simpan data jawaban pos IA ke trx_response_answer
     // Body: {
     //   response_id: "1",
     //   casequest_id: "1",
-    //   sender: 2,
-    //   text: "Halo pasien",
-    //   triggers: [ { trigger_id: 1, score: 10 } ]
+    //   responseanswer_submited: 1 (opsional, default: 1)
     // }
     // =====================================================================
     public async storeIa({ request, response }) {
         const validationSchema = schema.create({
             response_id: schema.string([rules.minLength(1)]),
             casequest_id: schema.string([rules.minLength(1)]),
-            sender: schema.number.optional(),
-            text: schema.string.optional(),
-            triggers: schema.array.optional().members(
-                schema.object().anyMembers()
-            )
+            responseanswer_submited: schema.number.optional(),
         })
 
         try {
@@ -445,46 +511,63 @@ export default class TrxResponseAnswerController {
         const post = request.all()
         const responseId = post.response_id
         const casequestId = post.casequest_id
+        const submited = 1
 
         const trx = await Database.transaction()
         try {
-            let savedChat: any = null
-            if (post.text) {
-                savedChat = await this.saveChat({
-                    response_id: responseId,
-                    casequest_id: casequestId,
-                    sender: post.sender || 2,
-                    text: post.text,
-                }, trx)
+            // Hitung total skor dari trx_response_ia_trigger untuk response_id & casequest_id ini
+            const iaScore = await trx
+                .from('trx_response_ia_trigger')
+                .where('responseiatrigger_response_id', responseId)
+                .where('responseiatrigger_casequest_id', casequestId)
+                .sum('responseiatrigger_score as total')
+                .first()
+
+            const score = Number(iaScore?.total || 0)
+
+            // Cek apakah data jawaban pos IA sudah ada di tabel trx_response_answer
+            const existingAnswer = await trx
+                .from('trx_response_answer')
+                .where('responseanswer_response_id', responseId)
+                .where('responseanswer_casequest_id', casequestId)
+                .first()
+
+            const answerData: any = {
+                responseanswer_response_id: responseId,
+                responseanswer_casequest_id: casequestId,
+                responseanswer_submited: submited,
+                responseanswer_score: score,
             }
 
-            if (Array.isArray(post.triggers)) {
-                for (const trg of post.triggers) {
-                    await trx.insertQuery().table('trx_response_ia_trigger').insert({
-                        responseiatrigger_response_id: responseId,
-                        responseiatrigger_casequest_id: casequestId,
-                        responseiatrigger_trigger_id: trg.trigger_id || trg.casequestiatrigger_id,
-                        responseiatrigger_score: trg.score ?? trg.casequestiatrigger_score ?? 0,
-                    })
-                }
+            if (existingAnswer) {
+                await trx
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', casequestId)
+                    .update(answerData)
+            } else {
+                await trx
+                    .insertQuery()
+                    .table('trx_response_answer')
+                    .insert(answerData)
             }
 
+            // Sinkronisasi total skor ke tabel trx_response
             await this.syncTotalScore(responseId, trx)
             await trx.commit()
 
             return response.send({
                 status: true,
-                message: 'Data respon IA berhasil disimpan.',
+                message: 'Data jawaban IA berhasil disimpan.',
                 data: {
-                    chat: savedChat,
-                    triggers: post.triggers || [],
+                    ...answerData,
                 },
             })
         } catch (error: any) {
             await trx.rollback()
             return response.badRequest({
                 status: false,
-                message: error.sqlMessage || error.message || 'Gagal menyimpan jawaban IA.',
+                message: error.sqlMessage || error.message || 'Gagal menyimpan data jawaban IA.',
             })
         }
     }
@@ -502,7 +585,7 @@ export default class TrxResponseAnswerController {
         const validationSchema = schema.create({
             response_id: schema.string([rules.minLength(1)]),
             casequest_id: schema.string([rules.minLength(1)]),
-            answers: schema.array.optional().members(schema.any()),
+            answers: schema.array.optional().anyMembers(),
             casequestmc_id: schema.string.optional(),
         })
 
@@ -512,6 +595,7 @@ export default class TrxResponseAnswerController {
             return response.badRequest({
                 status: false,
                 message: validationError.messages?.errors?.[0]?.field + ' ' + validationError.messages?.errors?.[0]?.message,
+                validation_errors: validationError.messages?.errors,
             })
         }
 
@@ -526,6 +610,13 @@ export default class TrxResponseAnswerController {
             mcList = [post.casequestmc_id]
         } else if (post.answers) {
             mcList = [post.answers]
+        }
+
+        if (mcList.length === 0) {
+            return response.badRequest({
+                status: false,
+                message: 'Pilihan jawaban (answers atau casequestmc_id) tidak boleh kosong.',
+            })
         }
 
         const trx = await Database.transaction()
@@ -544,6 +635,15 @@ export default class TrxResponseAnswerController {
             for (const item of mcList) {
                 const casequestmcId = typeof item === 'object' ? (item.casequestmc_id || item.id) : item
 
+                if (!casequestmcId) {
+                    await trx.rollback()
+                    return response.badRequest({
+                        status: false,
+                        message: 'Format answer tidak valid. ID pilihan jawaban (casequestmc_id) tidak ditemukan pada item.',
+                        item_received: item,
+                    })
+                }
+
                 const questMc = await trx
                     .query()
                     .from('data_case_quest_mc')
@@ -552,14 +652,42 @@ export default class TrxResponseAnswerController {
                     .first()
 
                 if (!questMc) {
+                    const existAnywhere = await trx
+                        .query()
+                        .from('data_case_quest_mc')
+                        .where('casequestmc_id', casequestmcId)
+                        .first()
+
                     await trx.rollback()
-                    return response.badRequest({
-                        status: false,
-                        message: `Pilihan jawaban dengan casequestmc_id ${casequestmcId} tidak valid untuk soal ini.`,
-                    })
+                    if (existAnywhere) {
+                        return response.badRequest({
+                            status: false,
+                            message: `Pilihan jawaban casequestmc_id ${casequestmcId} terdaftar pada casequest_id ${existAnywhere.casequestmc_casequest_id}, bukan pada casequest_id ${casequestId}.`,
+                        })
+                    } else {
+                        return response.badRequest({
+                            status: false,
+                            message: `Pilihan jawaban dengan casequestmc_id ${casequestmcId} tidak ditemukan di database.`,
+                        })
+                    }
                 }
 
-                const score = Number(questMc.casequestmc_score || 0)
+                let score = Number(questMc.casequestmc_score || 0)
+
+                // Jika terdapat casequestmc_required_id, cek apakah trigger sudah tercapai di trx_response_ia_trigger
+                if (questMc.casequestmc_required_id && Number(questMc.casequestmc_required_id) !== 0) {
+                    const checkTrigger = await trx
+                        .query()
+                        .from('trx_response_ia_trigger')
+                        .where('responseiatrigger_response_id', responseId)
+                        .where('responseiatrigger_trigger_id', questMc.casequestmc_required_id)
+                        .first()
+
+                    if (!checkTrigger) {
+                        score = 0
+                    }
+                }
+
                 totalScore += score
 
                 await trx.insertQuery().table('trx_response_mc').insert({
@@ -577,7 +705,6 @@ export default class TrxResponseAnswerController {
                 })
             }
 
-            await this.syncTotalScore(responseId, trx)
             await trx.commit()
 
             return response.send({
@@ -593,9 +720,11 @@ export default class TrxResponseAnswerController {
             })
         } catch (error: any) {
             await trx.rollback()
+            console.error('[storeMc] Error:', error)
             return response.badRequest({
                 status: false,
                 message: error.sqlMessage || error.message || 'Gagal menyimpan jawaban MC.',
+                error_detail: error.toString(),
             })
         }
     }
@@ -729,7 +858,7 @@ export default class TrxResponseAnswerController {
             response_id: schema.string([rules.minLength(1)]),
             casequest_id: schema.string([rules.minLength(1)]),
             casequestcioption_id: schema.string.optional(),
-            answers: schema.array.optional().members(schema.any()),
+            answers: schema.array.optional().anyMembers(),
         })
 
         try {
