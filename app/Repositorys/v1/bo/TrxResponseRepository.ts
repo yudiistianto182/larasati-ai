@@ -23,7 +23,7 @@ export default class TrxResponseRepository {
         }
 
         if (typeof request.only(['case_id']).case_id !== 'undefined') {
-            query.where('response_cose_id', request.only(['case_id']).case_id)
+            query.where('response_case_id', request.only(['case_id']).case_id)
         }
 
         if (typeof request.only(['patient_id']).patient_id !== 'undefined') {

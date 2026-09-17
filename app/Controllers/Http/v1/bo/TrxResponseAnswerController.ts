@@ -30,7 +30,10 @@ export default class TrxResponseAnswerController {
                     'a.response_total_score',
                     'a.response_is_submited',
                     'p.patient_name',
+                    'p.patient_birthdate',
+                    'p.patient_gender',
                     'c.case_name',
+                    'c.case_desc',
                     't.contestteam_name',
                 ])
                 .from('trx_response as a')
@@ -47,6 +50,50 @@ export default class TrxResponseAnswerController {
                 })
             }
 
+            // Fallback data pasien jika response_patient_id kosong
+            let patientName = trxResponse.patient_name || 'Pasien'
+            let patientBirthdate = trxResponse.patient_birthdate || null
+            let patientGender = trxResponse.patient_gender || null
+
+            if (!trxResponse.patient_name && trxResponse.response_case_id) {
+                const cp = await Database.query()
+                    .from('data_case_patient as cp')
+                    .join('data_patient as p', 'p.patient_id', 'cp.casepatient_patient_id')
+                    .where('cp.casepatient_case_id', trxResponse.response_case_id)
+                    .first()
+                if (cp) {
+                    patientName = cp.patient_name || patientName
+                    patientBirthdate = cp.patient_birthdate || patientBirthdate
+                    patientGender = cp.patient_gender || patientGender
+                }
+            }
+
+            const patientAge = patientBirthdate ? `${moment().diff(moment(patientBirthdate), 'years')} Tahun` : ''
+            const patientTitle = patientGender === 'L' || patientGender === 'M' ? 'Tuan' : 'Ny'
+            const patientDisplay = patientAge ? `${patientName} (${patientAge})` : patientName
+
+            const renderTemplate = (text: string, limitTimeSec?: number) => {
+                if (!text) return text
+                const durationMin = limitTimeSec ? Math.round(limitTimeSec / 60) : 3
+                const durationText = `${durationMin} Menit`
+
+                const templateVars: Record<string, string> = {
+                    '{{patient_name}}': patientName,
+                    '{{patient_age}}': patientAge,
+                    '{{patient_title}}': patientTitle,
+                    '{{patient_name_age}}': patientDisplay,
+                    '{{limit_time}}': durationText,
+                    '{{case_name}}': trxResponse.case_name || '',
+                    '{{case_desc}}': trxResponse.case_desc || '',
+                }
+
+                let res = text
+                for (const [k, v] of Object.entries(templateVars)) {
+                    res = res.split(k).join(v)
+                }
+                return res
+            }
+
             // Ambil semua quest untuk case ini
             const quests = await Database.query()
                 .from('data_case_quest')
@@ -58,12 +105,43 @@ export default class TrxResponseAnswerController {
             for (const quest of quests) {
                 let method = await General.getWhereRowObject('ref_method', { method_id: quest.casequest_method_id })
 
+                // Ambil data ref_method_rule & detail
+                let rawRules: any[] = []
+                if (quest.casequest_method_id) {
+                    rawRules = await Database.query()
+                        .from('ref_method_rule')
+                        .where('methodrule_method_id', quest.casequest_method_id)
+                        .orderBy('methodrule_order', 'asc')
+
+                    for (let r of rawRules) {
+                        r.detail = await Database.query()
+                            .from('ref_method_rule_detail')
+                            .where('methodruledetail_methodrule_id', r.methodrule_id)
+                            .orderBy('methodruledetail_order', 'asc')
+                    }
+                }
+
+                const rules = rawRules.map((r: any) => ({
+                    methodrule_id: r.methodrule_id,
+                    methodrule_method_id: r.methodrule_method_id,
+                    methodrule_text: renderTemplate(r.methodrule_text, quest.casequest_limit_time),
+                    methodrule_order: r.methodrule_order,
+                    detail: (r.detail || []).map((d: any) => ({
+                        methodruledetail_id: d.methodruledetail_id,
+                        methodruledetail_methodrule_id: d.methodruledetail_methodrule_id,
+                        methodruledetail_text: renderTemplate(d.methodruledetail_text, quest.casequest_limit_time),
+                        methodruledetail_order: d.methodruledetail_order,
+                    }))
+                }))
+
                 const posData: any = {
                     casequest_id: quest.casequest_id,
                     casequest_name: quest.casequest_name,
                     casequest_method_id: quest.casequest_method_id,
                     method_name: method ? method.method_name : null,
                     casequest_order: quest.casequest_order,
+                    casequest_limit_time: quest.casequest_limit_time,
+                    rule: rules,
                     answers: [],
                     total_score: 0,
                 }

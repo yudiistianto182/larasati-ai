@@ -40,6 +40,10 @@ Route.put('/v1/sys_user/:id', 'v1/bo/SysUserController.update').middleware(['jwt
 Route.delete('/v1/sys_user/:id', 'v1/bo/SysUserController.destroy').middleware(['jwtauth']);
 
 Route.get('/v1/ref_method', 'v1/bo/RefMethodController.index').middleware('jwtauth');
+Route.get('/v1/ref_method/:id', 'v1/bo/RefMethodController.detail').middleware('jwtauth');
+Route.post('/v1/ref_method', 'v1/bo/RefMethodController.store').middleware('jwtauth');
+Route.put('/v1/ref_method/:id', 'v1/bo/RefMethodController.update').middleware(['jwtauth']);
+Route.delete('/v1/ref_method/:id', 'v1/bo/RefMethodController.destroy').middleware(['jwtauth']);
 
 Route.get('/v1/mst_periode', 'v1/bo/MstPeriodeController.index').middleware('jwtauth');
 Route.get('/v1/mst_periode/:id', 'v1/bo/MstPeriodeController.detail').middleware('jwtauth');
@@ -72,6 +76,9 @@ Route.put('/v1/data_case/:id', 'v1/bo/DataCaseController.update').middleware(['j
 Route.delete('/v1/data_case/:id', 'v1/bo/DataCaseController.destroy').middleware(['jwtauth']);
 
 Route.get('/v1/trx_response', 'v1/bo/TrxResponseController.index').middleware('jwtauth');
+Route.get('/v1/trx_response/instruction', 'v1/bo/TrxResponseController.instruction');
+Route.get('/v1/trx_response/:id/instruction', 'v1/bo/TrxResponseController.instruction');
+Route.get('/v1/trx_response/:id/rule', 'v1/bo/TrxResponseController.instruction');
 Route.get('/v1/trx_response/:id', 'v1/bo/TrxResponseController.detail');
 Route.post('/v1/trx_response', 'v1/bo/TrxResponseController.store').middleware('jwtauth');
 Route.put('/v1/trx_response/:id', 'v1/bo/TrxResponseController.update').middleware(['jwtauth']);

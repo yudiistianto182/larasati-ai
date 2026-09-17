@@ -27,7 +27,7 @@ export default class ApiHealthController {
             .send(result)
     }
 
-    private async checkGemini() {
+    public async checkGemini() {
         const config = await General.getWhereRowObject('sys_config', { config_name: 'GEMINI_API_KEY' });
         const apiKey = config.config_value;
 
@@ -58,7 +58,7 @@ export default class ApiHealthController {
         }
     }
 
-    private async checkSimpli() {
+    public async checkSimpli() {
         const config = await General.getWhereRowObject('sys_config', { config_name: 'SIMLI_API_KEY' });
         const apiKey = config.config_value;
 

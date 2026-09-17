@@ -61,6 +61,12 @@ export default class TrxResponseController {
             data.patient_code = 'PSN-00' + data.patient_id;
             data.patient_gender_text = data.patient_gender == 'M' || data.patient_gender == 'L' ? 'Laki-laki' : 'Perempuan';
             data.quest = await General.getWhereObject('data_case_quest', { casequest_case_id: data.response_case_id });
+            if (Array.isArray(data.quest)) {
+                for (let index = 0; index < data.quest.length; index++) {
+                    const q = data.quest[index];
+                    q.instruction = await this.buildPosInstruction(data.response_id, q.casequest_id, q.casequest_order);
+                }
+            }
             params.id = data.response_case_id;
             data.case = await DataCase.getDetailCase(params);
             data.answer = await this.getAnswer(data.response_id);
@@ -830,5 +836,263 @@ export default class TrxResponseController {
                 is_trigger_matched: false,
             }
         }
+    }
+
+    /**
+     * GET /v1/trx_response/:id/instruction
+     * GET /v1/trx_response/:id/rule
+     * Menampilkan data aturan dan instruksi pos yang sudah dirender sesuai skenario dan pasien
+     */
+    public async instruction({ request, params, response }) {
+        const responseId = params.id || request.input('response_id') || request.input('id');
+        const casequestId = request.input('casequest_id') || request.input('quest_id');
+        const posOrder = request.input('pos') || request.input('order');
+
+        if (!responseId) {
+            return response.badRequest({
+                status: false,
+                message: 'Parameter response_id wajib disertakan.'
+            });
+        }
+
+        const data = await this.buildPosInstruction(responseId, casequestId, posOrder ? Number(posOrder) : undefined);
+        if (data) {
+            return response.send({
+                status: true,
+                message: 'Success',
+                data: data
+            });
+        } else {
+            return response.status(404).send({
+                status: false,
+                message: 'Data instruksi pos tidak ditemukan.'
+            });
+        }
+    }
+
+    /**
+     * Helper: Membangun struktur instruksi pos terpadu (Header, Skeleton, Langkah, Skenario Klinis, Footer)
+     */
+    public async buildPosInstruction(responseId: string | number, casequestId?: string | number, posOrder?: number) {
+        // 1. Ambil data response
+        const trxResponse = await General.getWhereRowObject('trx_response', { response_id: responseId });
+        if (!trxResponse) return null;
+
+        // 2. Ambil data case
+        const caseData = await General.getWhereRowObject('data_case', { case_id: trxResponse.response_case_id });
+
+        // 3. Ambil data patient
+        let patient: any = null;
+        if (trxResponse.response_patient_id) {
+            patient = await General.getWhereRowObject('data_patient', { patient_id: trxResponse.response_patient_id });
+        }
+        if (!patient) {
+            const cp = await Database.query()
+                .from('data_case_patient as cp')
+                .join('data_patient as p', 'p.patient_id', 'cp.casepatient_patient_id')
+                .where('cp.casepatient_case_id', trxResponse.response_case_id)
+                .first();
+            if (cp) patient = cp;
+        }
+
+        // 4. Cari quest
+        let questQuery = Database.query()
+            .from('data_case_quest')
+            .where('casequest_case_id', trxResponse.response_case_id);
+
+        if (casequestId) {
+            questQuery = questQuery.where('casequest_id', casequestId);
+        } else if (posOrder) {
+            questQuery = questQuery.where('casequest_order', posOrder);
+        } else {
+            questQuery = questQuery.orderBy('casequest_order', 'asc');
+        }
+
+        const quest = await questQuery.first();
+        if (!quest) return null;
+
+        // 5. Method info & rules
+        const method = await General.getWhereRowObject('ref_method', { method_id: quest.casequest_method_id });
+        const rawRules = await Database.query()
+            .from('ref_method_rule')
+            .where('methodrule_method_id', quest.casequest_method_id)
+            .orderBy('methodrule_order', 'asc');
+
+        for (let r of rawRules) {
+            r.detail = await Database.query()
+                .from('ref_method_rule_detail')
+                .where('methodruledetail_methodrule_id', r.methodrule_id)
+                .orderBy('methodruledetail_order', 'asc');
+        }
+
+        // 6. Siapkan variabel interpolasi
+        const patientName = patient ? patient.patient_name : 'Pasien';
+        const patientAge = patient?.patient_birthdate ? `${await this.calculateAge(patient.patient_birthdate)} Tahun` : '';
+        const patientTitle = patient?.patient_gender ? await this.calculateGender(patient.patient_gender) : 'Ny';
+        const patientDisplay = patientAge ? `${patientName} (${patientAge})` : patientName;
+        const durationMin = quest.casequest_limit_time ? Math.round(quest.casequest_limit_time / 60) : 3;
+        const durationText = `${durationMin} Menit`;
+        const posOrderNum = quest.casequest_order || 1;
+
+        const templateVars: Record<string, string> = {
+            '{{patient_name}}': patientName,
+            '{{patient_age}}': patientAge,
+            '{{patient_title}}': patientTitle,
+            '{{patient_name_age}}': patientDisplay,
+            '{{limit_time}}': durationText,
+            '{{case_name}}': caseData?.case_name || '',
+            '{{case_desc}}': caseData?.case_desc || '',
+        };
+
+        const renderText = (text: string) => {
+            if (!text) return text;
+            let res = text;
+            for (const [k, v] of Object.entries(templateVars)) {
+                res = res.split(k).join(v);
+            }
+            return res;
+        };
+
+        // Render rules
+        const renderedRules = rawRules.map((r: any) => ({
+            ...r,
+            methodrule_text: renderText(r.methodrule_text),
+            detail: (r.detail || []).map((d: any) => ({
+                ...d,
+                methodruledetail_text: renderText(d.methodruledetail_text),
+            }))
+        }));
+
+        // IA / method specific preview
+        let iaData: any = null;
+        if (Number(quest.casequest_method_id) === 1) {
+            iaData = await General.getWhereRowObject('data_case_quest_ia', { casequestia_casequest_id: quest.casequest_id });
+        }
+
+        // 7. Bangun struktur section sesuai UI
+        const sections: any[] = [];
+
+        // Section 1: Simulasi Visual & Target Aksi (Skeleton)
+        let samplePatientMsg = iaData?.casequestia_initmsg || "Saya sering keputihan berbau dan keluar flek setelah senggama...";
+        let sampleBidanMsg = "Kapan HPHT terakhir dan apakah siklus haid teratur?";
+        let inputAction = "[Bicara via Mikrofon]";
+
+        if (Number(quest.casequest_method_id) === 2) {
+            inputAction = "[Pilih Satu atau Beberapa Jawaban]";
+        } else if (Number(quest.casequest_method_id) === 3) {
+            inputAction = "[Urutkan Langkah Sesuai Prosedur]";
+        } else if (Number(quest.casequest_method_id) === 4) {
+            inputAction = "[Pilih Gambar & Temuan Klinis]";
+        } else if (Number(quest.casequest_method_id) === 5) {
+            inputAction = "[Rekam Suara Konsultasi]";
+        }
+
+        const skeletonRule = renderedRules.find((r: any) => r.methodrule_order === 1 || r.methodrule_text?.toLowerCase().includes('simulasi')) || renderedRules[0];
+        const skeletonSubtitle = skeletonRule?.methodrule_text || (method?.method_name ? `Simulasi ${method.method_name}` : "Simulasi Wawancara Pasien");
+
+        sections.push({
+            order: 1,
+            title: "1. SIMULASI VISUAL & TARGET AKSI (SKELETON):",
+            type: "skeleton",
+            skeleton: {
+                title: skeletonSubtitle,
+                badge: Number(quest.casequest_method_id) === 1 ? "Siklus Respons Lisan" : "Target Aksi Pos",
+                patient: {
+                    name: patientName,
+                    age: patientAge,
+                    display: patientDisplay,
+                    action: Number(quest.casequest_method_id) === 1 ? "Wawancara" : "Pemeriksaan",
+                    gender: patient?.patient_gender === 'M' || patient?.patient_gender === 'L' ? 'Laki-laki' : 'Perempuan',
+                    photo: patient?.patient_photo || null,
+                    photo_path: patient?.patient_photo_path || null
+                },
+                preview_dialog: {
+                    patient: samplePatientMsg,
+                    bidan: sampleBidanMsg,
+                    input_action: inputAction
+                }
+            }
+        });
+
+        // Section 2: Langkah-langkah Pengerjaan Pos
+        const stepRule = renderedRules.find((r: any) => r.methodrule_order === 2 || r.methodrule_text?.toLowerCase().includes('langkah')) || renderedRules[1];
+        const stepDetails = stepRule?.detail || [];
+
+        const defaultSteps = [
+            "Pastikan mikrofon aktif dan bicaralah secara jelas menghadap layar.",
+            "Gali keluhan utama keputihan, siklus HPHT, paritas, dan riwayat perdarahan kontak.",
+            `Simak respons lisan dan pantau teks transkrip dari pasien virtual ${patientName}.`
+        ];
+
+        const steps = stepDetails.length > 0
+            ? stepDetails.map((d: any, idx: number) => ({
+                number: d.methodruledetail_order || (idx + 1),
+                text: d.methodruledetail_text
+            }))
+            : defaultSteps.map((txt, idx) => ({ number: idx + 1, text: txt }));
+
+        sections.push({
+            order: 2,
+            title: "2. LANGKAH-LANGKAH PENGERJAAN POS:",
+            type: "steps",
+            steps: steps,
+            instruction_note: {
+                label: "Petunjuk Penggunaan:",
+                text: Number(quest.casequest_method_id) === 1
+                    ? "Bicaralah secara langsung melalui mikrofon atau ketik pesan. Pasien akan menjawab setiap pertanyaan Anda secara berurutan."
+                    : "Pilihlah jawaban dan selesaikan seluruh instruksi pada pos ini sebelum batas waktu berakhir."
+            }
+        });
+
+        // Section 3: Instruksi Skenario Kasus Klinis
+        const scenarioRule = renderedRules.find((r: any) => r.methodrule_order === 3 || r.methodrule_text?.toLowerCase().includes('skenario')) || renderedRules[2];
+        const scenarioText = scenarioRule?.detail?.[0]?.methodruledetail_text || scenarioRule?.methodrule_text || `Gali data anamnesis ${patientName} secara lengkap dan komunikatif melalui percakapan bertahap seputar kesehatan reproduksi pasien.`;
+
+        sections.push({
+            order: 3,
+            title: "3. INSTRUKSI SKENARIO KASUS KLINIS:",
+            type: "scenario",
+            content: scenarioText
+        });
+
+        return {
+            header: {
+                pos_badge: `INSTRUKSI POS ${posOrderNum}`,
+                pos_order: posOrderNum,
+                code: `AMP-ANM-A${posOrderNum}`,
+                duration_seconds: quest.casequest_limit_time || (durationMin * 60),
+                duration_text: durationText,
+                title: quest.casequest_name || `Pos ${posOrderNum}: ${method?.method_name || 'Anamnesis Pasien'}`,
+                subtitle: "Pelajari 3 instruksi terpadu (animasi simulasi, tata cara langkah, dan petunjuk kasus) sebelum memulai."
+            },
+            case: {
+                case_id: caseData?.case_id,
+                case_name: caseData?.case_name,
+                case_desc: caseData?.case_desc
+            },
+            patient: {
+                patient_id: patient?.patient_id,
+                patient_name: patientName,
+                patient_age: patientAge,
+                patient_display: patientDisplay,
+                patient_gender: patient?.patient_gender,
+                patient_photo: patient?.patient_photo,
+                patient_photo_path: patient?.patient_photo_path
+            },
+            quest: {
+                casequest_id: quest.casequest_id,
+                casequest_name: quest.casequest_name,
+                casequest_method_id: quest.casequest_method_id,
+                method_name: method?.method_name,
+                casequest_order: quest.casequest_order,
+                casequest_limit_time: quest.casequest_limit_time
+            },
+            sections: sections,
+            rules: renderedRules,
+            footer: {
+                notice: "Timer stase berjalan setelah tombol ditekan.",
+                button_text: "MULAI PENGERJAAN POS"
+            }
+        };
     }
 }
