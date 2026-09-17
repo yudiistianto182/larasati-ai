@@ -1,5 +1,6 @@
 import '../../Helpers/webPolyfill'
 import { GoogleGenAI } from '@google/genai'
+import Database from '@ioc:Adonis/Lucid/Database'
 import Config from '@ioc:Adonis/Core/Config'
 import Env from '@ioc:Adonis/Core/Env'
 
@@ -26,19 +27,46 @@ export interface PatientAnswerParams {
 }
 
 export default class GeminiService {
-    private client: GoogleGenAI
     private defaultModel: string
     private fallbackModels: string[] = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']
 
     constructor() {
-        const apiKey = Config.get('ai.gemini.apiKey') || Env.get('GEMINI_API_KEY', '')
         this.defaultModel = Config.get('ai.gemini.model') || Env.get('GEMINI_MODEL', 'gemini-3.7-flash')
+    }
 
-        if (!apiKey) {
-            console.warn('[GeminiService] Warning: GEMINI_API_KEY is not configured in .env')
+    /**
+     * Mengambil API Key Gemini dari tabel sys_config (config_name = 'GEMINI_API_KEY')
+     * dengan fallback ke Config / Env jika diperlukan
+     */
+    public async getApiKey(): Promise<string> {
+        try {
+            const config = await Database.from('sys_config')
+                .where('config_name', 'GEMINI_API_KEY')
+                .first()
+
+            if (config && config.config_value && config.config_value.trim()) {
+                return config.config_value.trim()
+            }
+        } catch (dbErr: any) {
+            console.warn('[GeminiService] Warning: Gagal membaca GEMINI_API_KEY dari database sys_config:', dbErr.message)
         }
 
-        this.client = new GoogleGenAI({
+        const fallbackKey = Config.get('ai.gemini.apiKey') || Env.get('GEMINI_API_KEY', '')
+        return (fallbackKey || '').trim()
+    }
+
+    /**
+     * Inisialisasi GoogleGenAI client menggunakan API Key dari tabel sys_config
+     */
+    public async getClient(): Promise<GoogleGenAI> {
+        const apiKey = await this.getApiKey()
+
+        if (!apiKey) {
+            console.warn('[GeminiService] Warning: GEMINI_API_KEY tidak ditemukan pada sys_config database')
+            throw new Error('GEMINI_API_KEY tidak ditemukan pada sys_config database')
+        }
+
+        return new GoogleGenAI({
             apiKey: apiKey,
         })
     }
@@ -53,9 +81,9 @@ export default class GeminiService {
             contents: params.contents,
             systemInstruction: params.systemInstruction,
             temperature: params.temperature ?? 0.6,
-            maxOutputTokens: params.maxOutputTokens ?? 150,
+            maxOutputTokens: params.maxOutputTokens ?? 1000,
             topP: params.topP ?? 0.9,
-            timeout: params.timeout ?? 3500,
+            timeout: params.timeout ?? 8000,
             model: params.model,
         })
     }
@@ -64,6 +92,7 @@ export default class GeminiService {
      * General content generation method with automatic model fallback & retry for 503 / 429 errors.
      */
     public async generateContent(params: GenerateContentParams): Promise<string> {
+        const client = await this.getClient()
         const primaryModel = params.model || this.defaultModel
         // Order models to try: primary model first, followed by remaining fallback models
         const candidateModels = [
@@ -85,7 +114,7 @@ export default class GeminiService {
                     topP: params.topP ?? 0.9,
                 }
 
-                const apiCall = this.client.models.generateContent({
+                const apiCall = client.models.generateContent({
                     model: modelName,
                     contents: contentsPayload,
                     config: config,
@@ -148,15 +177,9 @@ export default class GeminiService {
                     return new Error(parsed.error.message)
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
 
         return new Error(msg)
     }
-
-    /**
-     * Get direct access to the GoogleGenAI client instance if needed for advanced features.
-     */
-    public getClient(): GoogleGenAI {
-        return this.client
-    }
 }
+

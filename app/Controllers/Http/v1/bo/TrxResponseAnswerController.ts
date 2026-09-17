@@ -5,9 +5,11 @@ import ApiHealthController from './ApiHealthController'
 import Database from '@ioc:Adonis/Lucid/Database'
 import date from 'date-and-time'
 import moment from 'moment'
+import GeminiService from 'App/Services/ai/GeminiService'
 
 const General = new GeneralRepository()
 const ApiHealth = new ApiHealthController()
+const geminiService = new GeminiService()
 
 export default class TrxResponseAnswerController {
 
@@ -451,9 +453,16 @@ export default class TrxResponseAnswerController {
                 // cek apakah API online / offline
                 let status_api_gemini = await ApiHealth.checkGemini()
 
-                if (status_api_gemini.connected) {
-                    // minta response ke gemini sesuai dengan promp;
-                    aiText = matchedTrigger.casequestiatrigger_response;
+                if (status_api_gemini.connected || (status_api_gemini as any).connect) {
+                    // minta response ke gemini sesuai dengan prompt;
+                    aiText = await this.getResponseGemini({
+                        response_id,
+                        casequest_id,
+                        text,
+                        matchedTrigger,
+                        triggers,
+                        dbInstance,
+                    })
                 } else {
                     aiText = matchedTrigger.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
                 }
@@ -1196,5 +1205,186 @@ export default class TrxResponseAnswerController {
                 response_total_score: total,
             })
         return total
+    }
+
+    /**
+     * Membersihkan teks keluaran Gemini agar murni bahasa lisan untuk respon chat
+     */
+    private cleanReplyForTts(text: string): string {
+        let clean = (text || '').trim()
+        clean = clean.replace(/^(pasien|ibu|ny\.|tuan|bidan)\s*:\s*/i, '')
+        clean = clean.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim()
+        return clean
+    }
+
+    /**
+     * Menghasilkan respon percakapan pasien menggunakan Gemini AI
+     * Mengadopsi struktur prompt mirip buildAnamnesisSystemPrompt pada IaController
+     * disesuaikan dengan data kasus, pasien, dan trigger dinamis dari database.
+     */
+    public async getResponseGemini({
+        response_id,
+        casequest_id,
+        text,
+        matchedTrigger,
+        triggers,
+        dbInstance = Database,
+    }: {
+        response_id: number | string
+        casequest_id: number | string
+        text: string
+        matchedTrigger?: any
+        triggers?: any[]
+        dbInstance?: any
+    }): Promise<string> {
+        try {
+            // 1. Ambil data Kasus dan Pasien dari DB
+            const trxResponse = await dbInstance
+                .query()
+                .select([
+                    'a.response_id',
+                    'a.response_case_id',
+                    'a.response_patient_id',
+                    'p.patient_name',
+                    'p.patient_birthdate',
+                    'p.patient_gender',
+                    'c.case_name',
+                    'c.case_desc',
+                ])
+                .from('trx_response as a')
+                .leftJoin('data_patient as p', 'p.patient_id', 'a.response_patient_id')
+                .leftJoin('data_case as c', 'c.case_id', 'a.response_case_id')
+                .where('a.response_id', response_id)
+                .first()
+
+            let patientName = trxResponse?.patient_name || 'Pasien'
+            let patientBirthdate = trxResponse?.patient_birthdate || null
+            let patientGender = trxResponse?.patient_gender || null
+            let caseDesc = trxResponse?.case_desc || trxResponse?.case_name || 'Pasien datang untuk berkonsultasi keluhan kesehatan ke Poli KIA.'
+
+            // Fallback data pasien dari data_case_patient jika pada trx_response belum ada
+            if (!trxResponse?.patient_name && trxResponse?.response_case_id) {
+                const cp = await dbInstance
+                    .query()
+                    .from('data_case_patient as cp')
+                    .join('data_patient as p', 'p.patient_id', 'cp.casepatient_patient_id')
+                    .where('cp.casepatient_case_id', trxResponse.response_case_id)
+                    .first()
+                if (cp) {
+                    patientName = cp.patient_name || patientName
+                    patientBirthdate = cp.patient_birthdate || patientBirthdate
+                    patientGender = cp.patient_gender || patientGender
+                }
+            }
+
+            const patientAge = patientBirthdate ? moment().diff(moment(patientBirthdate), 'years') : 45
+            const patientHonorific = patientGender === 'L' || patientGender === 'M' ? 'Tuan' : 'Ibu/Nyonya'
+            const patientGenderStr = patientGender === 'L' || patientGender === 'M' ? 'Laki-laki' : 'Perempuan'
+
+            // 2. Ambil data konfigurasi data_case_quest_ia (personality, initmsg, unknown)
+            const iaConfig = await dbInstance
+                .query()
+                .from('data_case_quest_ia')
+                .where('casequestia_casequest_id', casequest_id)
+                .first()
+
+            const personality = iaConfig?.casequestia_personality || 'Santun, kooperatif, dan berbicara secara singkat padat.'
+            const initMsg = iaConfig?.casequestia_initmsg || 'Selamat pagi Bu Bidan, saya mau berkonsultasi terkait keluhan saya.'
+            const outOfScopeFallbackMessage =
+                iaConfig?.casequestia_unknown ||
+                'Aduh, maaf ya Bu Bidan... saya agak bingung, sepertinya hal itu tidak berhubungan dengan keluhan kesehatan saya saat ini.'
+
+            // 3. Ambil data triggers jika belum disediakan
+            let activeTriggers = triggers
+            if (!activeTriggers || activeTriggers.length === 0) {
+                activeTriggers = await dbInstance
+                    .query()
+                    .from('data_case_quest_ia_trigger')
+                    .where('casequestiatrigger_casequest_id', casequest_id)
+            }
+
+            const formattedTriggers = (activeTriggers || [])
+                .map((trg: any, index: number) => {
+                    return `${index + 1}. [${trg.casequestiatrigger_name || 'Kategori ' + (index + 1)}]
+   - Kata Kunci / Pertanyaan: ${trg.casequestiatrigger_key || ''}
+   - Fakta Medis / Jawaban Pasien: "${trg.casequestiatrigger_response || ''}"`
+                })
+                .join('\n')
+
+            // 4. Susun System Prompt yang terstruktur mirip IaController.buildAnamnesisSystemPrompt
+            let systemPrompt = `Kamu berperan sebagai PASIEN ${patientGenderStr.toUpperCase()} bernama ${patientName} (usia ${patientAge} tahun, panggilan: ${patientHonorific}) yang sedang datang berkonsultasi dan diperiksa oleh seorang Mahasiswa Bidan / Tenaga Kesehatan di fasilitas pelayanan kesehatan.
+
+DESKRIPSI KLINIS KASUS:
+${caseDesc}
+
+KELUHAN AWAL / PESAN PEMBUKA:
+${initMsg}
+
+KEPRIBADIAN PASIEN:
+${personality}
+
+DATA FAKTA JAWABAN & ANAMNESIS KASUS:
+${formattedTriggers || '- Belum ada data anamnesis terdaftar.'}
+`
+
+            if (matchedTrigger && matchedTrigger.casequestiatrigger_response) {
+                systemPrompt += `\nFAKTA JAWABAN YANG HARUS DISAMPAIKAN TERKAIT PERTANYAAN BIDAN SAAT INI:
+"${matchedTrigger.casequestiatrigger_response}"
+`
+            }
+
+            systemPrompt += `\nPANDUAN & ATURAN WAWANCARA:
+1. Kamu adalah ${patientName} (pasien nyata). Berbicaralah SINGKAT dan PADAT dengan nada santun dalam 1-2 kalimat pendek bahasa Indonesia lisan (maksimal 25 kata).
+2. Jawablah sesuai fakta medis pasien di atas. Jika pertanyaan sesuai dengan konteks/fakta yang tertera, sampaikan informasinya dengan jelas dan ramah.
+3. JIKA BIDAN MENANYAKAN HAL DI LUAR KONTEKS, DI LUAR SCOPE KELUHAN, ATAU TOPIK YANG TIDAK BERHUBUNGAN: Jawablah dengan nada bingung dan sopan seperti: "${outOfScopeFallbackMessage}".
+4. JANGAN keluar dari peran pasien. Jangan pernah menyebutkan bahwa kamu adalah AI atau model bahasa.`
+
+            // 5. Ambil riwayat percakapan terkini untuk konteks dialog
+            let contextPrompt = text
+            try {
+                const recentChats = await dbInstance
+                    .query()
+                    .from('trx_response_ia')
+                    .where('responseia_response_id', response_id)
+                    .where('responseia_casequest_id', casequest_id)
+                    .orderBy('responseia_id', 'desc')
+                    .limit(6)
+
+                if (recentChats && recentChats.length > 1) {
+                    const sortedHistory = recentChats.reverse().slice(0, -1)
+                    const formattedHistory = sortedHistory
+                        .map((c: any) => (c.responseia_sender === 2 ? `Bidan: ${c.responseia_text}` : `Pasien: ${c.responseia_text}`))
+                        .join('\n')
+
+                    contextPrompt = `Riwayat percakapan sebelumnya:\n${formattedHistory}\n\nPertanyaan/pernyataan Bidan saat ini:\n${text}`
+                }
+            } catch (histErr: any) {
+                console.warn('[TrxResponseAnswerController] Failed to fetch chat context:', histErr?.message)
+            }
+
+            // 6. Request jawaban ke Gemini AI
+            const aiResult = await geminiService.generatePatientAnswer({
+                prompt: contextPrompt,
+                systemInstruction: systemPrompt,
+                temperature: 0.6,
+                maxOutputTokens: 1000,
+                topP: 0.9,
+                timeout: 8000,
+            })
+
+            let cleaned = this.cleanReplyForTts(aiResult)
+            const isAbrupt = !/[.!?…'"]\s*$/.test(cleaned)
+            if (!cleaned || cleaned.length < 10 || isAbrupt) {
+                throw new Error(`Respons Gemini belum lengkap atau terpotong: "${cleaned}"`)
+            }
+
+            return cleaned
+        } catch (error: any) {
+            console.warn('[TrxResponseAnswerController] Gemini fallback triggered:', error?.message)
+            return (
+                matchedTrigger?.casequestiatrigger_response ||
+                'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+            )
+        }
     }
 }
