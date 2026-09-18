@@ -14,7 +14,7 @@ export default class TrxResponseRepository {
             .select(column)
             .from('trx_response as a')
             .leftJoin('data_contest_team as b', 'b.contestteam_id', 'a.response_contestteam_id')
-            .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contestteam_id')
+            .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contest_id')
             .leftJoin('data_case as d', 'd.case_id', 'a.response_case_id')
             .leftJoin('data_patient as e', 'e.patient_id', 'a.response_patient_id');
 
@@ -76,7 +76,7 @@ export default class TrxResponseRepository {
             .select(column)
             .from('trx_response as a')
             .leftJoin('data_contest_team as b', 'b.contestteam_id', 'a.response_contestteam_id')
-            .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contestteam_id')
+            .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contest_id')
             .leftJoin('data_case as d', 'd.case_id', 'a.response_case_id')
             .leftJoin('data_patient as e', 'e.patient_id', 'a.response_patient_id')
             .where('a.response_id', id)

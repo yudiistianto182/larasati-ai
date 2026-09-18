@@ -11,17 +11,6 @@
       "aliases": [],
       "flags": []
     },
-    "test:ia": {
-      "settings": {
-        "loadApp": true
-      },
-      "commandPath": "./commands/TestIa",
-      "commandName": "test:ia",
-      "description": "Test IaController prompt and flow logic according to documentation",
-      "args": [],
-      "aliases": [],
-      "flags": []
-    },
     "dump:rcfile": {
       "settings": {},
       "commandPath": "@adonisjs/core/build/commands/DumpRc",

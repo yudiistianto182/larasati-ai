@@ -11,11 +11,11 @@ import Database from '@ioc:Adonis/Lucid/Database'
 
 const General = new GeneralRepository()
 const TrxResponse = new TrxResponseRepository()
-const DataCase = new DataCaseController();
+const DataCase = new DataCaseController()
 
 export default class TrxResponseController {
     public async index({ request, response }) {
-        let data: Array<string> = [];
+        let data: any = [];
         let result: object = {};
         let where: object = {};
 
@@ -23,17 +23,34 @@ export default class TrxResponseController {
             data = await General.dropdownData('data_contest', 'contest_id', 'contest_name', where);
         } else {
             data = await TrxResponse.getAll({ request });
+            const rows = Array.isArray(data) ? data : (data.rows || []);
+
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
-                for (let index = 0; index < data.rows.length; index++) {
-                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
+                for (let index = 0; index < rows.length; index++) {
+                    rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
                 }
-            } else {
-                for (let index = 0; index < data.length; index++) {
+            }
+
+            // Tambahkan status pengerjaan pos dan skor masing-masing pos untuk setiap respons
+            for (let index = 0; index < rows.length; index++) {
+                const item = rows[index];
+                const posInfo = await this.getPosStatusAndScores(item.response_id, item.response_case_id);
+                item.pos = posInfo.pos;
+                item.pos_completed = posInfo.pos_completed;
+                item.pos_completed_orders = posInfo.pos_completed_orders;
+                item.pos_completed_names = posInfo.pos_completed_names;
+                item.pos_completed_count = posInfo.pos_completed_count;
+                item.pos_total_count = posInfo.pos_total_count;
+                item.pos_progress = posInfo.pos_progress;
+                item.pos_progress_text = posInfo.pos_progress_text;
+                item.calculated_total_score = posInfo.calculated_total_score;
+                if (item.response_total_score === null || item.response_total_score === undefined) {
+                    item.response_total_score = posInfo.calculated_total_score;
                 }
             }
         }
 
-        if (typeof data.length != 'undefined' || data.data[0]) {
+        if (typeof data.length != 'undefined' || data.data?.[0] || data.rows?.[0]) {
             result = {
                 status: true,
                 message: 'Success',
@@ -584,6 +601,16 @@ export default class TrxResponseController {
             }
 
             // 2. Hapus semua child tables terkait response_id
+            const iaRecords = await trx
+                .from('trx_response_ia')
+                .where('responseia_response_id', response_id)
+                .select('responseia_id');
+
+            if (iaRecords && iaRecords.length > 0) {
+                const iaIds = iaRecords.map((r: any) => r.responseia_id);
+                await trx.from('trx_response_req').whereIn('responsereq_responseia_id', iaIds).delete();
+            }
+
             await trx.from('trx_response_ia').where('responseia_response_id', response_id).delete();
             await trx.from('trx_response_ia_trigger').where('responseiatrigger_response_id', response_id).delete();
             await trx.from('trx_response_record').where('responserecord_response_id', response_id).delete();
@@ -701,142 +728,7 @@ export default class TrxResponseController {
         return (sec / 60).toFixed(0) + ' Menit';
     }
 
-    /**
-     * Service / Helper: Simpan chat method_id 1 (IA) dan proses trigger otomatis
-     * @param sender: 1 (AI / Pasien) | 2 (Peserta Lomba, default: 2)
-     */
-    public async saveChat({
-        response_id,
-        casequest_id,
-        sender = 2,
-        text,
-    }: {
-        response_id: number | string
-        casequest_id: number | string
-        sender?: number | string
-        text: string
-    }, dbInstance: any = Database) {
-        const now = date.format(new Date(), 'YYYY-MM-DD HH:mm:ss')
-        const senderNum = Number(sender)
 
-        if (senderNum === 2) {
-            // A. Simpan chat peserta ke trx_response_ia
-            const participantChatInsert = {
-                responseia_response_id: response_id,
-                responseia_casequest_id: casequest_id,
-                responseia_sender: 2,
-                responseia_text: text,
-                insert_timestamp: now,
-            }
-            const partResult = await dbInstance
-                .insertQuery()
-                .table('trx_response_ia')
-                .insert(participantChatInsert)
-            const participantChatId = Array.isArray(partResult) ? partResult[0] : partResult
-
-            // B. Cek apakah post.text mengandung keyword pada data_case_quest_ia_trigger
-            const triggers = await dbInstance
-                .query()
-                .from('data_case_quest_ia_trigger')
-                .where('casequestiatrigger_casequest_id', casequest_id)
-
-            const lowerText = text.toLowerCase()
-            let matchedTrigger: any = null
-
-            if (triggers && triggers.length > 0) {
-                for (const trg of triggers) {
-                    if (trg.casequestiatrigger_key) {
-                        const keys = String(trg.casequestiatrigger_key)
-                            .split(',')
-                            .map((k) => k.trim().toLowerCase())
-                            .filter(Boolean)
-
-                        const hasMatch = keys.some((k) => lowerText.includes(k)) || lowerText.includes(String(trg.casequestiatrigger_key).trim().toLowerCase())
-                        if (hasMatch) {
-                            matchedTrigger = trg
-                            break
-                        }
-                    }
-                }
-            }
-
-            let aiText = ''
-            let savedTrigger: any = null
-
-            if (matchedTrigger) {
-                const triggerInsert = {
-                    responseiatrigger_response_id: response_id,
-                    responseiatrigger_casequest_id: casequest_id,
-                    responseiatrigger_trigger_id: matchedTrigger.casequestiatrigger_id,
-                    responseiatrigger_score: matchedTrigger.casequestiatrigger_score ?? 0,
-                }
-                const trgResult = await dbInstance
-                    .insertQuery()
-                    .table('trx_response_ia_trigger')
-                    .insert(triggerInsert)
-                const trgId = Array.isArray(trgResult) ? trgResult[0] : trgResult
-
-                savedTrigger = {
-                    responseiatrigger_id: trgId,
-                    ...triggerInsert,
-                    trigger_name: matchedTrigger.casequestiatrigger_name,
-                    trigger_key: matchedTrigger.casequestiatrigger_key,
-                }
-
-                aiText = matchedTrigger.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
-            } else {
-                aiText = 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
-            }
-
-            // C. Simpan balasan AI ke trx_response_ia
-            const aiChatInsert = {
-                responseia_response_id: response_id,
-                responseia_casequest_id: casequest_id,
-                responseia_sender: 1,
-                responseia_text: aiText,
-                insert_timestamp: now,
-            }
-            const aiResult = await dbInstance
-                .insertQuery()
-                .table('trx_response_ia')
-                .insert(aiChatInsert)
-            const aiChatId = Array.isArray(aiResult) ? aiResult[0] : aiResult
-
-            return {
-                participant_chat: {
-                    responseia_id: participantChatId,
-                    ...participantChatInsert,
-                },
-                ai_reply: {
-                    responseia_id: aiChatId,
-                    ...aiChatInsert,
-                },
-                matched_trigger: savedTrigger,
-                is_trigger_matched: !!matchedTrigger,
-            }
-        } else {
-            const aiChatInsert = {
-                responseia_response_id: response_id,
-                responseia_casequest_id: casequest_id,
-                responseia_sender: 1,
-                responseia_text: text,
-                insert_timestamp: now,
-            }
-            const result = await dbInstance
-                .insertQuery()
-                .table('trx_response_ia')
-                .insert(aiChatInsert)
-            const insertedId = Array.isArray(result) ? result[0] : result
-
-            return {
-                ai_reply: {
-                    responseia_id: insertedId,
-                    ...aiChatInsert,
-                },
-                is_trigger_matched: false,
-            }
-        }
-    }
 
     /**
      * GET /v1/trx_response/:id/instruction
@@ -1093,6 +985,185 @@ export default class TrxResponseController {
                 notice: "Timer stase berjalan setelah tombol ditekan.",
                 button_text: "MULAI PENGERJAAN POS"
             }
+        };
+    }
+
+    /**
+     * Helper: Mendapatkan status pengerjaan pos (selesai / belum) dan skor masing-masing pos
+     */
+    public async getPosStatusAndScores(responseId: number | string, caseId?: number | string) {
+        if (!responseId) {
+            return {
+                pos: [],
+                pos_completed: [],
+                pos_completed_orders: [],
+                pos_completed_names: [],
+                pos_completed_count: 0,
+                pos_total_count: 0,
+                pos_progress: '0/0',
+                pos_progress_text: '0 dari 0 Pos Selesai',
+                calculated_total_score: 0,
+            };
+        }
+
+        // Jika caseId belum diberikan, ambil dari tabel trx_response
+        if (!caseId) {
+            const resp = await Database.query().from('trx_response').where('response_id', responseId).select('response_case_id').first();
+            caseId = resp?.response_case_id;
+        }
+
+        if (!caseId) {
+            return {
+                pos: [],
+                pos_completed: [],
+                pos_completed_orders: [],
+                pos_completed_names: [],
+                pos_completed_count: 0,
+                pos_total_count: 0,
+                pos_progress: '0/0',
+                pos_progress_text: '0 dari 0 Pos Selesai',
+                calculated_total_score: 0,
+            };
+        }
+
+        // 1. Ambil daftar pos/quest untuk kasus ini
+        const quests = await Database.query()
+            .from('data_case_quest as a')
+            .leftJoin('ref_method as b', 'b.method_id', 'a.casequest_method_id')
+            .where('a.casequest_case_id', caseId)
+            .orderBy('a.casequest_order', 'asc')
+            .select([
+                'a.casequest_id',
+                'a.casequest_case_id',
+                'a.casequest_name',
+                'a.casequest_method_id',
+                'a.casequest_order',
+                'a.casequest_limit_time',
+                'b.method_name'
+            ]);
+
+        if (!quests || quests.length === 0) {
+            return {
+                pos: [],
+                pos_completed: [],
+                pos_completed_orders: [],
+                pos_completed_names: [],
+                pos_completed_count: 0,
+                pos_total_count: 0,
+                pos_progress: '0/0',
+                pos_progress_text: '0 dari 0 Pos Selesai',
+                calculated_total_score: 0,
+            };
+        }
+
+        // 2. Ambil seluruh data jawaban per metode secara paralel untuk response_id ini
+        const [iaTriggers, iaChats, mcList, osList, ciList, recordList] = await Promise.all([
+            Database.query()
+                .from('trx_response_ia_trigger')
+                .where('responseiatrigger_response_id', responseId)
+                .select('responseiatrigger_casequest_id', 'responseiatrigger_score'),
+            Database.query()
+                .from('trx_response_ia')
+                .where('responseia_response_id', responseId)
+                .select('responseia_casequest_id', 'responseia_sender'),
+            Database.query()
+                .from('trx_response_mc')
+                .where('responsemc_response_id', responseId)
+                .select('responsemc_casequest_id', 'responsemc_score'),
+            Database.query()
+                .from('trx_response_os')
+                .where('responseos_response_id', responseId)
+                .select('responseos_casequest_id', 'responseos_score'),
+            Database.query()
+                .from('trx_response_ci')
+                .where('responseci_response_id', responseId)
+                .select('responseci_casequest_id', 'responseci_score', 'responseci_is_submited'),
+            Database.query()
+                .from('trx_response_record')
+                .where('responserecord_response_id', responseId)
+                .select('responserecord_casequest_id')
+        ]);
+
+        const posResults: any[] = [];
+
+        for (const quest of quests) {
+            const questId = quest.casequest_id;
+            const methodId = Number(quest.casequest_method_id);
+            let isCompleted = false;
+            let posScore = 0;
+
+            switch (methodId) {
+                case 1: { // Pos 1: IA (Wawancara Pasien / Chat)
+                    const triggers = iaTriggers.filter((t: any) => t.responseiatrigger_casequest_id == questId);
+                    const chats = iaChats.filter((c: any) => c.responseia_casequest_id == questId);
+                    posScore = triggers.reduce((acc: number, curr: any) => acc + Number(curr.responseiatrigger_score || 0), 0);
+                    const participantChats = chats.filter((c: any) => Number(c.responseia_sender) === 2);
+                    isCompleted = participantChats.length > 0 || triggers.length > 0 || chats.length > 0;
+                    break;
+                }
+
+                case 2: { // Pos 2: MC (Multiple Choice)
+                    const answers = mcList.filter((m: any) => m.responsemc_casequest_id == questId);
+                    posScore = answers.reduce((acc: number, curr: any) => acc + Number(curr.responsemc_score || 0), 0);
+                    isCompleted = answers.length > 0;
+                    break;
+                }
+
+                case 3: { // Pos 3: OS (Ordering Step)
+                    const answers = osList.filter((o: any) => o.responseos_casequest_id == questId);
+                    posScore = answers.reduce((acc: number, curr: any) => acc + Number(curr.responseos_score || 0), 0);
+                    isCompleted = answers.length > 0;
+                    break;
+                }
+
+                case 4: { // Pos 4: CI (Clinical Inquiry / Image Choice)
+                    const answers = ciList.filter((c: any) => c.responseci_casequest_id == questId);
+                    posScore = answers.reduce((acc: number, curr: any) => acc + Number(curr.responseci_score || 0), 0);
+                    isCompleted = answers.length > 0;
+                    break;
+                }
+
+                case 5: { // Pos 5: Record
+                    const answers = recordList.filter((r: any) => r.responserecord_casequest_id == questId);
+                    posScore = 0;
+                    isCompleted = answers.length > 0;
+                    break;
+                }
+
+                default: {
+                    break;
+                }
+            }
+
+            posResults.push({
+                casequest_id: quest.casequest_id,
+                casequest_order: quest.casequest_order,
+                pos_order: quest.casequest_order,
+                casequest_name: quest.casequest_name,
+                pos_name: quest.casequest_name || `Pos ${quest.casequest_order}: ${quest.method_name || ''}`,
+                casequest_method_id: quest.casequest_method_id,
+                method_name: quest.method_name || null,
+                is_completed: isCompleted,
+                status_text: isCompleted ? 'Selesai' : 'Belum Selesai',
+                score: posScore,
+            });
+        }
+
+        const completedPos = posResults.filter((p) => p.is_completed);
+        const completedOrders = completedPos.map((p) => p.pos_order);
+        const completedNames = completedPos.map((p) => p.pos_name);
+        const totalScore = posResults.reduce((sum, p) => sum + Number(p.score || 0), 0);
+
+        return {
+            pos: posResults,
+            pos_completed: completedPos,
+            pos_completed_orders: completedOrders,
+            pos_completed_names: completedNames,
+            pos_completed_count: completedPos.length,
+            pos_total_count: posResults.length,
+            pos_progress: `${completedPos.length}/${posResults.length}`,
+            pos_progress_text: `${completedPos.length} dari ${posResults.length} Pos Selesai`,
+            calculated_total_score: totalScore,
         };
     }
 }

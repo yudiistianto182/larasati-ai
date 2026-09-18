@@ -28,10 +28,10 @@ export interface PatientAnswerParams {
 
 export default class GeminiService {
     private defaultModel: string
-    private fallbackModels: string[] = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash']
+    private fallbackModels: string[] = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.7-flash', 'gemini-3.5-flash']
 
     constructor() {
-        this.defaultModel = Config.get('ai.gemini.model') || Env.get('GEMINI_MODEL', 'gemini-3.7-flash')
+        this.defaultModel = Config.get('ai.gemini.model') || Env.get('GEMINI_MODEL', 'gemini-3.6-flash')
     }
 
     /**
@@ -73,7 +73,7 @@ export default class GeminiService {
 
     /**
      * Generate answer simulating a patient based on clinical scenario instructions and doctor/user prompt.
-     * Defaults to generationConfig from documentation: temperature 0.6, maxOutputTokens 65, topP 0.9, timeout 3500ms
+     * Defaults to low latency config: temperature 0.6, maxOutputTokens 150, topP 0.9, timeout 25000ms
      */
     public async generatePatientAnswer(params: PatientAnswerParams): Promise<string> {
         return this.generateContent({
@@ -81,9 +81,9 @@ export default class GeminiService {
             contents: params.contents,
             systemInstruction: params.systemInstruction,
             temperature: params.temperature ?? 0.6,
-            maxOutputTokens: params.maxOutputTokens ?? 1000,
+            maxOutputTokens: params.maxOutputTokens ?? 150,
             topP: params.topP ?? 0.9,
-            timeout: params.timeout ?? 8000,
+            timeout: params.timeout ?? 25000,
             model: params.model,
         })
     }
@@ -101,7 +101,7 @@ export default class GeminiService {
         ]
 
         let lastError: any = null
-        const timeoutMs = params.timeout ?? 10000
+        const timeoutMs = params.timeout ?? 30000
 
         for (const modelName of candidateModels) {
             try {
@@ -110,8 +110,13 @@ export default class GeminiService {
                 const config: any = {
                     systemInstruction: params.systemInstruction,
                     temperature: params.temperature ?? 0.6,
-                    maxOutputTokens: params.maxOutputTokens ?? 1000,
+                    maxOutputTokens: params.maxOutputTokens ?? 200,
                     topP: params.topP ?? 0.9,
+                }
+
+                // Hanya pasang thinkingConfig jika model mendukung mode thinking (seperti 3.7)
+                if (modelName.includes('3.7') || modelName.includes('thinking')) {
+                    config.thinkingConfig = { thinkingBudget: 0 }
                 }
 
                 const apiCall = client.models.generateContent({
