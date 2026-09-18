@@ -21,7 +21,7 @@
 import Route from '@ioc:Adonis/Core/Route'
 
 Route.get('/', async () => {
-  return { hello: 'update on 2025-07-04 15.00' }
+  return { hello: 'update on 2025-09-18 15.000' }
 })
 
 Route.post('/v1/auth/login', 'v1/AuthController.login');
