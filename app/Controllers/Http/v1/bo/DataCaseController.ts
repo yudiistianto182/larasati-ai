@@ -14,7 +14,7 @@ export default class DataCaseController {
     public async index({ request, response }) {
         let data: Array<string> = [];
         let result: object = {};
-        let where: object = {};
+        let where: object = { case_is_deleted: 0 };
 
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_case', 'case_id', 'case_name', where);
@@ -611,102 +611,12 @@ export default class DataCaseController {
 
         const trx = await Database.transaction();
         try {
-            // 1. Hapus relasi attribute
-            await trx
-                .from('data_case_attribute')
-                .where('caseattribute_case_id', params.id)
-                .delete();
-
-            // 2. Ambil semua respon (trx_response) terkait case ini dan hapus anak-anaknya terlebih dahulu
-            const responses = await trx
-                .from('trx_response')
-                .where('response_case_id', params.id)
-                .select('response_id');
-            const responseIds = responses.map((r) => r.response_id);
-
-            if (responseIds.length > 0) {
-                // await trx.from('trx_response_ia').whereIn('responseia_response_id', responseIds).delete();
-                // await trx.from('trx_response_req').whereIn('responsereq_response_id', responseIds).delete();
-                // // await trx.from('trx_response_interview').whereIn('responsinterview_response_id', responseIds).delete();
-                // await trx.from('trx_response_answer_mc').whereIn('responseanswermc_response_id', responseIds).delete();
-                // await trx.from('trx_response_answer_os').whereIn('responseansweros_response_id', responseIds).delete();
-                // await trx.from('trx_response_answer').whereIn('responseanswer_response_id', responseIds).delete();
-                await trx.from('trx_response').whereIn('response_id', responseIds).delete();
-            }
-
-            // 3. Ambil semua tim kontes terkait case ini dan hapus member tim
-            const teams = await trx
-                .from('data_contest_team')
-                .where('contestteam_case_id', params.id)
-                .select('contestteam_id');
-            const teamIds = teams.map((t) => t.contestteam_id);
-
-            if (teamIds.length > 0) {
-                await trx.from('data_contest_team_member').whereIn('contestteammember_contestteam_id', teamIds).delete();
-                await trx.from('data_contest_team').whereIn('contestteam_id', teamIds).delete();
-            }
-
-            // 4. Ambil semua quest dari case ini
-            const existingQuests = await trx
-                .from('data_case_quest')
-                .where('casequest_case_id', params.id)
-                .select('casequest_id');
-            const questIds = existingQuests.map((q) => q.casequest_id);
-
-            if (questIds.length > 0) {
-                // Hapus file fisik gambar CI dari folder storage jika ada
-                const ciRecords = await trx
-                    .from('data_case_quest_ci')
-                    .whereIn('casequestci_casequest_id', questIds)
-                    .select('casequestci_image');
-
-                for (const ci of ciRecords) {
-                    if (ci.casequestci_image && ci.casequestci_image.startsWith('storage/')) {
-                        const relativePath = ci.casequestci_image.replace(/^storage\//, '');
-                        const fullPath = path.join(Application.makePath('storage'), relativePath);
-                        if (fs.existsSync(fullPath)) {
-                            try {
-                                fs.unlinkSync(fullPath);
-                            } catch (e) {
-                                console.error('Error deleting file:', e);
-                            }
-                        }
-                    }
-                }
-
-                // Hapus sisa-sisa transaksi yang mereferensikan questIds jika ada
-                // await trx.from('trx_response_ia').whereIn('responseia_casequest_id', questIds).delete();
-                // await trx.from('trx_response_answer_mc').whereIn('responseanswermc_casequest_id', questIds).delete();
-                // await trx.from('trx_response_answer_os').whereIn('responseansweros_casequest_id', questIds).delete();
-                // await trx.from('trx_response_answer').whereIn('responseanswer_casequest_id', questIds).delete();
-
-                // Hapus sub-tabel data_case_quest & jawaban
-                await trx.from('data_case_quest_ia_trigger').whereIn('casequestiatrigger_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_ia').whereIn('casequestia_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_mc').whereIn('casequestmc_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_os').whereIn('casequestos_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_ci_option').whereIn('casequestcioption_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_ci').whereIn('casequestci_casequest_id', questIds).delete();
-                await trx.from('data_case_quest_record').whereIn('casequestrecord_casequest_id', questIds).delete();
-            }
-
-            // 5. Hapus data_case_quest
-            await trx
-                .from('data_case_quest')
-                .where('casequest_case_id', params.id)
-                .delete();
-
-            // 6. Hapus data_case_patient
-            await trx
-                .from('data_case_patient')
-                .where('casepatient_case_id', params.id)
-                .delete();
-
-            // 7. Hapus data_case
+            let where_update = { case_id: params.id }
+            let data_update = { case_is_deleted: 1 }
             await trx
                 .from('data_case')
-                .where('case_id', params.id)
-                .delete();
+                .where(where_update)
+                .update(data_update);
 
             result = {
                 status: true,
@@ -714,7 +624,7 @@ export default class DataCaseController {
             }
             response.send(result);
             await trx.commit();
-        } catch (error) {
+        } catch (error: any) {
             result = {
                 status: false,
                 message: error.sqlMessage || error.message

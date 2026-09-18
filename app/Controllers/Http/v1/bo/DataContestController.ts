@@ -11,7 +11,7 @@ export default class DataContestController {
     public async index({request, response}) {
         let data: Array<string> = [];
         let result: object = {};
-        let where: object = {};
+        let where: object = { contest_is_deleted: 0 };
 
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_contest', 'contest_id', 'contest_name', where);
@@ -292,40 +292,12 @@ export default class DataContestController {
                  
         const trx = await Database.transaction();
         try {
-            let where_contest_team = { contestteam_contest_id: params.id };
-            let data_contest_team = await General.getWhereObject('data_contest_team', where_contest_team);
-            if (data_contest_team.length > 0) {
-                for (let index = 0; index < data_contest_team.length; index++) {
-                    let where_member = { contestteammember_contestteam_id: data_contest_team[index].contestteam_id };
-                    await trx
-                        .from('data_contest_team_member')
-                        .where(where_member)
-                        .delete();
-                }
-
-                await trx
-                    .from('data_contest_team')
-                    .where(where_contest_team)
-                    .delete();
-            }
-
-            let where_contest_scorer = { contestscorer_contest_id: params.id };
-            await trx
-                .from('data_contest_scorer')
-                .where(where_contest_scorer)
-                .delete();
-
-            let where_case = { contestcase_contest_id: params.id };
-            await trx
-                .from('data_contest_case')
-                .where(where_case)
-                .delete();
-                
-            let where = { contest_id: params.id };
+            let where_update = { contest_id: params.id };
+            let data_update = { contest_is_deleted: 1 };
             await trx
                 .from('data_contest')
-                .where(where)
-                .delete();
+                .where(where_update)
+                .update(data_update);
     
             result = {
                 status: true,
@@ -333,10 +305,10 @@ export default class DataContestController {
             }
             response.send(result);
             await trx.commit();
-        } catch (error) {
+        } catch (error: any) {
             result = {
                 status : false,
-                message : error.sqlMessage
+                message : error.sqlMessage || error.message
             }
             response.badRequest(result);
             await trx.rollback();

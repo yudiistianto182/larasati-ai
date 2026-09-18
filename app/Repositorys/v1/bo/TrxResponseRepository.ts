@@ -16,7 +16,9 @@ export default class TrxResponseRepository {
             .leftJoin('data_contest_team as b', 'b.contestteam_id', 'a.response_contestteam_id')
             .leftJoin('data_contest as c', 'c.contest_id', 'a.response_contest_id')
             .leftJoin('data_case as d', 'd.case_id', 'a.response_case_id')
-            .leftJoin('data_patient as e', 'e.patient_id', 'a.response_patient_id');
+            .leftJoin('data_patient as e', 'e.patient_id', 'a.response_patient_id')
+            .where('d.case_is_deleted', 0)
+            .where('c.contest_is_deleted', 0);
 
         if (typeof request.only(['contest_id']).contest_id !== 'undefined') {
             query.where('response_contest_id', request.only(['contest_id']).contest_id)

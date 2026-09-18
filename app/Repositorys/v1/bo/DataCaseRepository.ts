@@ -1,14 +1,15 @@
 import Database from '@ioc:Adonis/Lucid/Database'
 
 export default class DataCaseRepository {
-    async getAll({request}) {
+    async getAll({ request }) {
         let column = [
             'a.*'
         ];
 
         let query = Database.query()
-                            .select(column)
-                            .from('data_case as a');
+            .select(column)
+            .from('data_case as a')
+            .where('case_is_deleted', 0);
 
         if (typeof request.only(['search']).search !== 'undefined') {
             query.where((query) => {
@@ -21,14 +22,14 @@ export default class DataCaseRepository {
         if (typeof request.only(['order']).order !== 'undefined' && request.only(['order_by']).order_by !== 'null') {
             query.orderBy(request.only(['order_by']).order_by, request.only(['order']).order);
         }
-        
+
         if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
             if (request.only(['limit']).limit != -1) {
                 query = query.paginate(request.only(['page']).page, request.only(['limit']).limit);
             } else {
                 query = query.paginate(request.only(['page']).page, 10000);
             }
-        } 
+        }
 
         return await query;
     }
@@ -39,9 +40,9 @@ export default class DataCaseRepository {
         ];
 
         let query = Database.query()
-                            .select(column)
-                            .from('data_case as a')
-                            .where('case_id', id);
+            .select(column)
+            .from('data_case as a')
+            .where('case_id', id);
 
         return await query;
     }

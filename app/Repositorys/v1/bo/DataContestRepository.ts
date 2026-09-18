@@ -1,14 +1,15 @@
 import Database from '@ioc:Adonis/Lucid/Database'
 
 export default class DataContestRepository {
-    async getAll({request}) {
+    async getAll({ request }) {
         let column = [
             'a.*'
         ];
 
         let query = Database.query()
-                            .select(column)
-                            .from('data_contest as a');
+            .select(column)
+            .from('data_contest as a')
+            .where('contest_is_deleted', 0);
 
         if (typeof request.only(['periode_id']).periode_id !== 'undefined') {
             query.where('contest_periode_id', request.only(['periode_id']).periode_id)
