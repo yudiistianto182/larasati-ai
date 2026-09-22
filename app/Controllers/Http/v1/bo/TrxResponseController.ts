@@ -138,6 +138,9 @@ export default class TrxResponseController {
             ),
             ci: schema.array.optional().members(
                 schema.object().anyMembers()
+            ),
+            answer: schema.array.optional().members(
+                schema.object().anyMembers()
             )
         });
 
@@ -297,6 +300,22 @@ export default class TrxResponseController {
                     }
                 }
 
+                // 8. Insert ke trx_response_answer
+                if (Array.isArray(post.answer) && post.answer.length > 0) {
+                    for (let index = 0; index < post.answer.length; index++) {
+                        const item = post.answer[index];
+                        const duration = parseInt(item.responseanswer_duration ?? item.duration ?? 0, 10) || 0;
+                        let data_answer = {
+                            responseanswer_response_id: response_id,
+                            responseanswer_casequest_id: item.casequest_id || item.responseanswer_casequest_id,
+                            responseanswer_submited: item.responseanswer_submited ?? item.submited ?? 1,
+                            responseanswer_score: item.score ?? item.responseanswer_score ?? 0,
+                            responseanswer_duration: duration
+                        };
+                        await trx.insertQuery().table('trx_response_answer').insert(data_answer);
+                    }
+                }
+
                 result = {
                     status: true,
                     message: 'Success !',
@@ -360,6 +379,9 @@ export default class TrxResponseController {
                 schema.object().anyMembers()
             ),
             ci: schema.array.optional().members(
+                schema.object().anyMembers()
+            ),
+            answer: schema.array.optional().members(
                 schema.object().anyMembers()
             )
         });
@@ -549,6 +571,25 @@ export default class TrxResponseController {
                     }
                 }
 
+                // 8. Update / Re-insert trx_response_answer
+                if (typeof post.answer !== 'undefined') {
+                    await trx.from('trx_response_answer').where('responseanswer_response_id', response_id).delete();
+                    if (Array.isArray(post.answer) && post.answer.length > 0) {
+                        for (let index = 0; index < post.answer.length; index++) {
+                            const item = post.answer[index];
+                            const duration = parseInt(item.responseanswer_duration ?? item.duration ?? 0, 10) || 0;
+                            let data_answer = {
+                                responseanswer_response_id: response_id,
+                                responseanswer_casequest_id: item.casequest_id || item.responseanswer_casequest_id,
+                                responseanswer_submited: item.responseanswer_submited ?? item.submited ?? 1,
+                                responseanswer_score: item.score ?? item.responseanswer_score ?? 0,
+                                responseanswer_duration: duration
+                            };
+                            await trx.insertQuery().table('trx_response_answer').insert(data_answer);
+                        }
+                    }
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -617,6 +658,7 @@ export default class TrxResponseController {
             await trx.from('trx_response_mc').where('responsemc_response_id', response_id).delete();
             await trx.from('trx_response_os').where('responseos_response_id', response_id).delete();
             await trx.from('trx_response_ci').where('responseci_response_id', response_id).delete();
+            await trx.from('trx_response_answer').where('responseanswer_response_id', response_id).delete();
 
             // 3. Hapus data utama trx_response
             await trx
@@ -676,13 +718,18 @@ export default class TrxResponseController {
             .where('a.responseci_response_id', id)
             .select('a.*', 'b.casequestcioption_code', 'b.casequestcioption_name', 'b.casequestcioption_score as option_score');
 
+        const answer = await Database.query()
+            .from('trx_response_answer')
+            .where('responseanswer_response_id', id);
+
         return {
             ia,
             ia_trigger,
             record,
             mc,
             os,
-            ci
+            ci,
+            answer
         };
     }
 

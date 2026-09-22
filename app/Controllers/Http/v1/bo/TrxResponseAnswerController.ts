@@ -277,6 +277,18 @@ export default class TrxResponseAnswerController {
                         break
                 }
 
+                // Ambil data dari tabel trx_response_answer untuk pos ini (skor, status submited, & duration)
+                const respAnswer = await Database.query()
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', quest.casequest_id)
+                    .first()
+
+                posData.responseanswer = respAnswer || null
+                posData.responseanswer_duration = respAnswer ? parseInt(respAnswer.responseanswer_duration, 10) || 0 : 0
+                posData.duration = posData.responseanswer_duration
+                posData.responseanswer_submited = respAnswer ? Number(respAnswer.responseanswer_submited || 0) : 0
+
                 posResults.push(posData)
             }
 
@@ -606,7 +618,8 @@ export default class TrxResponseAnswerController {
     // Body: {
     //   response_id: "1",
     //   casequest_id: "1",
-    //   responseanswer_submited: 1 (opsional, default: 1)
+    //   responseanswer_submited: 1 (opsional, default: 1),
+    //   responseanswer_duration: 120 (opsional, int)
     // }
     // =====================================================================
     public async storeIa({ request, response }) {
@@ -614,6 +627,8 @@ export default class TrxResponseAnswerController {
             response_id: schema.string([rules.minLength(1)]),
             casequest_id: schema.string([rules.minLength(1)]),
             responseanswer_submited: schema.number.optional(),
+            responseanswer_duration: schema.number.optional(),
+            duration: schema.number.optional(),
         })
 
         try {
@@ -628,7 +643,9 @@ export default class TrxResponseAnswerController {
         const post = request.all()
         const responseId = post.response_id
         const casequestId = post.casequest_id
-        const submited = 1
+        const submited = post.responseanswer_submited !== undefined
+            ? parseInt(post.responseanswer_submited, 10)
+            : 1
 
         const trx = await Database.transaction()
         try {
@@ -649,11 +666,17 @@ export default class TrxResponseAnswerController {
                 .where('responseanswer_casequest_id', casequestId)
                 .first()
 
+            const rawDuration = post.responseanswer_duration ?? post.duration
+            const duration = rawDuration !== undefined && rawDuration !== null
+                ? parseInt(rawDuration, 10) || 0
+                : (existingAnswer ? parseInt(existingAnswer.responseanswer_duration, 10) || 0 : 0)
+
             const answerData: any = {
                 responseanswer_response_id: responseId,
                 responseanswer_casequest_id: casequestId,
                 responseanswer_submited: submited,
                 responseanswer_score: score,
+                responseanswer_duration: duration,
             }
 
             if (existingAnswer) {
@@ -695,7 +718,9 @@ export default class TrxResponseAnswerController {
     // Body: {
     //   response_id: "1",
     //   casequest_id: "2",
-    //   answers: [casequestmc_id, casequestmc_id, ...] atau casequestmc_id
+    //   answers: [casequestmc_id, casequestmc_id, ...] atau casequestmc_id,
+    //   responseanswer_duration: 120 (opsional, int),
+    //   responseanswer_submited: 1 (opsional)
     // }
     // =====================================================================
     public async storeMc({ request, response }) {
@@ -704,6 +729,9 @@ export default class TrxResponseAnswerController {
             casequest_id: schema.string([rules.minLength(1)]),
             answers: schema.array.optional().anyMembers(),
             casequestmc_id: schema.string.optional(),
+            responseanswer_submited: schema.number.optional(),
+            responseanswer_duration: schema.number.optional(),
+            duration: schema.number.optional(),
         })
 
         try {
@@ -822,6 +850,44 @@ export default class TrxResponseAnswerController {
                 })
             }
 
+            // Simpan data jawaban pos MC ke tabel trx_response_answer
+            const rawDuration = post.responseanswer_duration ?? post.duration
+            const submited = post.responseanswer_submited !== undefined
+                ? parseInt(post.responseanswer_submited, 10)
+                : 1
+
+            const existingAnswer = await trx
+                .from('trx_response_answer')
+                .where('responseanswer_response_id', responseId)
+                .where('responseanswer_casequest_id', casequestId)
+                .first()
+
+            const duration = rawDuration !== undefined && rawDuration !== null
+                ? parseInt(rawDuration, 10) || 0
+                : (existingAnswer ? parseInt(existingAnswer.responseanswer_duration, 10) || 0 : 0)
+
+            const answerData: any = {
+                responseanswer_response_id: responseId,
+                responseanswer_casequest_id: casequestId,
+                responseanswer_submited: submited,
+                responseanswer_score: totalScore,
+                responseanswer_duration: duration,
+            }
+
+            if (existingAnswer) {
+                await trx
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', casequestId)
+                    .update(answerData)
+            } else {
+                await trx
+                    .insertQuery()
+                    .table('trx_response_answer')
+                    .insert(answerData)
+            }
+
+            await this.syncTotalScore(responseId, trx)
             await trx.commit()
 
             return response.send({
@@ -832,6 +898,8 @@ export default class TrxResponseAnswerController {
                     casequest_id: casequestId,
                     total_answers: insertedAnswers.length,
                     total_score: totalScore,
+                    responseanswer_duration: duration,
+                    duration: duration,
                     answers: insertedAnswers,
                 },
             })
@@ -855,7 +923,9 @@ export default class TrxResponseAnswerController {
     //   answers: [
     //     { casequestos_id: "1", order: 1 },
     //     { casequestos_id: "2", order: 2 },
-    //   ]
+    //   ],
+    //   responseanswer_duration: 120 (opsional, int),
+    //   responseanswer_submited: 1 (opsional)
     // }
     // =====================================================================
     public async storeOs({ request, response }) {
@@ -865,6 +935,9 @@ export default class TrxResponseAnswerController {
             answers: schema.array().members(
                 schema.object().anyMembers()
             ),
+            responseanswer_submited: schema.number.optional(),
+            responseanswer_duration: schema.number.optional(),
+            duration: schema.number.optional(),
         })
 
         try {
@@ -938,6 +1011,43 @@ export default class TrxResponseAnswerController {
                 })
             }
 
+            // Simpan data jawaban pos OS ke tabel trx_response_answer
+            const rawDuration = post.responseanswer_duration ?? post.duration
+            const submited = post.responseanswer_submited !== undefined
+                ? parseInt(post.responseanswer_submited, 10)
+                : 1
+
+            const existingAnswer = await trx
+                .from('trx_response_answer')
+                .where('responseanswer_response_id', responseId)
+                .where('responseanswer_casequest_id', casequestId)
+                .first()
+
+            const duration = rawDuration !== undefined && rawDuration !== null
+                ? parseInt(rawDuration, 10) || 0
+                : (existingAnswer ? parseInt(existingAnswer.responseanswer_duration, 10) || 0 : 0)
+
+            const answerData: any = {
+                responseanswer_response_id: responseId,
+                responseanswer_casequest_id: casequestId,
+                responseanswer_submited: submited,
+                responseanswer_score: totalScore,
+                responseanswer_duration: duration,
+            }
+
+            if (existingAnswer) {
+                await trx
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', casequestId)
+                    .update(answerData)
+            } else {
+                await trx
+                    .insertQuery()
+                    .table('trx_response_answer')
+                    .insert(answerData)
+            }
+
             await this.syncTotalScore(responseId, trx)
             await trx.commit()
 
@@ -949,6 +1059,8 @@ export default class TrxResponseAnswerController {
                     casequest_id: casequestId,
                     total_answers: insertedAnswers.length,
                     total_score: totalScore,
+                    responseanswer_duration: duration,
+                    duration: duration,
                     answers: insertedAnswers,
                 },
             })
@@ -967,7 +1079,9 @@ export default class TrxResponseAnswerController {
     // Body: {
     //   response_id: "1",
     //   casequest_id: "4",
-    //   casequestcioption_id: "2"
+    //   casequestcioption_id: "2",
+    //   responseanswer_duration: 120 (opsional, int),
+    //   responseanswer_submited: 1 (opsional)
     // }
     // =====================================================================
     public async storeCi({ request, response }) {
@@ -976,6 +1090,9 @@ export default class TrxResponseAnswerController {
             casequest_id: schema.string([rules.minLength(1)]),
             casequestcioption_id: schema.string.optional(),
             answers: schema.array.optional().anyMembers(),
+            responseanswer_submited: schema.number.optional(),
+            responseanswer_duration: schema.number.optional(),
+            duration: schema.number.optional(),
         })
 
         try {
@@ -1039,6 +1156,43 @@ export default class TrxResponseAnswerController {
                 responseci_score: score,
             })
 
+            // Simpan data jawaban pos CI ke tabel trx_response_answer
+            const rawDuration = post.responseanswer_duration ?? post.duration
+            const submited = post.responseanswer_submited !== undefined
+                ? parseInt(post.responseanswer_submited, 10)
+                : 1
+
+            const existingAnswer = await trx
+                .from('trx_response_answer')
+                .where('responseanswer_response_id', responseId)
+                .where('responseanswer_casequest_id', casequestId)
+                .first()
+
+            const duration = rawDuration !== undefined && rawDuration !== null
+                ? parseInt(rawDuration, 10) || 0
+                : (existingAnswer ? parseInt(existingAnswer.responseanswer_duration, 10) || 0 : 0)
+
+            const answerData: any = {
+                responseanswer_response_id: responseId,
+                responseanswer_casequest_id: casequestId,
+                responseanswer_submited: submited,
+                responseanswer_score: score,
+                responseanswer_duration: duration,
+            }
+
+            if (existingAnswer) {
+                await trx
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', casequestId)
+                    .update(answerData)
+            } else {
+                await trx
+                    .insertQuery()
+                    .table('trx_response_answer')
+                    .insert(answerData)
+            }
+
             await this.syncTotalScore(responseId, trx)
             await trx.commit()
 
@@ -1051,6 +1205,8 @@ export default class TrxResponseAnswerController {
                     casequestcioption_id: optionId,
                     casequestcioption_name: option.casequestcioption_name,
                     score: score,
+                    responseanswer_duration: duration,
+                    duration: duration,
                 },
             })
         } catch (error: any) {
@@ -1110,6 +1266,43 @@ export default class TrxResponseAnswerController {
                 responserecord_duration: duration,
             })
 
+            // Simpan data jawaban pos Record ke tabel trx_response_answer
+            const rawDuration = post.responseanswer_duration ?? post.duration
+            const submited = post.responseanswer_submited !== undefined
+                ? parseInt(post.responseanswer_submited, 10)
+                : 1
+
+            const existingAnswer = await trx
+                .from('trx_response_answer')
+                .where('responseanswer_response_id', responseId)
+                .where('responseanswer_casequest_id', casequestId)
+                .first()
+
+            const parsedDuration = rawDuration !== undefined && rawDuration !== null
+                ? parseInt(rawDuration, 10) || 0
+                : (existingAnswer ? parseInt(existingAnswer.responseanswer_duration, 10) || 0 : duration)
+
+            const answerData: any = {
+                responseanswer_response_id: responseId,
+                responseanswer_casequest_id: casequestId,
+                responseanswer_submited: submited,
+                responseanswer_score: 0,
+                responseanswer_duration: parsedDuration,
+            }
+
+            if (existingAnswer) {
+                await trx
+                    .from('trx_response_answer')
+                    .where('responseanswer_response_id', responseId)
+                    .where('responseanswer_casequest_id', casequestId)
+                    .update(answerData)
+            } else {
+                await trx
+                    .insertQuery()
+                    .table('trx_response_answer')
+                    .insert(answerData)
+            }
+
             await trx.commit()
 
             return response.send({
@@ -1120,7 +1313,8 @@ export default class TrxResponseAnswerController {
                     casequest_id: casequestId,
                     file: filePath,
                     size: size,
-                    duration: duration,
+                    duration: parsedDuration,
+                    responseanswer_duration: parsedDuration,
                 },
             })
         } catch (error: any) {
