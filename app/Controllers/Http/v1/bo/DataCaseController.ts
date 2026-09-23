@@ -12,7 +12,7 @@ const DataCase = new DataCaseRepository()
 
 export default class DataCaseController {
     public async index({ request, response }) {
-        let data: Array<string> = [];
+        let data: any = [];
         let result: object = {};
         let where: object = { case_is_deleted: 0 };
 
@@ -23,6 +23,21 @@ export default class DataCaseController {
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
                     data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
+                    const countPatient = await Database.query()
+                        .from('data_case_patient')
+                        .where('casepatient_case_id', data.rows[index].case_id)
+                        .count('* as total');
+                    const patientCount = countPatient[0] ? Number(countPatient[0].total) : 0;
+                    data.rows[index].patient_count = patientCount;
+                }
+            } else {
+                for (let index = 0; index < data.length; index++) {
+                    const countPatient = await Database.query()
+                        .from('data_case_patient')
+                        .where('casepatient_case_id', data[index].case_id)
+                        .count('* as total');
+                    const patientCount = countPatient[0] ? Number(countPatient[0].total) : 0;
+                    data[index].patient_count = patientCount;
                 }
             }
         }
@@ -210,7 +225,10 @@ export default class DataCaseController {
 
                 result = {
                     status: true,
-                    message: 'Success !'
+                    message: 'Success !',
+                    data: {
+                        case_id: case_id[0]
+                    }
                 }
                 response.send(result);
                 await trx.commit();
@@ -765,6 +783,15 @@ export default class DataCaseController {
                 data.patient[index].patient = patientData;
             }
         }
+
+        const countPatient = await Database.query()
+            .from('data_case_patient')
+            .where('casepatient_case_id', params.id)
+            .count('* as total');
+        const patientCount = countPatient[0] ? Number(countPatient[0].total) : 0;
+        data.patient_count = patientCount;
+        data.total_patient = patientCount;
+        data.jumlah_pasien = patientCount;
 
         return data;
     }

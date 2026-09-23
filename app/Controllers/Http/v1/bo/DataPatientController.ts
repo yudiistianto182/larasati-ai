@@ -9,7 +9,7 @@ const DataPatient = new DataPatientRepository()
 
 export default class DataPatientController {
     public async index({ request, response }) {
-        let data: Array<string> = [];
+        let data: any = [];
         let result: object = {};
         let where: object = {};
 
@@ -20,10 +20,12 @@ export default class DataPatientController {
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
                     data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
+                    data.rows[index].attribute = await General.getWhereObject('data_patient_attribute', { patientattribute_patient_id: data.rows[index].patient_id });
                     // data.rows[index].patient_birthdate_text = date.format(new Date(data.rows[index].patient_birthdate), 'YYYY-MM-DD');
                 }
             } else {
                 for (let index = 0; index < data.length; index++) {
+                    data[index].attribute = await General.getWhereObject('data_patient_attribute', { patientattribute_patient_id: data[index].patient_id });
                     // data[index].patient_birthdate_text = date.format(new Date(data[index].patient_birthdate), 'YYYY-MM-DD');
                 }
             }
