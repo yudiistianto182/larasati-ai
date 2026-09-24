@@ -168,14 +168,15 @@ export default class AuthController {
 	private async getUserContestData(userId: number | string, roleId?: number | string) {
 		const now = new Date();
 
-		// 1. Contest yang dapat diikuti user via Tim (data_contest_team_member -> data_contest_team -> data_contest)
+		// 1. Contest yang dapat diikuti user via Tim (data_contest_team_member -> data_contest_team -> trx_response -> data_case)
 		const contestTeams = await Database.query()
 			.select([
 				'tm.contestteammember_id',
 				'tm.contestteammember_is_leader',
 				't.contestteam_id',
 				't.contestteam_name',
-				't.contestteam_case_id',
+				'tr.response_id',
+				'tr.response_case_id',
 				'cs.case_name',
 				'cs.case_desc',
 				'cs.case_introduction',
@@ -192,7 +193,8 @@ export default class AuthController {
 			.join('data_contest_team as t', 't.contestteam_id', 'tm.contestteammember_contestteam_id')
 			.join('data_contest as c', 'c.contest_id', 't.contestteam_contest_id')
 			.leftJoin('mst_periode as p', 'p.periode_id', 'c.contest_periode_id')
-			.leftJoin('data_case as cs', 'cs.case_id', 't.contestteam_case_id')
+			.leftJoin('trx_response as tr', 'tr.response_contestteam_id', 't.contestteam_id')
+			.leftJoin('data_case as cs', 'cs.case_id', 'tr.response_case_id')
 			.where('tm.contestteammember_user_id', userId)
 			.orderBy('c.contest_datestart', 'desc');
 
@@ -219,6 +221,7 @@ export default class AuthController {
 				contestteam_id: item.contestteam_id,
 				contestteam_name: item.contestteam_name,
 				is_leader: Number(item.contestteammember_is_leader) === 1,
+				response_id: item.response_id || null,
 				contest: {
 					contest_id: item.contest_id,
 					contest_name: item.contest_name,
@@ -233,8 +236,8 @@ export default class AuthController {
 					is_open: isOpen,
 					status: status,
 				},
-				case: item.contestteam_case_id ? {
-					case_id: item.contestteam_case_id,
+				case: item.response_case_id ? {
+					case_id: item.response_case_id,
 					case_name: item.case_name || null,
 					case_desc: item.case_desc || null,
 					case_introduction: item.case_introduction || null,

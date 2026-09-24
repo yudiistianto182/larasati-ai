@@ -117,31 +117,7 @@ export default class TrxResponseController {
             ]),
             patient_id: schema.string([
                 rules.minLength(1)
-            ]),
-            is_submited: schema.number.optional(),
-            is_submitted: schema.number.optional(),
-            total_score: schema.number.optional(),
-            ia: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            ia_trigger: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            record: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            mc: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            os: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            ci: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            answer: schema.array.optional().members(
-                schema.object().anyMembers()
-            )
+            ])
         });
 
         try {
@@ -150,35 +126,13 @@ export default class TrxResponseController {
 
             const trx = await Database.transaction();
             try {
-                const isSubmitedVal = post.is_submited ?? post.is_submitted ?? post.response_is_submited ?? post.response_is_submitted ?? 0;
-                let totalScore = post.total_score ?? post.response_total_score;
-
-                // Hitung total_score dari input child jika tidak diberikan secara spesifik
-                if (totalScore === undefined) {
-                    let calcScore = 0;
-                    if (Array.isArray(post.ia_trigger)) {
-                        calcScore += post.ia_trigger.reduce((acc, curr) => acc + Number(curr.score || curr.responseiatrigger_score || 0), 0);
-                    }
-                    if (Array.isArray(post.mc)) {
-                        calcScore += post.mc.reduce((acc, curr) => acc + Number(curr.score || curr.responsemc_score || 0), 0);
-                    }
-                    if (Array.isArray(post.os)) {
-                        calcScore += post.os.reduce((acc, curr) => acc + Number(curr.score || curr.responseos_score || 0), 0);
-                    }
-                    if (Array.isArray(post.ci)) {
-                        calcScore += post.ci.reduce((acc, curr) => acc + Number(curr.score || curr.responseci_score || 0), 0);
-                    }
-                    totalScore = calcScore;
-                }
-
-                // 1. Insert ke trx_response
                 let data_insert: any = {
-                    response_contest_id: post.contest_id || post.response_contest_id,
-                    response_contestteam_id: post.contestteam_id || post.response_contestteam_id,
-                    response_case_id: post.case_id || post.response_case_id,
-                    response_patient_id: post.patient_id || post.response_patient_id,
-                    response_is_submited: isSubmitedVal,
-                    response_total_score: totalScore
+                    response_contest_id: post.contest_id ?? post.response_contest_id,
+                    response_contestteam_id: post.contestteam_id ?? post.response_contestteam_id,
+                    response_case_id: post.case_id ?? post.response_case_id,
+                    response_patient_id: post.patient_id ?? post.response_patient_id,
+                    response_is_submited: 0,
+                    response_total_score: 0
                 };
 
                 let response_ids = await trx
@@ -186,135 +140,6 @@ export default class TrxResponseController {
                     .table('trx_response')
                     .insert(data_insert);
                 const response_id = response_ids[0];
-
-                const now = date.format(new Date(), 'YYYY-MM-DD HH:mm:ss');
-
-                // 2. Insert ke trx_response_ia
-                if (Array.isArray(post.ia) && post.ia.length > 0) {
-                    for (let index = 0; index < post.ia.length; index++) {
-                        const item = post.ia[index];
-                        let data_ia = {
-                            responseia_response_id: response_id,
-                            responseia_casequest_id: item.casequest_id || item.responseia_casequest_id,
-                            responseia_sender: item.sender || item.responseia_sender,
-                            responseia_text: item.text || item.responseia_text,
-                            insert_timestamp: item.insert_timestamp || now
-                        };
-                        await trx.insertQuery().table('trx_response_ia').insert(data_ia);
-                    }
-                }
-
-                // 3. Insert ke trx_response_ia_trigger
-                if (Array.isArray(post.ia_trigger) && post.ia_trigger.length > 0) {
-                    for (let index = 0; index < post.ia_trigger.length; index++) {
-                        const item = post.ia_trigger[index];
-                        let data_trigger = {
-                            responseiatrigger_response_id: response_id,
-                            responseiatrigger_casequest_id: item.casequest_id || item.responseiatrigger_casequest_id,
-                            responseiatrigger_trigger_id: item.trigger_id || item.responseiatrigger_trigger_id,
-                            responseiatrigger_score: item.score ?? item.responseiatrigger_score ?? 0
-                        };
-                        await trx.insertQuery().table('trx_response_ia_trigger').insert(data_trigger);
-                    }
-                }
-
-                // 4. Insert ke trx_response_record
-                if (Array.isArray(post.record) && post.record.length > 0) {
-                    for (let index = 0; index < post.record.length; index++) {
-                        const item = post.record[index];
-                        let filePath = item.file || item.responserecord_file || null;
-
-                        // Handle upload file jika dikirim via multipart
-                        const allFiles = request.allFiles() as any;
-                        const fileFromRequest =
-                            request.file(`record[${index}][file]`) ||
-                            request.file(`record.${index}.file`) ||
-                            allFiles?.record?.[index]?.file ||
-                            allFiles?.[`record[${index}][file]`] ||
-                            allFiles?.[`record.${index}.file`];
-
-                        if (fileFromRequest && fileFromRequest.isValid) {
-                            const ext = fileFromRequest.extname || 'webm';
-                            const fileName = `rec_${Date.now()}_${response_id}_${index}.${ext}`;
-                            await fileFromRequest.move(Application.makePath('storage/recordings'), {
-                                name: fileName,
-                                overwrite: true
-                            });
-                            filePath = `storage/recordings/${fileName}`;
-                        }
-
-                        let data_record = {
-                            responserecord_response_id: response_id,
-                            responserecord_casequest_id: item.casequest_id || item.responserecord_casequest_id,
-                            responserecord_file: filePath,
-                            responserecord_size: item.size || item.responserecord_size || 0,
-                            responserecord_duration: item.duration || item.responserecord_duration || 0
-                        };
-                        await trx.insertQuery().table('trx_response_record').insert(data_record);
-                    }
-                }
-
-                // 5. Insert ke trx_response_mc
-                if (Array.isArray(post.mc) && post.mc.length > 0) {
-                    for (let index = 0; index < post.mc.length; index++) {
-                        const item = post.mc[index];
-                        let data_mc = {
-                            responsemc_response_id: response_id,
-                            responsemc_casequest_id: item.casequest_id || item.responsemc_casequest_id,
-                            responsemc_casequestmc_id: item.casequestmc_id || item.responsemc_casequestmc_id,
-                            responsemc_score: item.score ?? item.responsemc_score ?? 0,
-                            insert_timestamp: item.insert_timestamp || now
-                        };
-                        await trx.insertQuery().table('trx_response_mc').insert(data_mc);
-                    }
-                }
-
-                // 6. Insert ke trx_response_os
-                if (Array.isArray(post.os) && post.os.length > 0) {
-                    for (let index = 0; index < post.os.length; index++) {
-                        const item = post.os[index];
-                        let data_os = {
-                            responseos_response_id: response_id,
-                            responseos_casequest_id: item.casequest_id || item.responseos_casequest_id,
-                            responseos_casequestos_id: item.casequestos_id || item.responseos_casequestos_id,
-                            responseos_order: item.order ?? item.responseos_order ?? (index + 1),
-                            responseos_score: item.score ?? item.responseos_score ?? 0,
-                            insert_timestamp: item.insert_timestamp || now
-                        };
-                        await trx.insertQuery().table('trx_response_os').insert(data_os);
-                    }
-                }
-
-                // 7. Insert ke trx_response_ci
-                if (Array.isArray(post.ci) && post.ci.length > 0) {
-                    for (let index = 0; index < post.ci.length; index++) {
-                        const item = post.ci[index];
-                        let data_ci = {
-                            responseci_response_id: response_id,
-                            responseci_casequest_id: item.casequest_id || item.responseci_casequest_id,
-                            responseci_casequestcioption_id: item.casequestcioption_id || item.responseci_casequestcioption_id,
-                            responseci_is_submited: item.is_submited ?? item.is_submitted ?? item.responseci_is_submited ?? 0,
-                            responseci_score: item.score ?? item.responseci_score ?? 0
-                        };
-                        await trx.insertQuery().table('trx_response_ci').insert(data_ci);
-                    }
-                }
-
-                // 8. Insert ke trx_response_answer
-                if (Array.isArray(post.answer) && post.answer.length > 0) {
-                    for (let index = 0; index < post.answer.length; index++) {
-                        const item = post.answer[index];
-                        const duration = parseInt(item.responseanswer_duration ?? item.duration ?? 0, 10) || 0;
-                        let data_answer = {
-                            responseanswer_response_id: response_id,
-                            responseanswer_casequest_id: item.casequest_id || item.responseanswer_casequest_id,
-                            responseanswer_submited: item.responseanswer_submited ?? item.submited ?? 1,
-                            responseanswer_score: item.score ?? item.responseanswer_score ?? 0,
-                            responseanswer_duration: duration
-                        };
-                        await trx.insertQuery().table('trx_response_answer').insert(data_answer);
-                    }
-                }
 
                 result = {
                     status: true,
@@ -325,7 +150,7 @@ export default class TrxResponseController {
                 }
                 response.send(result);
                 await trx.commit();
-            } catch (error) {
+            } catch (error: any) {
                 result = {
                     status: false,
                     message: error.sqlMessage || error.message
@@ -333,7 +158,7 @@ export default class TrxResponseController {
                 response.badRequest(result);
                 await trx.rollback();
             }
-        } catch (error) {
+        } catch (error: any) {
             result = {
                 status: false,
                 message: error.messages?.errors?.[0]
@@ -359,31 +184,7 @@ export default class TrxResponseController {
             ]),
             patient_id: schema.string([
                 rules.minLength(1)
-            ]),
-            is_submited: schema.number.optional(),
-            is_submitted: schema.number.optional(),
-            total_score: schema.number.optional(),
-            ia: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            ia_trigger: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            record: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            mc: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            os: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            ci: schema.array.optional().members(
-                schema.object().anyMembers()
-            ),
-            answer: schema.array.optional().members(
-                schema.object().anyMembers()
-            )
+            ])
         });
 
         try {
@@ -393,210 +194,25 @@ export default class TrxResponseController {
             const trx = await Database.transaction();
             try {
                 const response_id = params.id;
-                const isSubmitedVal = post.is_submited ?? post.is_submitted ?? post.response_is_submited ?? post.response_is_submitted ?? 0;
-                let totalScore = post.total_score ?? post.response_total_score;
-
-                // Hitung total_score dari input child jika tidak diberikan secara spesifik
-                if (totalScore === undefined) {
-                    let calcScore = 0;
-                    if (Array.isArray(post.ia_trigger)) {
-                        calcScore += post.ia_trigger.reduce((acc, curr) => acc + Number(curr.score || curr.responseiatrigger_score || 0), 0);
-                    }
-                    if (Array.isArray(post.mc)) {
-                        calcScore += post.mc.reduce((acc, curr) => acc + Number(curr.score || curr.responsemc_score || 0), 0);
-                    }
-                    if (Array.isArray(post.os)) {
-                        calcScore += post.os.reduce((acc, curr) => acc + Number(curr.score || curr.responseos_score || 0), 0);
-                    }
-                    if (Array.isArray(post.ci)) {
-                        calcScore += post.ci.reduce((acc, curr) => acc + Number(curr.score || curr.responseci_score || 0), 0);
-                    }
-                    totalScore = calcScore;
-                }
-
-                // 1. Update data header trx_response
                 let where_update = { response_id: response_id };
                 let data_update: any = {
-                    response_contest_id: post.contest_id || post.response_contest_id,
-                    response_contestteam_id: post.contestteam_id || post.response_contestteam_id,
-                    response_case_id: post.case_id || post.response_case_id,
-                    response_patient_id: post.patient_id || post.response_patient_id,
-                    response_is_submited: isSubmitedVal,
-                    response_total_score: totalScore
+                    response_contest_id: post.contest_id ?? post.response_contest_id,
+                    response_contestteam_id: post.contestteam_id ?? post.response_contestteam_id,
+                    response_case_id: post.case_id ?? post.response_case_id,
+                    response_patient_id: post.patient_id ?? post.response_patient_id
                 };
                 await trx.from('trx_response').where(where_update).update(data_update);
 
-                const now = date.format(new Date(), 'YYYY-MM-DD HH:mm:ss');
-
-                // 2. Update / Re-insert trx_response_ia
-                if (post.ia !== undefined) {
-                    await trx.from('trx_response_ia').where('responseia_response_id', response_id).delete();
-                    if (Array.isArray(post.ia) && post.ia.length > 0) {
-                        for (let index = 0; index < post.ia.length; index++) {
-                            const item = post.ia[index];
-                            let data_ia = {
-                                responseia_response_id: response_id,
-                                responseia_casequest_id: item.casequest_id || item.responseia_casequest_id,
-                                responseia_sender: item.sender || item.responseia_sender,
-                                responseia_text: item.text || item.responseia_text,
-                                insert_timestamp: item.insert_timestamp || now
-                            };
-                            await trx.insertQuery().table('trx_response_ia').insert(data_ia);
-                        }
-                    }
-                }
-
-                // 3. Update / Re-insert trx_response_ia_trigger
-                if (post.ia_trigger !== undefined) {
-                    await trx.from('trx_response_ia_trigger').where('responseiatrigger_response_id', response_id).delete();
-                    if (Array.isArray(post.ia_trigger) && post.ia_trigger.length > 0) {
-                        for (let index = 0; index < post.ia_trigger.length; index++) {
-                            const item = post.ia_trigger[index];
-                            let data_trigger = {
-                                responseiatrigger_response_id: response_id,
-                                responseiatrigger_casequest_id: item.casequest_id || item.responseiatrigger_casequest_id,
-                                responseiatrigger_trigger_id: item.trigger_id || item.responseiatrigger_trigger_id,
-                                responseiatrigger_score: item.score ?? item.responseiatrigger_score ?? 0
-                            };
-                            await trx.insertQuery().table('trx_response_ia_trigger').insert(data_trigger);
-                        }
-                    }
-                }
-
-                // 4. Update / Re-insert trx_response_record
-                if (post.record !== undefined) {
-                    // Cek file lama sebelum hapus record jika ingin menghapus berkas fisiknya
-                    const oldRecords = await trx.from('trx_response_record').where('responserecord_response_id', response_id).select('responserecord_file');
-                    for (const rec of oldRecords) {
-                        if (rec.responserecord_file && rec.responserecord_file.startsWith('storage/')) {
-                            const fullPath = Application.makePath(rec.responserecord_file);
-                            if (fs.existsSync(fullPath)) {
-                                try {
-                                    fs.unlinkSync(fullPath);
-                                } catch (e) {
-                                    console.error('Error unlinking old recording:', e);
-                                }
-                            }
-                        }
-                    }
-
-                    await trx.from('trx_response_record').where('responserecord_response_id', response_id).delete();
-                    if (Array.isArray(post.record) && post.record.length > 0) {
-                        for (let index = 0; index < post.record.length; index++) {
-                            const item = post.record[index];
-                            let filePath = item.file || item.responserecord_file || null;
-
-                            const allFiles = request.allFiles() as any;
-                            const fileFromRequest =
-                                request.file(`record[${index}][file]`) ||
-                                request.file(`record.${index}.file`) ||
-                                allFiles?.record?.[index]?.file ||
-                                allFiles?.[`record[${index}][file]`] ||
-                                allFiles?.[`record.${index}.file`];
-
-                            if (fileFromRequest && fileFromRequest.isValid) {
-                                const ext = fileFromRequest.extname || 'webm';
-                                const fileName = `rec_${Date.now()}_${response_id}_${index}.${ext}`;
-                                await fileFromRequest.move(Application.makePath('storage/recordings'), {
-                                    name: fileName,
-                                    overwrite: true
-                                });
-                                filePath = `storage/recordings/${fileName}`;
-                            }
-
-                            let data_record = {
-                                responserecord_response_id: response_id,
-                                responserecord_casequest_id: item.casequest_id || item.responserecord_casequest_id,
-                                responserecord_file: filePath,
-                                responserecord_size: item.size || item.responserecord_size || 0,
-                                responserecord_duration: item.duration || item.responserecord_duration || 0
-                            };
-                            await trx.insertQuery().table('trx_response_record').insert(data_record);
-                        }
-                    }
-                }
-
-                // 5. Update / Re-insert trx_response_mc
-                if (post.mc !== undefined) {
-                    await trx.from('trx_response_mc').where('responsemc_response_id', response_id).delete();
-                    if (Array.isArray(post.mc) && post.mc.length > 0) {
-                        for (let index = 0; index < post.mc.length; index++) {
-                            const item = post.mc[index];
-                            let data_mc = {
-                                responsemc_response_id: response_id,
-                                responsemc_casequest_id: item.casequest_id || item.responsemc_casequest_id,
-                                responsemc_casequestmc_id: item.casequestmc_id || item.responsemc_casequestmc_id,
-                                responsemc_score: item.score ?? item.responsemc_score ?? 0,
-                                insert_timestamp: item.insert_timestamp || now
-                            };
-                            await trx.insertQuery().table('trx_response_mc').insert(data_mc);
-                        }
-                    }
-                }
-
-                // 6. Update / Re-insert trx_response_os
-                if (post.os !== undefined) {
-                    await trx.from('trx_response_os').where('responseos_response_id', response_id).delete();
-                    if (Array.isArray(post.os) && post.os.length > 0) {
-                        for (let index = 0; index < post.os.length; index++) {
-                            const item = post.os[index];
-                            let data_os = {
-                                responseos_response_id: response_id,
-                                responseos_casequest_id: item.casequest_id || item.responseos_casequest_id,
-                                responseos_casequestos_id: item.casequestos_id || item.responseos_casequestos_id,
-                                responseos_order: item.order ?? item.responseos_order ?? (index + 1),
-                                responseos_score: item.score ?? item.responseos_score ?? 0,
-                                insert_timestamp: item.insert_timestamp || now
-                            };
-                            await trx.insertQuery().table('trx_response_os').insert(data_os);
-                        }
-                    }
-                }
-
-                // 7. Update / Re-insert trx_response_ci
-                if (post.ci !== undefined) {
-                    await trx.from('trx_response_ci').where('responseci_response_id', response_id).delete();
-                    if (Array.isArray(post.ci) && post.ci.length > 0) {
-                        for (let index = 0; index < post.ci.length; index++) {
-                            const item = post.ci[index];
-                            let data_ci = {
-                                responseci_response_id: response_id,
-                                responseci_casequest_id: item.casequest_id || item.responseci_casequest_id,
-                                responseci_casequestcioption_id: item.casequestcioption_id || item.responseci_casequestcioption_id,
-                                responseci_is_submited: item.is_submited ?? item.is_submitted ?? item.responseci_is_submited ?? 0,
-                                responseci_score: item.score ?? item.responseci_score ?? 0
-                            };
-                            await trx.insertQuery().table('trx_response_ci').insert(data_ci);
-                        }
-                    }
-                }
-
-                // 8. Update / Re-insert trx_response_answer
-                if (typeof post.answer !== 'undefined') {
-                    await trx.from('trx_response_answer').where('responseanswer_response_id', response_id).delete();
-                    if (Array.isArray(post.answer) && post.answer.length > 0) {
-                        for (let index = 0; index < post.answer.length; index++) {
-                            const item = post.answer[index];
-                            const duration = parseInt(item.responseanswer_duration ?? item.duration ?? 0, 10) || 0;
-                            let data_answer = {
-                                responseanswer_response_id: response_id,
-                                responseanswer_casequest_id: item.casequest_id || item.responseanswer_casequest_id,
-                                responseanswer_submited: item.responseanswer_submited ?? item.submited ?? 1,
-                                responseanswer_score: item.score ?? item.responseanswer_score ?? 0,
-                                responseanswer_duration: duration
-                            };
-                            await trx.insertQuery().table('trx_response_answer').insert(data_answer);
-                        }
-                    }
-                }
-
                 result = {
                     status: true,
-                    message: 'Success !'
+                    message: 'Success !',
+                    data: {
+                        response_id: response_id
+                    }
                 }
                 response.send(result);
                 await trx.commit();
-            } catch (error) {
+            } catch (error: any) {
                 result = {
                     status: false,
                     message: error.sqlMessage || error.message
@@ -604,7 +220,7 @@ export default class TrxResponseController {
                 response.badRequest(result);
                 await trx.rollback();
             }
-        } catch (error) {
+        } catch (error: any) {
             result = {
                 status: false,
                 message: error.messages?.errors?.[0]
