@@ -55,8 +55,8 @@ interface LombaAuthScreenProps {
 
 export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
   // ── Step 1: Form login ──────────────────────────────────────────────────
-  const [username, setUsername] = React.useState<string>("");
-  const [password, setPassword] = React.useState<string>("");
+  const [username, setUsername] = React.useState<string>("peserta1");
+  const [password, setPassword] = React.useState<string>("peserta1");
   const [errorMsg, setErrorMsg] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
@@ -187,10 +187,24 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
         caseRes.data.patient?.[0]?.patient?.patient_id ||
         1;
 
+      // Ambil existing response_id dari server via GET /v1/trx_response (tanpa membuat POST baru)
+      let resolvedResponseId = 0;
+      try {
+        const allTrx = await trxResponseService.getAll(selectedTeam.contest.contest_id);
+        const matched = Array.isArray(allTrx.data)
+          ? allTrx.data.find(
+              (r) => String(r.response_contestteam_id) === String(selectedTeam.contestteam_id),
+            )
+          : null;
+        if (matched?.response_id) {
+          resolvedResponseId = Number(matched.response_id);
+        }
+      } catch (err) {
+        console.warn("[Auth Screen] Gagal memuat existing trx_response:", err);
+      }
+
       playTransitionChime();
 
-      // TIDAK mengirim trx_response store di sini karena masih tahap review/preview semua stase.
-      // Trx response store baru dikirim saat peserta menekan tombol Mulai Sirkuit.
       onLoginSuccess({
         contestTeamId: selectedTeam.contestteam_id,
         contestTeamName: selectedTeam.contestteam_name,
@@ -202,7 +216,7 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
         kasus,
         caseId,
         patientId,
-        responseId: 0,
+        responseId: resolvedResponseId,
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat memuat kasus.";

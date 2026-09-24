@@ -112,68 +112,112 @@ export function Stase2FaktorRisiko({
             Belum ada faktor risiko. Klik tombol di bawah untuk menambahkan item evaluasi.
           </div>
         ) : (
-          faktorRisiko.map((item, _) => (
-            <div
-              key={item.id}
-              className="grid grid-cols-1 gap-2 rounded-xl border border-border/70 bg-card p-2.5 shadow-2xs sm:grid-cols-[2fr_1.8fr_90px_auto] sm:items-center"
-            >
-              <Input
-                placeholder="e.g. Usia Hubungan Seksual Pertama < 20 Tahun"
-                value={item.nama_jawaban}
-                onChange={(e) => handleItemChange(item.id, "nama_jawaban", e.target.value)}
-                className="h-8 text-xs font-medium"
-              />
+          faktorRisiko.map((item) => {
+            const rawSyarat = String(item.syarat_id ?? "").trim();
+            const isTanpaSyarat = !rawSyarat || rawSyarat === "tanpa_syarat" || rawSyarat === "0";
 
-              {/* Syarat Select Dropdown */}
-              <Select
-                value={item.syarat_id}
-                onValueChange={(val) => handleItemChange(item.id, "syarat_id", val ?? "tanpa_syarat")}
+            // Cari kecocokan trigger berdasarkan ID eksak, numeric ID, konteks, atau index
+            const trgMatch = isTanpaSyarat
+              ? undefined
+              : stase1Triggers.find((t, idx) => {
+                const tId = String(t.id).trim();
+                if (tId === rawSyarat) return true;
+                const numT = Number(tId);
+                const numS = Number(rawSyarat);
+                if (!isNaN(numT) && !isNaN(numS) && numT > 0 && numT === numS) return true;
+                if (rawSyarat.toLowerCase() === t.konteks.trim().toLowerCase()) return true;
+                if (rawSyarat.toLowerCase() === t.keyword.trim().toLowerCase()) return true;
+                if (rawSyarat === `trg-1-${idx}` || rawSyarat === String(idx + 1)) return true;
+                return false;
+              });
+
+            const selectedLabel = isTanpaSyarat
+              ? "Tanpa Syarat (Default)"
+              : trgMatch?.konteks
+                ? `${trgMatch.konteks} (${trgMatch.keyword || "-"})`
+                : trgMatch?.keyword
+                  ? `Trigger: ${trgMatch.keyword}`
+                  : `Trigger #${rawSyarat}`;
+
+            // Pastikan currentValue konsisten dengan value item yang ada di stase1Triggers
+            const currentValue = isTanpaSyarat
+              ? "tanpa_syarat"
+              : trgMatch
+                ? String(trgMatch.id)
+                : rawSyarat;
+
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-1 gap-2 rounded-xl border border-border/70 bg-card p-2.5 shadow-2xs sm:grid-cols-[2fr_1.8fr_90px_auto] sm:items-center"
               >
-                <SelectTrigger size="sm" className="h-8 w-full text-xs">
-                  <SelectValue placeholder="Pilih Syarat">
-                    {(val) => {
-                      if (!val || val === "tanpa_syarat" || val === "0") return "Tanpa Syarat (Default)";
-                      const trg = stase1Triggers.find((t) => String(t.id) === String(val));
-                      return trg?.konteks || (trg?.keyword ? `Trigger: ${trg.keyword}` : `Trigger ${val}`);
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent side="bottom" className="max-h-56">
-                  <SelectGroup>
-                    <SelectItem value="tanpa_syarat" className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      Tanpa Syarat (Default)
-                    </SelectItem>
-                    {stase1Triggers.map((trg) => (
-                      <SelectItem key={trg.id} value={trg.id} className="text-xs">
-                        {trg.konteks || `Trigger ${trg.id}`}
+                <Input
+                  placeholder="e.g. Usia Hubungan Seksual Pertama < 20 Tahun"
+                  value={item.nama_jawaban}
+                  onChange={(e) => handleItemChange(item.id, "nama_jawaban", e.target.value)}
+                  className="h-8 text-xs font-medium"
+                />
+
+                {/* Syarat Select Dropdown */}
+                <Select
+                  value={currentValue}
+                  onValueChange={(val) => handleItemChange(item.id, "syarat_id", val === "tanpa_syarat" ? "0" : (val ?? "0"))}
+                >
+                  <SelectTrigger size="sm" className="h-8 w-full text-xs">
+                    <span className="truncate flex-1 text-left">
+                      {selectedLabel}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent side="bottom" className="max-h-56">
+                    <SelectGroup>
+                      <SelectItem value="tanpa_syarat" className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        Tanpa Syarat (Default)
                       </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+                      {stase1Triggers.map((trg) => {
+                        const optLabel = trg.konteks
+                          ? `${trg.konteks} (${trg.keyword || "-"})`
+                          : trg.keyword
+                            ? `Trigger: ${trg.keyword}`
+                            : `Trigger ${trg.id}`;
+                        return (
+                          <SelectItem key={trg.id} value={String(trg.id)} className="text-xs">
+                            {optLabel}
+                          </SelectItem>
+                        );
+                      })}
+                      {/* Bila ID tersimpan belum terdaftar di stase1Triggers saat render, sediakan item fallback */}
+                      {!isTanpaSyarat && !trgMatch && (
+                        <SelectItem value={rawSyarat} className="text-xs">
+                          {selectedLabel}
+                        </SelectItem>
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
 
-              <Input
-                type="number"
-                min={0}
-                max={100}
-                placeholder="Skor"
-                value={item.skor}
-                onChange={(e) => handleItemChange(item.id, "skor", Number(e.target.value) || 0)}
-                className="h-8 text-center text-xs font-bold"
-              />
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="Skor"
+                  value={item.skor}
+                  onChange={(e) => handleItemChange(item.id, "skor", Number(e.target.value) || 0)}
+                  className="h-8 text-center text-xs font-bold"
+                />
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 justify-self-end sm:justify-self-auto"
-                onClick={() => handleRemoveItem(item.id)}
-                title="Hapus faktor risiko"
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </div>
-          ))
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 justify-self-end sm:justify-self-auto"
+                  onClick={() => handleRemoveItem(item.id)}
+                  title="Hapus faktor risiko"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            )
+          })
         )}
 
         {/* Full-width Rectangular Add Button */}

@@ -1,11 +1,16 @@
 {
-  "short_name": "Studio Admin",
-  "name": "Studio Admin - TanStack Start Dashboard",
-  "description": "A modern, customizable admin dashboard template built with TanStack Start and shadcn/ui.",
+  "short_name": "Larasati",
+  "name": "Larasati Journey - OSCE Midwife Circuit Challenge",
+  "description": "Program simulasi klinis kebidanan berbasis kecerdasan artifisial dan alur kerja stase interaktif.",
   "icons": [
     {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
       "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "256x256 128x128 64x64 48x48 32x32 16x16",
       "type": "image/x-icon"
     },
     {
@@ -22,6 +27,6 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#1c130b",
+  "background_color": "#0d0905"
 }

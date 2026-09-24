@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
+import { calculateAge, type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
 
 interface PasienPickerModalProps {
   open: boolean;
@@ -219,6 +219,22 @@ export function PasienPickerModal({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {filteredPasien.map((pasien) => {
                 const isSelected = isPasienSelected(pasien.id);
+                const computedAge = pasien.umur ?? calculateAge(pasien.tanggal_lahir);
+                const rawAttrs =
+                  Array.isArray(pasien.atribut) && pasien.atribut.length > 0
+                    ? pasien.atribut
+                    : Array.isArray((pasien as any).attribute)
+                      ? (pasien as any).attribute
+                      : Array.isArray((pasien as any).patient_attribute)
+                        ? (pasien as any).patient_attribute
+                        : [];
+
+                const displayAttrs = rawAttrs.map((a: any, idx: number) => ({
+                  id: a.id || a.patientattribute_id || `attr-${pasien.id}-${idx}`,
+                  key: a.key || a.patientattribute_name || a.caseattribute_name || a.attribute_name || a.name || "Atribut",
+                  value: a.value ?? a.patientattribute_value ?? a.caseattribute_value ?? a.attribute_value ?? "-",
+                }));
+
                 return (
                   <div
                     key={pasien.id}
@@ -245,7 +261,7 @@ export function PasienPickerModal({
                               {pasien.nama}
                             </span>
                             <span className="text-[11px] font-mono text-muted-foreground">
-                              {pasien.id} &bull; {pasien.umur} th
+                              {pasien.id} &bull; {computedAge ? `${computedAge} th` : "-"}
                             </span>
                           </div>
                         </div>
@@ -259,26 +275,28 @@ export function PasienPickerModal({
                       </div>
 
                       {/* Latar Belakang Snippet */}
-                      <p className="line-clamp-2 text-[11px] text-muted-foreground leading-relaxed">
-                        {pasien.latar_belakang || "-"}
-                      </p>
+                      {pasien.latar_belakang && pasien.latar_belakang !== "-" && (
+                        <p className="line-clamp-2 text-[11px] text-muted-foreground leading-relaxed">
+                          {pasien.latar_belakang}
+                        </p>
+                      )}
                     </div>
 
                     {/* Atribut Dinamis preview */}
-                    {pasien.atribut && pasien.atribut.length > 0 && (
+                    {displayAttrs.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1 border-t border-border/40 pt-2">
-                        {pasien.atribut.slice(0, 2).map((a) => (
+                        {displayAttrs.slice(0, 3).map((a) => (
                           <span
                             key={a.id}
                             className="inline-flex items-center gap-1 rounded bg-muted/80 px-1.5 py-0.5 text-[10px] text-muted-foreground border border-border/40"
                           >
-                            <span>{a.key}:</span>
+                            <span className="font-medium text-muted-foreground">{a.key}:</span>
                             <span className="font-semibold text-foreground">{a.value}</span>
                           </span>
                         ))}
-                        {pasien.atribut.length > 2 && (
+                        {displayAttrs.length > 3 && (
                           <span className="text-[10px] text-muted-foreground font-medium">
-                            +{pasien.atribut.length - 2} lagi
+                            +{displayAttrs.length - 3} lagi
                           </span>
                         )}
                       </div>

@@ -64,7 +64,7 @@ export function VoiceInputCountdown({
     setInputText(clean);
     inputTextRef.current = clean;
     setIsEditingMode(false);
-    setCountdownSeconds(5); // Start 5-second review mode
+    setCountdownSeconds(3); // Start 3-second review mode
   }, []);
 
   const {

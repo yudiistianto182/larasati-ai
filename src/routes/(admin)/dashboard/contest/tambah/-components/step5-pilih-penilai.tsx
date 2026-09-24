@@ -70,7 +70,7 @@ export function Step5PilihPenilai({
               Daftar Penguji Ditugaskan ({selectedPenilaiList.length}):
             </span>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {selectedPenilaiList.map((penilai) => (
                 <div
                   key={penilai.id}
@@ -78,8 +78,12 @@ export function Step5PilihPenilai({
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
-                      <Badge variant="secondary" className="text-[10px] font-semibold">
-                        {penilai.role}
+                      <Badge
+                        variant="secondary"
+                        className="min-w-0 max-w-[calc(100%-36px)] truncate text-[10px] font-semibold"
+                        title={penilai.nama}
+                      >
+                        <span className="truncate">{penilai.nama}</span>
                       </Badge>
 
                       <Button
@@ -93,19 +97,6 @@ export function Step5PilihPenilai({
                         <Trash2 className="size-3.5" />
                       </Button>
                     </div>
-
-                    <div className="my-2 flex flex-col">
-                      <span className="font-bold text-xs text-foreground leading-snug">
-                        {penilai.nama}
-                      </span>
-                      <span className="font-mono text-[11px] text-muted-foreground mt-0.5">
-                        NIP: {penilai.nip}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-primary/15 pt-2 text-[10px] text-muted-foreground line-clamp-1">
-                    <span className="font-medium text-foreground">Keahlian:</span> {penilai.spesialisasi}
                   </div>
                 </div>
               ))}

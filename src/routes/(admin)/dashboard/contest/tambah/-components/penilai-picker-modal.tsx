@@ -145,7 +145,7 @@ export function PenilaiPickerModal({
               </span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 md:grid-cols-5">
               {filteredPenilai.map((penilai) => {
                 const isSelected = selectedIds.includes(penilai.id);
 
@@ -163,8 +163,12 @@ export function PenilaiPickerModal({
                     <div>
                       {/* Header: Role Badge & Checkbox */}
                       <div className="flex items-start justify-between gap-2">
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                          {penilai.role}
+                        <Badge
+                          variant="secondary"
+                          className="min-w-0 max-w-[calc(100%-28px)] truncate text-[10px] font-semibold"
+                          title={penilai.nama}
+                        >
+                          <span className="truncate">{penilai.nama}</span>
                         </Badge>
 
                         <div
@@ -178,21 +182,6 @@ export function PenilaiPickerModal({
                           {isSelected && <Check className="size-3 stroke-[3]" />}
                         </div>
                       </div>
-
-                      {/* Content: Name & NIP */}
-                      <div className="my-2 flex flex-col">
-                        <span className="font-bold text-xs text-foreground group-hover:text-primary transition-colors leading-snug">
-                          {penilai.nama}
-                        </span>
-                        <span className="font-mono text-[11px] text-muted-foreground mt-0.5">
-                          NIP: {penilai.nip}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Footer: Spesialisasi */}
-                    <div className="border-t border-border/40 pt-2 text-[10px] text-muted-foreground line-clamp-1">
-                      <span className="font-medium text-foreground">Keahlian:</span> {penilai.spesialisasi}
                     </div>
                   </div>
                 );

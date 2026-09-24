@@ -33,17 +33,34 @@ export const useKasusStore = create<KasusStore>((set, get) => ({
           ? (res.data as any).data
           : [];
 
-        const mappedList: Kasus[] = rawList.map((c: any) => ({
-          id: `KSS-${c.case_id}`,
-          nama: c.case_name || "Kasus Tanpa Nama",
-          deskripsi: c.case_desc || c.case_introduction || "-",
-          teks_perkenalan: c.case_introduction || "-",
-          has_perekam_nilai: true,
-          pasien_ids: [],
-          atribut: [],
-          stase_data: createDefaultStaseSoalData(),
-          created_at: c.insert_timestamp ? c.insert_timestamp.split("T")[0] : "2026-08-28",
-        }));
+        const mappedList: Kasus[] = rawList.map((c: any) => {
+          const patientCount =
+            typeof c.patient_count === "number"
+              ? c.patient_count
+              : typeof c.pasien_count === "number"
+                ? c.pasien_count
+                : Array.isArray(c.patient)
+                  ? c.patient.length
+                  : Array.isArray(c.patients)
+                    ? c.patients.length
+                    : 0;
+
+          return {
+            id: `KSS-${c.case_id}`,
+            nama: c.case_name || "Kasus Tanpa Nama",
+            deskripsi: c.case_desc || c.case_introduction || "-",
+            teks_perkenalan: c.case_introduction || "-",
+            has_perekam_nilai: true,
+            patient_count: patientCount,
+            pasien_count: patientCount,
+            pasien_ids: Array.isArray(c.patient)
+              ? c.patient.map((p: any) => `PSN-${p.casepatient_patient_id || p.patient_id || p.id}`)
+              : [],
+            atribut: [],
+            stase_data: createDefaultStaseSoalData(),
+            created_at: c.insert_timestamp ? c.insert_timestamp.split("T")[0] : "2026-08-28",
+          };
+        });
 
         set((prev) => {
           const detailMap = new Map(prev.kasusList.map((k) => [k.id, k]));
@@ -55,6 +72,8 @@ export const useKasusStore = create<KasusStore>((set, get) => ({
                 stase_data: existing.stase_data,
                 atribut: existing.atribut.length > 0 ? existing.atribut : m.atribut,
                 pasien_ids: existing.pasien_ids.length > 0 ? existing.pasien_ids : m.pasien_ids,
+                patient_count: m.patient_count ?? existing.patient_count,
+                pasien_count: m.pasien_count ?? existing.pasien_count,
               };
             }
             return m;
@@ -81,7 +100,7 @@ export const useKasusStore = create<KasusStore>((set, get) => ({
       return pendingPromise;
     }
 
-    caseDetailPromises[cleanId] = (async () => {
+    const fetchPromise = (async () => {
       try {
         const res = await caseService.getDetail(cleanId);
         if (res.status && res.data) {
@@ -106,13 +125,12 @@ export const useKasusStore = create<KasusStore>((set, get) => ({
         console.warn(`[KasusStore] Gagal mengambil detail kasus ${cleanId} dari API:`, e);
         return get().kasusList.find((k) => k.id === id || extractNumericCaseId(k.id) === cleanId) || null;
       } finally {
-        setTimeout(() => {
-          delete caseDetailPromises[cleanId];
-        }, 3000);
+        delete caseDetailPromises[cleanId];
       }
     })();
 
-    return caseDetailPromises[cleanId];
+    caseDetailPromises[cleanId] = fetchPromise;
+    return fetchPromise;
   },
 
   addKasus: (newKasusData) => {

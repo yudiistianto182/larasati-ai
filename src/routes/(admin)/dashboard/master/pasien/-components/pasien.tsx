@@ -53,22 +53,32 @@ export function PasienComponent() {
         : [];
 
       setPasienList(
-        rawList.map((p: any) => ({
-          id: `PSN-${p.patient_id}`,
-          nama: p.patient_name || "Pasien",
-          tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
-          umur: undefined,
-          jenis_kelamin: p.patient_gender === "Laki-laki" ? "Laki-laki" : "Perempuan",
-          latar_belakang: p.patient_desc || "-",
-          atribut: Array.isArray(p.patient_attribute)
-            ? p.patient_attribute.map((a: any, idx: number) => ({
-                id: `attr-${p.patient_id}-${idx}`,
-                key: a.key || a.attribute_name || "Atribut",
-                value: a.value || a.attribute_value || "-",
-              }))
-            : [],
-          created_at: p.created_at ? p.created_at.split("T")[0] : "2026-08-10",
-        }))
+        rawList.map((p: any) => {
+          const rawAttrs = Array.isArray(p.attribute)
+            ? p.attribute
+            : Array.isArray(p.patient_attribute)
+              ? p.patient_attribute
+              : Array.isArray(p.attributes)
+                ? p.attributes
+                : Array.isArray(p.atribut)
+                  ? p.atribut
+                  : [];
+
+          return {
+            id: `PSN-${p.patient_id}`,
+            nama: p.patient_name || "Pasien",
+            tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
+            umur: p.patient_age ?? calculateAge(p.patient_birthdate),
+            jenis_kelamin: p.patient_gender === "Laki-laki" || p.patient_gender === "L" ? "Laki-laki" : "Perempuan",
+            latar_belakang: p.patient_desc || "-",
+            atribut: rawAttrs.map((a: any, idx: number) => ({
+              id: String(a.patientattribute_id || a.id || `attr-${p.patient_id}-${idx}`),
+              key: a.patientattribute_name || a.key || a.attribute_name || a.name || "Atribut",
+              value: String(a.patientattribute_value ?? a.value ?? a.attribute_value ?? "-"),
+            })),
+            created_at: p.created_at ? p.created_at.split("T")[0] : "2026-08-10",
+          };
+        })
       );
     } catch (e) {
       console.error("[Pasien] Gagal memuat data pasien:", e);

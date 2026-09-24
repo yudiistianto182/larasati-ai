@@ -127,6 +127,18 @@ export function TambahContestPage() {
       },
     ],
   );
+  const [deletedTeamIds, setDeletedTeamIds] = React.useState<string[]>([]);
+
+  const handleKelompokListChange = (newList: KelompokLomba[]) => {
+    const currentIds = new Set(newList.map((k) => k.id));
+    const removed = kelompokList.filter((k) => !currentIds.has(k.id));
+    for (const r of removed) {
+      if (r.id && !r.id.startsWith("kel-") && !isNaN(Number(r.id))) {
+        setDeletedTeamIds((prev) => [...prev, r.id]);
+      }
+    }
+    setKelompokList(newList);
+  };
 
   // Form State: Step 4
   const [allowSharedKasus, setAllowSharedKasus] = React.useState<boolean>(
@@ -320,6 +332,18 @@ export function TambahContestPage() {
         throw new Error("ID lomba tidak valid untuk mendaftarkan kelompok.");
       }
 
+      // 2a. Hapus Tim yang dihapus dari server jika sedang edit
+      if (isEditing && deletedTeamIds.length > 0) {
+        for (const delId of deletedTeamIds) {
+          try {
+            await contestTeamService.destroy(delId);
+          } catch (delErr) {
+            console.warn("[tambah-contest-page] Gagal hapus team server:", delId, delErr);
+          }
+        }
+      }
+
+      // 2b. Simpan Tim / Kelompok Mahasiswa ke endpoint /v1/data_contest_team
       const cleanContestId = extractNumericCaseId(currentContestId);
       for (const kel of kelompokList) {
         if (kel.mahasiswa_ids.length > 0) {
@@ -381,7 +405,7 @@ export function TambahContestPage() {
           const targetKasus = getKasusById(kel.kasus_id);
           let patientId = 1;
           if (targetKasus?.pasien_ids && targetKasus.pasien_ids.length > 0) {
-            patientId = extractNumericCaseId(targetKasus.pasien_ids[0]) || 1;
+            patientId = Number(extractNumericCaseId(targetKasus.pasien_ids[0])) || 1;
           }
 
           const existingTrx = existingTrxList.find(
@@ -577,7 +601,7 @@ export function TambahContestPage() {
             {currentStep === 3 && (
               <Step3KelompokMahasiswa
                 kelompokList={kelompokList}
-                onChange={setKelompokList}
+                onChange={handleKelompokListChange}
               />
             )}
 
@@ -587,7 +611,7 @@ export function TambahContestPage() {
                 kelompokList={kelompokList}
                 allowSharedKasus={allowSharedKasus}
                 onAllowSharedKasusChange={setAllowSharedKasus}
-                onKelompokListChange={setKelompokList}
+                onKelompokListChange={handleKelompokListChange}
               />
             )}
 

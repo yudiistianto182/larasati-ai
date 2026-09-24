@@ -155,12 +155,32 @@ export function Step3KelompokMahasiswa({
 
       {/* Group Cards List */}
       <div className="flex flex-col gap-4">
-        {kelompokList.map((kel, index) => {
-          const memberCount = kel.mahasiswa_ids.length;
-          const isSelectingKetua = selectingKetuaForKelompokId === kel.id;
-          const ketuaStudent = kel.ketua_mhs_id ? studentMap.get(kel.ketua_mhs_id) : undefined;
+        {kelompokList.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl border border-dashed border-border/80 bg-muted/5 text-center">
+            <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground mb-2">
+              <Users className="size-5" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">Belum ada kelompok</p>
+            <p className="text-xs text-muted-foreground mt-0.5 mb-3">
+              Semua kelompok telah dihapus. Klik tombol di bawah untuk membuat kelompok baru.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddKelompok}
+              className="h-8 gap-1.5 text-xs font-semibold"
+            >
+              <Plus className="size-3.5" />
+              <span>Tambah Kelompok Baru</span>
+            </Button>
+          </div>
+        ) : (
+          kelompokList.map((kel, index) => {
+            const memberCount = kel.mahasiswa_ids.length;
+            const isSelectingKetua = selectingKetuaForKelompokId === kel.id;
+            const ketuaStudent = kel.ketua_mhs_id ? studentMap.get(kel.ketua_mhs_id) : undefined;
 
-          return (
+            return (
             <div
               key={kel.id}
               className={cn(
@@ -230,18 +250,16 @@ export function Step3KelompokMahasiswa({
                     <span>Pilih Mahasiswa</span>
                   </Button>
 
-                  {kelompokList.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => handleRemoveKelompok(kel.id)}
-                      className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      title="Hapus Kelompok"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => handleRemoveKelompok(kel.id)}
+                    className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    title="Hapus Kelompok"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </div>
               </div>
 
@@ -331,18 +349,20 @@ export function Step3KelompokMahasiswa({
               </div>
             </div>
           );
-        })}
+        }))}
 
         {/* Full-width Add Group Button */}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleAddKelompok}
-          className="mt-1 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 bg-background text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-primary hover:bg-primary/5 hover:text-primary active:scale-[0.99]"
-        >
-          <Plus className="size-4 text-primary" />
-          <span>Tambah Kelompok Baru</span>
-        </Button>
+        {kelompokList.length > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddKelompok}
+            className="mt-1 flex h-9 w-full items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 bg-background text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-primary hover:bg-primary/5 hover:text-primary active:scale-[0.99]"
+          >
+            <Plus className="size-4 text-primary" />
+            <span>Tambah Kelompok Baru</span>
+          </Button>
+        )}
       </div>
 
       {/* Mahasiswa Multi-Select Grid Modal */}

@@ -3,11 +3,13 @@ import {
   Clock,
   FileText,
   ListOrdered,
+  Loader2,
   Zap,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +32,7 @@ interface StaseBriefingModalProps {
   durationLabel?: string;
   petunjukSoal: string;
   panduanPenggunaan: string;
+  isAvatarReady?: boolean;
 }
 
 const STASE_STEPS_GUIDE: Record<number, { step: string; desc: string }[]> = {
@@ -76,6 +79,7 @@ export function StaseBriefingModal({
   durationLabel,
   petunjukSoal,
   panduanPenggunaan,
+  isAvatarReady = true,
 }: StaseBriefingModalProps) {
   const stepsGuide = STASE_STEPS_GUIDE[staseNumber] || [
     { step: "Langkah 1", desc: "Pahami instruksi soal klinis yang tertera pada amplop ujian." },
@@ -102,9 +106,9 @@ export function StaseBriefingModal({
               Instruksi Pos {staseNumber}
             </Badge>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-amber-300 bg-amber-50/80 text-amber-900 font-mono text-xs">
-                {kodeAmplop}
-              </Badge>
+              {/* <Badge variant="outline" className="border-amber-300 bg-amber-50/80 text-amber-900 font-mono text-xs">
+                {_kodeAmplop}
+              </Badge> */}
               <Badge variant="outline" className="border-amber-300 bg-amber-50/80 text-amber-900 text-xs font-semibold gap-1">
                 <Clock className="size-3 text-amber-700" /> {formattedDuration}
               </Badge>
@@ -184,15 +188,31 @@ export function StaseBriefingModal({
 
           <Button
             type="button"
+            disabled={!isAvatarReady}
             onClick={() => {
+              if (!isAvatarReady) return;
               playCtaClickSound();
               playTransitionChime();
               onStart();
             }}
-            className="h-11 px-7 rounded-xl font-serif font-bold text-xs tracking-widest uppercase bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-600 text-slate-950 hover:brightness-110 shadow-md border border-amber-300 gap-2 cursor-pointer active:scale-98"
+            className={cn(
+              "h-11 px-7 rounded-xl font-serif font-bold text-xs tracking-widest uppercase shadow-md gap-2 transition-all",
+              !isAvatarReady
+                ? "bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed opacity-80"
+                : "bg-gradient-to-r from-amber-600 via-[#d4af37] to-amber-600 text-slate-950 hover:brightness-110 shadow-md border border-amber-300 cursor-pointer active:scale-98",
+            )}
           >
-            <span>Mulai Pengerjaan Pos</span>
-            <ArrowRight className="size-4 stroke-[2.5]" />
+            {!isAvatarReady ? (
+              <>
+                <Loader2 className="size-4 animate-spin text-amber-700" />
+                <span>Menghubungkan Pasien Virtual...</span>
+              </>
+            ) : (
+              <>
+                <span>Mulai Pengerjaan Pos</span>
+                <ArrowRight className="size-4 stroke-[2.5]" />
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

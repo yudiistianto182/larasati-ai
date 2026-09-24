@@ -12,6 +12,8 @@ import type { AiKeywordTrigger } from "../../../-components/data";
 interface Stase5AsuhanKebidananProps {
   aiSystemPrompt: string;
   onAiSystemPromptChange: (prompt: string) => void;
+  initMessage?: string;
+  onInitMessageChange?: (msg: string) => void;
   triggers: AiKeywordTrigger[];
   onChange: (triggers: AiKeywordTrigger[]) => void;
 }
@@ -27,6 +29,8 @@ const QUICK_ASUHAN_SUGGESTIONS = [
 export function Stase5AsuhanKebidanan({
   aiSystemPrompt,
   onAiSystemPromptChange,
+  initMessage,
+  onInitMessageChange,
   triggers,
   onChange,
 }: Stase5AsuhanKebidananProps) {
@@ -130,6 +134,23 @@ export function Stase5AsuhanKebidanan({
             </span>
           </div>
         )}
+      </div>
+
+      {/* 2. Pesan Pembuka Pasien (initmsg) */}
+      <div className="flex flex-col gap-2 rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs">
+        <Label htmlFor="stase5-initmsg" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <MessageSquare className="size-3.5 text-rose-500" /> Pesan Pembuka Pasien
+        </Label>
+        <Input
+          id="stase5-initmsg"
+          value={initMessage || ""}
+          onChange={(e) => onInitMessageChange?.(e.target.value)}
+          placeholder="Contoh: Terima kasih atas penjelasannya Bu Bidan, lalu bagaimana langkah berikutnya..."
+          className="text-xs h-9 bg-muted/20"
+        />
+        <span className="text-[10px] text-muted-foreground">
+          Pesan pertama yang diucapkan atau dimunculkan oleh pasien saat peserta memasuki stase asuhan ini.
+        </span>
       </div>
 
       {/* Quick suggestions */}

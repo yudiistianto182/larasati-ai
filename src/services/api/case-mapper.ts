@@ -78,6 +78,11 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
   const pasienIds: string[] = Array.isArray(detail.patient)
     ? detail.patient.map((p) => `PSN-${p.casepatient_patient_id}`)
     : [];
+  const patientCount = typeof (detail as any).patient_count === "number"
+    ? (detail as any).patient_count
+    : typeof (detail as any).pasien_count === "number"
+      ? (detail as any).pasien_count
+      : pasienIds.length;
 
   // 3. Stase Soal
   const staseData: StaseSoalData = {
@@ -108,9 +113,10 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
           kode_amplop: (quest1 as any).casequest_envelope_code || baseDefaults.stase1.header.kode_amplop,
           durasi_detik: q1Seconds,
           durasi_menit: q1Seconds >= 60 ? Math.round(q1Seconds / 60) : 1,
-          petunjuk_soal: quest1.casequestia_initmsg || baseDefaults.stase1.header.petunjuk_soal,
+          petunjuk_soal: baseDefaults.stase1.header.petunjuk_soal,
         },
         ai_system_prompt: quest1.personality || baseDefaults.stase1.ai_system_prompt,
+        init_message: quest1.casequestia_initmsg || baseDefaults.stase1.init_message || "Selamat siang Bidan.",
         triggers: Array.isArray(quest1.trigger) && quest1.trigger.length > 0
           ? quest1.trigger.map((t, idx): AiKeywordTrigger => ({
               id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-1-${idx}`,
@@ -230,9 +236,10 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
           kode_amplop: (quest5 as any).casequest_envelope_code || baseDefaults.stase5.header.kode_amplop,
           durasi_detik: q5Seconds,
           durasi_menit: q5Seconds >= 60 ? Math.round(q5Seconds / 60) : 1,
-          petunjuk_soal: quest5.casequestia_initmsg || baseDefaults.stase5.header.petunjuk_soal,
+          petunjuk_soal: baseDefaults.stase5.header.petunjuk_soal,
         },
         ai_system_prompt: quest5.personality || baseDefaults.stase5.ai_system_prompt,
+        init_message: quest5.casequestia_initmsg || baseDefaults.stase5.init_message || "Terima kasih atas penjelasannya Bu Bidan.",
         triggers: Array.isArray(quest5.trigger) && quest5.trigger.length > 0
           ? quest5.trigger.map((t, idx): AiKeywordTrigger => ({
               id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-5-${idx}`,
@@ -266,6 +273,8 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
     teks_perkenalan: teksPerkenalan,
     atribut,
     pasien_ids: pasienIds,
+    patient_count: patientCount,
+    pasien_count: patientCount,
     stase_data: staseData,
     has_perekam_nilai: hasPerekamNilai,
     created_at: detail.insert_timestamp ? detail.insert_timestamp.split("T")[0] : "2026-09-15",
@@ -313,8 +322,8 @@ export function buildCaseFormData(
   fd.append("quest[0][personality]", stase.stase1.ai_system_prompt || "-");
   fd.append(
     "quest[0][initmsg]",
+    stase.stase1.init_message ||
     stase.stase1.triggers[0]?.jawaban_cadangan ||
-    stase.stase1.header.petunjuk_soal ||
     "Selamat siang Bidan."
   );
   stase.stase1.triggers.forEach((trg, tIdx) => {
@@ -380,8 +389,8 @@ export function buildCaseFormData(
   fd.append("quest[4][personality]", stase.stase5.ai_system_prompt || "-");
   fd.append(
     "quest[4][initmsg]",
+    stase.stase5.init_message ||
     stase.stase5.triggers[0]?.jawaban_cadangan ||
-    stase.stase5.header.petunjuk_soal ||
     "Terima kasih atas penjelasannya Bu Bidan."
   );
   stase.stase5.triggers.forEach((trg, tIdx) => {

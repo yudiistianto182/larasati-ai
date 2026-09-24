@@ -30,7 +30,7 @@ interface PatientSummaryHeaderProps {
 export function PatientSummaryHeader({
   staseNumber,
   staseName,
-  kodeAmplop: _kodeAmplop,
+  kodeAmplop,
   durasiRemainingSeconds,
   petunjukSoal,
   panduanPenggunaan,

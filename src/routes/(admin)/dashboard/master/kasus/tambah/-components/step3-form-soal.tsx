@@ -122,6 +122,13 @@ export function Step3FormSoal({
               stase1: { ...staseData.stase1, ai_system_prompt: prompt },
             })
           }
+          initMessage={staseData.stase1.init_message}
+          onInitMessageChange={(msg) =>
+            onStaseDataChange({
+              ...staseData,
+              stase1: { ...staseData.stase1, init_message: msg },
+            })
+          }
           triggers={staseData.stase1.triggers}
           onChange={(triggers) => onStaseDataChange({ ...staseData, stase1: { ...staseData.stase1, triggers } })}
         />
@@ -158,6 +165,13 @@ export function Step3FormSoal({
             onStaseDataChange({
               ...staseData,
               stase5: { ...staseData.stase5, ai_system_prompt: prompt },
+            })
+          }
+          initMessage={staseData.stase5.init_message}
+          onInitMessageChange={(msg) =>
+            onStaseDataChange({
+              ...staseData,
+              stase5: { ...staseData.stase5, init_message: msg },
             })
           }
           triggers={staseData.stase5.triggers}

@@ -32,6 +32,7 @@ interface Step6AsuhanAiProps {
   isAiEnabled?: boolean;
   responseId?: number;
   casequestId?: number;
+  onEnsureResponseId?: () => Promise<number>;
 }
 
 export function Step6AsuhanAi({
@@ -41,6 +42,7 @@ export function Step6AsuhanAi({
   isAiEnabled = true,
   responseId,
   casequestId,
+  onEnsureResponseId,
 }: Step6AsuhanAiProps) {
   const rawPatientName = kasus?.nama?.split("—")[0]?.trim() || "Ny. Ani";
   const patientName = rawPatientName.replace(/\s*\([^)]*\)/g, "").trim() || "Ny. Ani";
@@ -48,6 +50,7 @@ export function Step6AsuhanAi({
   const triggers = stase5Data?.triggers || [];
 
   const initialText =
+    (stase5Data as any)?.initmsg ||
     triggers[0]?.jawaban_cadangan ||
     "Bu Bidan... bagaimana hasil pemeriksaan serviks saya tadi? Apakah ada hal yang berbahaya atau kanker ya Bu? Saya sangat takut dan cemas...";
 
@@ -186,9 +189,17 @@ export function Step6AsuhanAi({
     setIsAiThinking(true);
 
     const activeCasequestId = casequestId || stase5Data?.casequest_id || 0;
-    const activeResponseId = responseId || 0;
+    let activeResponseId = responseId || 0;
 
-    // 1. Coba panggil API backend jika response_id & casequest_id tersedia
+    if (activeResponseId <= 0 && onEnsureResponseId) {
+      try {
+        activeResponseId = await onEnsureResponseId();
+      } catch (err) {
+        console.warn("[Pos 5 Chat] Gagal memastikan responseId:", err);
+      }
+    }
+
+    // 1. Panggil API backend jika response_id & casequest_id tersedia
     if (activeResponseId > 0 && activeCasequestId > 0) {
       try {
         const chatRes = await trxResponseAnswerService.chat({

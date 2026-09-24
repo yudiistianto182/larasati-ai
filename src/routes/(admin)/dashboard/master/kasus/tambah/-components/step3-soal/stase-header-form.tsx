@@ -1,8 +1,7 @@
-import { Clock, FileText, Mail, Tag } from "lucide-react";
+import { Clock, Mail, Tag } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import type { StaseHeaderData } from "../../../-components/data";
 
 interface StaseHeaderFormProps {
@@ -80,20 +79,7 @@ export function StaseHeaderForm({
           />
         </div>
 
-        {/* Row 2: Petunjuk Soal (Full Width) */}
-        <div className="grid gap-1.5 md:col-span-12">
-          <Label htmlFor={`stase-${staseNumber}-petunjuk`} className="text-xs font-medium flex items-center gap-1">
-            <FileText className="size-3 text-muted-foreground" /> Petunjuk & Skenario Soal untuk Peserta / Penguji
-          </Label>
-          <Textarea
-            id={`stase-${staseNumber}-petunjuk`}
-            rows={3}
-            value={header.petunjuk_soal}
-            onChange={(e) => handleFieldChange("petunjuk_soal", e.target.value)}
-            placeholder="Tuliskan instruksi langkah klinis, batasan tugas, dan petunjuk teknis pelaksanaan stase ini..."
-            className="text-xs leading-relaxed"
-          />
-        </div>
+        {/* Row 2: Petunjuk Soal di-hide sementara */}
       </div>
     </div>
   );

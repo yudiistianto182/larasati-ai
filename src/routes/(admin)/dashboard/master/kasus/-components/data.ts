@@ -59,6 +59,7 @@ export interface StaseSoalData {
     casequest_id?: number;
     header: StaseHeaderData;
     ai_system_prompt: string;
+    init_message?: string;
     triggers: AiKeywordTrigger[];
   };
   // Stase 2: Faktor Risiko
@@ -85,6 +86,7 @@ export interface StaseSoalData {
     casequest_id?: number;
     header: StaseHeaderData;
     ai_system_prompt: string;
+    init_message?: string;
     triggers: AiKeywordTrigger[];
   };
   // Stase 6: Record Audio
@@ -100,6 +102,8 @@ export interface Kasus {
   teks_perkenalan: string;
   atribut: KasusAttribute[];
   pasien_ids: string[];
+  patient_count?: number;
+  pasien_count?: number;
   soal_text?: string;
   stase_data: StaseSoalData;
   has_perekam_nilai: boolean;
@@ -121,6 +125,7 @@ export function createDefaultStaseSoalData(): StaseSoalData {
         petunjuk_soal: "",
       },
       ai_system_prompt: "",
+      init_message: "Selamat siang Bidan.",
       triggers: [],
     },
     stase2: {
@@ -159,6 +164,7 @@ export function createDefaultStaseSoalData(): StaseSoalData {
         petunjuk_soal: "",
       },
       ai_system_prompt: "",
+      init_message: "Terima kasih atas penjelasannya Bu Bidan.",
       triggers: [],
     },
     stase6: {

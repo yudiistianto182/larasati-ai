@@ -27,6 +27,7 @@ export function LombaSidePanel({
   staseNumber,
   totalStase,
   staseName,
+  kodeAmplop,
   durasiRemainingSeconds,
   petunjukSoal,
   panduanPenggunaan,

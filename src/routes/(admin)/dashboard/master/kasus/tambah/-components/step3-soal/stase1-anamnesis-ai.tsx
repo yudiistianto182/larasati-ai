@@ -12,6 +12,8 @@ import type { AiKeywordTrigger } from "../../../-components/data";
 interface Stase1AnamnesisAiProps {
   aiSystemPrompt: string;
   onAiSystemPromptChange: (prompt: string) => void;
+  initMessage?: string;
+  onInitMessageChange?: (msg: string) => void;
   triggers: AiKeywordTrigger[];
   onChange: (triggers: AiKeywordTrigger[]) => void;
 }
@@ -28,6 +30,8 @@ const QUICK_ANAMNESIS_SUGGESTIONS = [
 export function Stase1AnamnesisAi({
   aiSystemPrompt,
   onAiSystemPromptChange,
+  initMessage,
+  onInitMessageChange,
   triggers,
   onChange,
 }: Stase1AnamnesisAiProps) {
@@ -131,6 +135,23 @@ export function Stase1AnamnesisAi({
             </span>
           </div>
         )}
+      </div>
+
+      {/* 2. Pesan Pembuka Pasien (initmsg) */}
+      <div className="flex flex-col gap-2 rounded-xl border border-border/80 bg-card p-3.5 shadow-2xs">
+        <Label htmlFor="stase1-initmsg" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <MessageSquare className="size-3.5 text-blue-500" /> Pesan Pembuka Pasien
+        </Label>
+        <Input
+          id="stase1-initmsg"
+          value={initMessage || ""}
+          onChange={(e) => onInitMessageChange?.(e.target.value)}
+          placeholder="Contoh: Selamat siang Bidan, saya mau periksa..."
+          className="text-xs h-9 bg-muted/20"
+        />
+        <span className="text-[10px] text-muted-foreground">
+          Pesan pertama yang diucapkan atau dimunculkan oleh pasien saat peserta ujian memasuki stase ini.
+        </span>
       </div>
 
       {/* Quick suggestions */}

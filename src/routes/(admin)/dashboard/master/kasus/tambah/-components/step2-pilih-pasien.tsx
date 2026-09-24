@@ -3,7 +3,7 @@ import { Plus, Trash2, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
+import { calculateAge, type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
 import { patientService } from "@/services/api";
 import { PasienPickerModal } from "./pasien-picker-modal";
 
@@ -30,22 +30,32 @@ async function fetchAllPatientsOnce(): Promise<Pasien[]> {
           : [];
 
       if (rawList.length > 0) {
-        const mapped: Pasien[] = rawList.map((p: any) => ({
-          id: `PSN-${p.patient_id}`,
-          nama: p.patient_name || "Pasien",
-          tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
-          umur: undefined,
-          jenis_kelamin: p.patient_gender === "Laki-laki" ? "Laki-laki" : "Perempuan",
-          latar_belakang: p.patient_desc || "-",
-          atribut: Array.isArray(p.patient_attribute)
-            ? p.patient_attribute.map((a: any, idx: number) => ({
-              id: `attr-${p.patient_id}-${idx}`,
-              key: a.caseattribute_name || a.attribute_name || a.key || "Atribut",
-              value: a.caseattribute_value || a.attribute_value || a.value || "-",
-            }))
-            : [],
-          created_at: p.insert_timestamp ? p.insert_timestamp.split("T")[0] : "2026-08-10",
-        }));
+        const mapped: Pasien[] = rawList.map((p: any) => {
+          const rawAttrs = Array.isArray(p.attribute)
+            ? p.attribute
+            : Array.isArray(p.patient_attribute)
+              ? p.patient_attribute
+              : Array.isArray(p.attributes)
+                ? p.attributes
+                : Array.isArray(p.atribut)
+                  ? p.atribut
+                  : [];
+
+          return {
+            id: `PSN-${p.patient_id}`,
+            nama: p.patient_name || "Pasien",
+            tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
+            umur: p.patient_age ?? calculateAge(p.patient_birthdate),
+            jenis_kelamin: p.patient_gender === "Laki-laki" || p.patient_gender === "L" ? "Laki-laki" : "Perempuan",
+            latar_belakang: p.patient_desc || "-",
+            atribut: rawAttrs.map((a: any, idx: number) => ({
+              id: String(a.patientattribute_id || a.id || `attr-${p.patient_id}-${idx}`),
+              key: a.patientattribute_name || a.caseattribute_name || a.attribute_name || a.key || a.name || "Atribut",
+              value: String(a.patientattribute_value ?? a.caseattribute_value ?? a.attribute_value ?? a.value ?? "-"),
+            })),
+            created_at: p.insert_timestamp ? p.insert_timestamp.split("T")[0] : "2026-08-10",
+          };
+        });
         cachedPatients = mapped;
         return mapped;
       }
@@ -157,12 +167,6 @@ export function Step2PilihPasien({
                       <Trash2 className="size-3.5" />
                     </Button>
                   </div>
-
-                  {pasien.latar_belakang && (
-                    <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                      {pasien.latar_belakang}
-                    </p>
-                  )}
 
                   {pasien.atribut && pasien.atribut.length > 0 && (
                     <div className="mt-2.5 flex flex-wrap gap-1 border-t border-primary/10 pt-2">

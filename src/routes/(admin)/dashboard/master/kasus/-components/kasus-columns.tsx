@@ -90,7 +90,8 @@ export const getKasusColumns = (
       id: "pasien_count",
       header: "Pasien Terkait",
       cell: ({ row }) => {
-        const count = row.original.pasien_ids?.length || 0;
+        const kasus = row.original;
+        const count = kasus.patient_count ?? kasus.pasien_count ?? kasus.pasien_ids?.length ?? 0;
         return (
           <Badge variant="outline" className="gap-1 text-xs font-normal">
             <Users className="size-3 text-muted-foreground" />

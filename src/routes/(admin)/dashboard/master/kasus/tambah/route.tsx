@@ -14,5 +14,5 @@ export const Route = createFileRoute("/(admin)/dashboard/master/kasus/tambah")({
 
 function Page() {
   const { kasusId } = Route.useSearch();
-  return <TambahKasusPage editKasusId={kasusId} />;
+  return <TambahKasusPage key={kasusId || "new"} editKasusId={kasusId} />;
 }

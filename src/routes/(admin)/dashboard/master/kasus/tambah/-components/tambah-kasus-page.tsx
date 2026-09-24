@@ -58,8 +58,6 @@ export function TambahKasusPage({ editKasusId }: TambahKasusPageProps) {
   // Step 4: Score recorder option
   const [hasPerekamNilai, setHasPerekamNilai] = React.useState<boolean>(true);
 
-  const fetchedCaseIdRef = React.useRef<string | null>(null);
-
   // Fetch full detail from backend API when editKasusId is present
   React.useEffect(() => {
     if (!editKasusId) {
@@ -67,13 +65,14 @@ export function TambahKasusPage({ editKasusId }: TambahKasusPageProps) {
       return;
     }
 
-    if (fetchedCaseIdRef.current === editKasusId) {
-      return;
-    }
-    fetchedCaseIdRef.current = editKasusId;
-
     let isMounted = true;
     setIsLoadingDetail(true);
+
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsLoadingDetail(false);
+      }
+    }, 10000);
 
     getKasusDetail(editKasusId)
       .then((detail) => {
@@ -104,11 +103,13 @@ export function TambahKasusPage({ editKasusId }: TambahKasusPageProps) {
         );
       })
       .finally(() => {
+        clearTimeout(safetyTimer);
         if (isMounted) setIsLoadingDetail(false);
       });
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
   }, [editKasusId, getKasusDetail]);
 

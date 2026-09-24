@@ -29,6 +29,7 @@ import { Step3FaktorRisikoMagnet } from "./step3-faktor-risiko-magnet";
 import { Step4ProsedurIvaSequence } from "./step4-prosedur-iva-sequence";
 import { Step5InterpretasiMcq } from "./step5-interpretasi-mcq";
 import { Step6AsuhanAi } from "./step6-asuhan-ai";
+import { Step7AudioRecorder } from "./step7-audio-recorder";
 import { Step8LombaSummary } from "./step8-lomba-summary";
 import { TimeoutDialog } from "./timeout-dialog";
 import { trxResponseService, trxResponseAnswerService } from "@/services/api";
@@ -237,6 +238,13 @@ export function LombaExamContainer() {
     }
   }, [currentStep, isAiEnabled, loadConfigs]);
 
+  // Pastikan Simli disconnect saat komponen lomba unmount
+  React.useEffect(() => {
+    return () => {
+      simliRef.current.disconnect();
+    };
+  }, []);
+
   // Main countdown timer effect
   React.useEffect(() => {
     if (currentStep === 1 || currentStep === 8 || !currentStaseConfig || !isTimerRunning) {
@@ -383,55 +391,8 @@ export function LombaExamContainer() {
     setCurrentStep(1);
   };
 
-  const handleStartCircuit = async () => {
-    // Kirim trx_response store saat peserta menekan tombol Mulai Sirkuit (keluar dari review Step 1)
-    if (authResult && !authResult.responseId && authResult.contestId && authResult.contestTeamId) {
-      try {
-        const caseId = authResult.caseId || (authResult.kasus as any)?.id;
-        const patientId = authResult.patientId || 1;
-        if (caseId) {
-          const trxStoreRes = await trxResponseService.store({
-            contest_id: authResult.contestId,
-            contestteam_id: authResult.contestTeamId,
-            case_id: caseId,
-            patient_id: patientId,
-          });
-
-          const storeData = trxStoreRes.data;
-          let resolvedResponseId = 0;
-          if (storeData?.response_id) {
-            resolvedResponseId = Number(storeData.response_id);
-          } else if ((storeData as any)?.data?.response_id) {
-            resolvedResponseId = Number((storeData as any).data.response_id);
-          } else {
-            const allTrx = await trxResponseService.getAll(authResult.contestId);
-            const matched = allTrx.data?.find(
-              (r) => r.response_contestteam_id === authResult.contestTeamId,
-            );
-            if (matched) {
-              resolvedResponseId = Number(matched.response_id);
-            }
-          }
-
-          if (resolvedResponseId) {
-            setAuthResult((prev) => (prev ? { ...prev, responseId: resolvedResponseId } : null));
-          }
-        }
-      } catch (e) {
-        console.warn("[TrxResponse Start Circuit Warning]", e);
-        try {
-          const allTrx = await trxResponseService.getAll(authResult.contestId);
-          const matched = allTrx.data?.find(
-            (r) => r.response_contestteam_id === authResult.contestTeamId,
-          );
-          if (matched) {
-            const fallbackId = Number(matched.response_id);
-            setAuthResult((prev) => (prev ? { ...prev, responseId: fallbackId } : null));
-          }
-        } catch {}
-      }
-    }
-
+  const handleStartCircuit = () => {
+    // Tidak menembak trx_response di sini. Peserta hanya berpindah dari Preview Kasus (Step 1) ke Pos 1 (Step 2).
     playTransitionChime();
     setCurrentStep(2);
   };
@@ -442,12 +403,85 @@ export function LombaExamContainer() {
     playTransitionChime();
   };
 
-  const handleNextStep = () => {
+  const handleEnsureResponseId = React.useCallback(async (): Promise<number> => {
+    if (authResult?.responseId && authResult.responseId > 0) {
+      return authResult.responseId;
+    }
+
+    if (!authResult?.contestId || !authResult?.contestTeamId) {
+      return 0;
+    }
+
+    // 1. Cek server terlebih dahulu via GET /v1/trx_response
+    try {
+      const allTrx = await trxResponseService.getAll(authResult.contestId);
+      const matched = Array.isArray(allTrx.data)
+        ? allTrx.data.find(
+            (r) => String(r.response_contestteam_id) === String(authResult.contestTeamId),
+          )
+        : null;
+      if (matched?.response_id) {
+        const foundId = Number(matched.response_id);
+        setAuthResult((prev) => (prev ? { ...prev, responseId: foundId } : null));
+        return foundId;
+      }
+    } catch (e) {
+      console.warn("[handleEnsureResponseId] Gagal query GET trx_response:", e);
+    }
+
+    // 2. Jika belum ada di server, inisialisasi sesi response tim
+    try {
+      const caseId = authResult.caseId || (authResult.kasus as any)?.id;
+      const patientId = authResult.patientId || 1;
+      if (caseId) {
+        const trxStoreRes = await trxResponseService.store({
+          contest_id: authResult.contestId,
+          contestteam_id: authResult.contestTeamId,
+          case_id: caseId,
+          patient_id: patientId,
+        });
+
+        const storeData = trxStoreRes.data;
+        let createdId = 0;
+        if (storeData?.response_id) {
+          createdId = Number(storeData.response_id);
+        } else if ((storeData as any)?.data?.response_id) {
+          createdId = Number((storeData as any).data.response_id);
+        } else {
+          const allTrx = await trxResponseService.getAll(authResult.contestId);
+          const matched = allTrx.data?.find(
+            (r) => r.response_contestteam_id === authResult.contestTeamId,
+          );
+          if (matched) {
+            createdId = Number(matched.response_id);
+          }
+        }
+
+        if (createdId > 0) {
+          setAuthResult((prev) => (prev ? { ...prev, responseId: createdId } : null));
+          return createdId;
+        }
+      }
+    } catch (storeErr) {
+      console.warn("[handleEnsureResponseId] Gagal store trx_response:", storeErr);
+    }
+
+    return 0;
+  }, [authResult]);
+
+  const handleNextStep = async () => {
     setIsTimeoutModalOpen(false);
     playTransitionChime();
 
+    let activeResponseId = authResult?.responseId || 0;
+
+    // Jika sedang di Pos 1 (currentStep === 2) dan belum punya responseId, pastikan responseId tersedia
+    if (currentStep === 2 && !activeResponseId && authResult && authResult.contestId && authResult.contestTeamId) {
+      activeResponseId = await handleEnsureResponseId();
+    }
+
     // Auto-submit stase jawaban ke API saat berpindah pos (Pos 1 & Pos 5)
-    if (authResult?.responseId) {
+    if (activeResponseId > 0) {
       const spentSeconds = currentStaseConfig
         ? Math.max(1, currentStaseConfig.durationSeconds - secondsRemaining)
         : 100;
@@ -455,7 +489,7 @@ export function LombaExamContainer() {
       if (currentStep === 2 && activeKasus?.stase_data?.stase1?.casequest_id) {
         trxResponseAnswerService
           .store({
-            response_id: authResult.responseId,
+            response_id: activeResponseId,
             casequest_id: activeKasus.stase_data.stase1.casequest_id,
             responseanswer_submited: "1",
             duration: String(spentSeconds),
@@ -464,7 +498,7 @@ export function LombaExamContainer() {
       } else if (currentStep === 6 && activeKasus?.stase_data?.stase5?.casequest_id) {
         trxResponseAnswerService
           .store({
-            response_id: authResult.responseId,
+            response_id: activeResponseId,
             casequest_id: activeKasus.stase_data.stase5.casequest_id,
             responseanswer_submited: "1",
             duration: String(spentSeconds),
@@ -528,7 +562,13 @@ export function LombaExamContainer() {
           durationLabel={currentStaseConfig.durationLabel}
           petunjukSoal={currentStaseConfig.petunjukSoal}
           panduanPenggunaan={currentStaseConfig.panduanPenggunaan}
-          isAvatarReady={!isAiEnabled || simli.isReady}
+          isAvatarReady={
+            !(currentStep === 2 || currentStep === 6) ||
+            !isAiEnabled ||
+            simli.status === "connected" ||
+            simli.status === "fallback" ||
+            simli.status === "error"
+          }
         />
       )}
 
@@ -603,6 +643,7 @@ export function LombaExamContainer() {
                     isAiEnabled={isAiEnabled}
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase1?.casequest_id}
+                    onEnsureResponseId={handleEnsureResponseId}
                   />
                 )}
                 {currentStep === 3 && (
@@ -649,6 +690,7 @@ export function LombaExamContainer() {
                     isAiEnabled={isAiEnabled}
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase5?.casequest_id}
+                    onEnsureResponseId={handleEnsureResponseId}
                   />
                 )}
                 {currentStep === 7 && hasAudioRecorder && (

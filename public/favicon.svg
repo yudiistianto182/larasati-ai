@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Deep Royal Javanese Obsidian & Amber Background Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#342212" />
+      <stop offset="55%" stop-color="#1c130b" />
+      <stop offset="100%" stop-color="#0a0704" />
+    </radialGradient>
+
+    <!-- Imperial Gold Gradient -->
+    <linearGradient id="imperialGold" x1="15%" y1="5%" x2="85%" y2="95%">
+      <stop offset="0%" stop-color="#fff8db" />
+      <stop offset="20%" stop-color="#f5cf68" />
+      <stop offset="50%" stop-color="#d4af37" />
+      <stop offset="75%" stop-color="#9a741e" />
+      <stop offset="100%" stop-color="#694d10" />
+    </linearGradient>
+
+    <!-- Warm Highlight Gold -->
+    <linearGradient id="warmGold" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb" />
+      <stop offset="40%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#d4af37" />
+    </linearGradient>
+
+    <!-- Royal Emerald Jewel Accent Gradient -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6ee7b7" />
+      <stop offset="50%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="goldShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.75" />
+    </filter>
+
+    <!-- Soft Ambient Glow -->
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="18" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Container with Royal Finish -->
+  <rect width="512" height="512" rx="124" fill="url(#bgGlow)" />
+
+  <!-- Outer Double Gold Filigree Rims -->
+  <rect x="14" y="14" width="484" height="484" rx="112" fill="none" stroke="url(#imperialGold)" stroke-width="12" stroke-opacity="0.9" />
+  <rect x="28" y="28" width="456" height="456" rx="98" fill="none" stroke="url(#imperialGold)" stroke-width="2.5" stroke-opacity="0.45" stroke-dasharray="10 8" />
+
+  <!-- Four Corner Batik Floral Accents -->
+  <circle cx="56" cy="56" r="6" fill="url(#warmGold)" opacity="0.8" />
+  <circle cx="456" cy="56" r="6" fill="url(#warmGold)" opacity="0.8" />
+  <circle cx="56" cy="456" r="6" fill="url(#warmGold)" opacity="0.8" />
+  <circle cx="456" cy="456" r="6" fill="url(#warmGold)" opacity="0.8" />
+
+  <!-- Central Warm Golden Halo -->
+  <circle cx="256" cy="245" r="165" fill="#d4af37" opacity="0.09" filter="url(#softGlow)" />
+
+  <!-- Main Insignia (Dewi Larasati Royal Crown & Midwife Lotus Heart) -->
+  <g filter="url(#goldShadow)">
+
+    <!-- 1. DEWI LARASATI MAHKOTA / ROYAL CROWN (TOP) -->
+    <!-- Center Sceptre / Main Crown Peak -->
+    <path d="M256 68 C248 100 234 135 220 156 C238 150 248 152 256 160 C264 152 274 150 292 156 C278 135 264 100 256 68 Z" fill="url(#warmGold)" />
+    <!-- Crown Center Gem -->
+    <circle cx="256" cy="118" r="9" fill="url(#emeraldGrad)" stroke="url(#warmGold)" stroke-width="3" />
+
+    <!-- Left Main Crown Finial -->
+    <path d="M214 106 C200 128 178 158 156 182 C178 178 194 182 208 196 C216 172 216 138 214 106 Z" fill="url(#imperialGold)" />
+    <circle cx="188" cy="148" r="6.5" fill="url(#warmGold)" />
+
+    <!-- Right Main Crown Finial -->
+    <path d="M298 106 C312 128 334 158 356 182 C334 178 318 182 304 196 C296 172 296 138 298 106 Z" fill="url(#imperialGold)" />
+    <circle cx="324" cy="148" r="6.5" fill="url(#warmGold)" />
+
+    <!-- Outer Left Wing Finial -->
+    <path d="M152 152 C134 174 108 206 90 232 C114 228 132 234 148 250 C154 220 154 184 152 152 Z" fill="url(#imperialGold)" opacity="0.9" />
+    <circle cx="122" cy="198" r="5.5" fill="url(#warmGold)" />
+
+    <!-- Outer Right Wing Finial -->
+    <path d="M360 152 C378 174 404 206 422 232 C398 228 380 234 364 250 C358 220 358 184 360 152 Z" fill="url(#imperialGold)" opacity="0.9" />
+    <circle cx="390" cy="198" r="5.5" fill="url(#warmGold)" />
+
+    <!-- Crown Diadem Headband Arch -->
+    <path d="M128 240 C176 210 336 210 384 240 C352 230 160 230 128 240 Z" fill="url(#warmGold)" />
+
+    <!-- 2. SACRED LOTUS / PADMA OF MIDWIFERY (MID & BASE) -->
+    <!-- Left Outer Lotus Leaf -->
+    <path d="M122 258 C96 295 86 348 114 394 C140 376 172 358 188 336 C166 312 144 286 122 258 Z" fill="url(#imperialGold)" opacity="0.85" />
+    
+    <!-- Right Outer Lotus Leaf -->
+    <path d="M390 258 C416 295 426 348 398 394 C372 376 340 358 324 336 C346 312 368 286 390 258 Z" fill="url(#imperialGold)" opacity="0.85" />
+
+    <!-- Left Inner Lotus Leaf -->
+    <path d="M182 284 C158 322 154 374 186 414 C208 390 230 366 238 338 C218 316 200 298 182 284 Z" fill="url(#imperialGold)" />
+
+    <!-- Right Inner Lotus Leaf -->
+    <path d="M330 284 C354 322 358 374 326 414 C304 390 282 366 274 338 C294 316 312 298 330 284 Z" fill="url(#imperialGold)" />
+
+    <!-- 3. MOTHER & CHILD NURTURING EMBRACE / HEART OF MIDWIFE (CENTERPIECE) -->
+    <!-- The Caring Heart Outline -->
+    <path d="M256 220 C220 186 166 210 166 266 C166 320 220 362 256 398 C292 362 346 320 346 266 C346 210 292 186 256 220 Z" 
+          fill="url(#warmGold)" />
+
+    <!-- Inner Cutout: Mother & Infant Silhouette -->
+    <!-- Mother Head & Torso with Baby Cradle -->
+    <circle cx="256" cy="256" r="18" fill="#1c130b" />
+    <path d="M236 292 C236 278 276 278 276 292 C276 318 266 332 256 344 C246 332 236 318 236 292 Z" fill="#1c130b" />
+    <!-- Infant in Cradle -->
+    <circle cx="256" cy="302" r="9" fill="url(#warmGold)" />
+
+    <!-- Center Medical Cross / Star of Life Accent -->
+    <path d="M251 364 L261 364 L261 384 L251 384 Z M241 370 L271 370 L271 378 L241 378 Z" fill="#1c130b" />
+
+    <!-- 4. BOTTOM ORNAMENTAL PEDESTAL / MEANDER -->
+    <path d="M190 422 C218 438 294 438 322 422 C302 432 210 432 190 422 Z" fill="url(#warmGold)" opacity="0.9" />
+    <circle cx="256" cy="436" r="5" fill="url(#warmGold)" />
+  </g>
+</svg>
