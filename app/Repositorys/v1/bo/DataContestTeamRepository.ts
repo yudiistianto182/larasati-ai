@@ -47,7 +47,7 @@ export default class DataContestTeamRepository {
                             .select(column)
                             .from('data_contest_team as a')
                             .leftJoin('data_contest as b', 'b.contest_id', 'a.contestteam_contest_id')
-                            .leftJoin('data_periode as c', 'c.periode_id', 'b.contest_periode_id')
+                            .leftJoin('mst_periode as c', 'c.periode_id', 'b.contest_periode_id')
                             .where('contestteam_id', id);
 
         return await query;

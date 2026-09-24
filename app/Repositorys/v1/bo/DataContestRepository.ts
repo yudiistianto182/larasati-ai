@@ -47,7 +47,7 @@ export default class DataContestRepository {
         let query = Database.query()
                             .select(column)
                             .from('data_contest as a')
-                            .leftJoin('data_periode as b', 'b.periode_id', 'a.contest_periode_id')
+                            .leftJoin('mst_periode as b', 'b.periode_id', 'a.contest_periode_id')
                             .where('contest_id', id);
 
         return await query;

@@ -3,9 +3,11 @@ import { schema, rules } from '@ioc:Adonis/Core/Validator'
 import GeneralRepository from 'App/Repositorys/v1/GeneralRepository'
 import DataContestRepository from 'App/Repositorys/v1/bo/DataContestRepository'
 import Database from '@ioc:Adonis/Lucid/Database'
+import TrxResponseController from './TrxResponseController'
 
 const General = new GeneralRepository()
 const DataContest = new DataContestRepository()
+const TrxResponseCtrl = new TrxResponseController()
 
 export default class DataContestController {
     public async index({request, response}) {
@@ -54,9 +56,314 @@ export default class DataContestController {
         let where = { contest_id: params.id };
         let data = await General.getWhereRowObject('data_contest', where);
         if (data) {
-            data.contest_datestart_text = date.format(new Date(data.contest_datestart), 'YYYY-MM-DD');
-            data.contest_dateend_text = date.format(new Date(data.contest_dateend), 'YYYY-MM-DD');
+            if (data.contest_datestart) {
+                try {
+                    data.contest_datestart_text = date.format(new Date(data.contest_datestart), 'YYYY-MM-DD');
+                } catch (e) {
+                    data.contest_datestart_text = String(data.contest_datestart);
+                }
+            }
+            if (data.contest_dateend) {
+                try {
+                    data.contest_dateend_text = date.format(new Date(data.contest_dateend), 'YYYY-MM-DD');
+                } catch (e) {
+                    data.contest_dateend_text = String(data.contest_dateend);
+                }
+            }
+
+            // Status waktu pelaksanaan lomba
+            const now = new Date();
+            const start = data.contest_datestart ? new Date(data.contest_datestart) : null;
+            const end = data.contest_dateend ? new Date(data.contest_dateend) : null;
+            let contestStatus = 'UPCOMING';
+            let contestStatusText = 'Belum Dimulai';
+            let isOpen = false;
+
+            if (start && end) {
+                if (now < start) {
+                    contestStatus = 'UPCOMING';
+                    contestStatusText = 'Belum Dimulai';
+                    isOpen = false;
+                } else if (now >= start && now <= end) {
+                    contestStatus = 'OPEN';
+                    contestStatusText = 'Sedang Berlangsung';
+                    isOpen = true;
+                } else {
+                    contestStatus = 'CLOSED';
+                    contestStatusText = 'Selesai';
+                    isOpen = false;
+                }
+            } else if (start && !end) {
+                if (now >= start) {
+                    contestStatus = 'OPEN';
+                    contestStatusText = 'Sedang Berlangsung';
+                    isOpen = true;
+                }
+            }
+
+            data.status = contestStatus;
+            data.status_text = contestStatusText;
+            data.is_open = isOpen;
+
+            // Periode lomba
+            if (data.contest_periode_id) {
+                const periode = await Database.query()
+                    .from('mst_periode')
+                    .where('periode_id', data.contest_periode_id)
+                    .select('periode_name')
+                    .first();
+                data.periode_name = periode ? periode.periode_name : null;
+            }
+
+            // Scorer / juri lomba
             data.scorer = await DataContest.getContestScorer(params.id);
+
+            // Kasus lomba (data_contest_case -> data_case)
+            const contestCases = await Database.query()
+                .from('data_contest_case as a')
+                .join('data_case as b', 'b.case_id', 'a.contestcase_case_id')
+                .where('a.contestcase_contest_id', params.id)
+                .where('b.case_is_deleted', 0)
+                .select([
+                    'b.case_id',
+                    'b.case_name',
+                    'b.case_desc',
+                    'b.case_introduction'
+                ]);
+
+            let totalPosInContest = 0;
+            for (const c of contestCases) {
+                const questCountResult = await Database.query()
+                    .from('data_case_quest')
+                    .where('casequest_case_id', c.case_id)
+                    .count('* as count')
+                    .first();
+                const patientCountResult = await Database.query()
+                    .from('data_case_patient')
+                    .where('casepatient_case_id', c.case_id)
+                    .count('* as count')
+                    .first();
+                c.total_quest = parseInt(questCountResult?.count || 0, 10);
+                c.total_patient = parseInt(patientCountResult?.count || 0, 10);
+                totalPosInContest += c.total_quest;
+            }
+            data.case = contestCases;
+
+            // Peserta lomba (data_contest_team)
+            const teams = await Database.query()
+                .from('data_contest_team')
+                .where('contestteam_contest_id', params.id)
+                .orderBy('contestteam_id', 'asc');
+
+            const teamsData: any[] = [];
+
+            for (const team of teams) {
+                // Member tim
+                const members = await Database.query()
+                    .from('data_contest_team_member as a')
+                    .leftJoin('sys_user as b', 'b.user_id', 'a.contestteammember_user_id')
+                    .where('a.contestteammember_contestteam_id', team.contestteam_id)
+                    .select([
+                        'a.contestteammember_id',
+                        'a.contestteammember_contestteam_id',
+                        'a.contestteammember_user_id',
+                        'a.contestteammember_is_leader',
+                        'b.user_id',
+                        'b.user_name',
+                        'b.user_fullname',
+                        'b.user_email'
+                    ]);
+
+                const leader = members.find((m: any) => Number(m.contestteammember_is_leader) === 1) || members[0] || null;
+
+                // Responses tim dalam contest ini
+                const responses = await Database.query()
+                    .from('trx_response as a')
+                    .leftJoin('data_case as b', 'b.case_id', 'a.response_case_id')
+                    .where('a.response_contest_id', params.id)
+                    .where('a.response_contestteam_id', team.contestteam_id)
+                    .select([
+                        'a.response_id',
+                        'a.response_contest_id',
+                        'a.response_contestteam_id',
+                        'a.response_case_id',
+                        'a.response_patient_id',
+                        'a.response_total_score',
+                        'a.response_is_submited',
+                        'b.case_name'
+                    ]);
+
+                let teamScore = 0;
+                let teamDuration = 0;
+                let teamPosCompleted = 0;
+                let teamPosTotal = 0;
+
+                if (responses && responses.length > 0) {
+                    for (const resp of responses) {
+                        const posInfo = await TrxResponseCtrl.getPosStatusAndScores(resp.response_id, resp.response_case_id);
+                        const durationRow = await Database.query()
+                            .from('trx_response_answer')
+                            .where('responseanswer_response_id', resp.response_id)
+                            .sum('responseanswer_duration as total_duration')
+                            .first();
+                        const respDuration = parseInt(durationRow?.total_duration || 0, 10);
+
+                        resp.pos = posInfo.pos;
+                        resp.pos_completed_count = posInfo.pos_completed_count;
+                        resp.pos_total_count = posInfo.pos_total_count;
+                        resp.pos_progress = posInfo.pos_progress;
+                        resp.pos_progress_text = posInfo.pos_progress_text;
+                        resp.calculated_total_score = posInfo.calculated_total_score;
+                        resp.duration = respDuration;
+                        resp.duration_text = this.formatDuration(respDuration);
+                        resp.duration_clock = this.formatDurationClock(respDuration);
+
+                        if (resp.response_total_score === null || resp.response_total_score === undefined) {
+                            resp.response_total_score = posInfo.calculated_total_score;
+                        }
+
+                        teamScore += Number(resp.response_total_score || 0);
+                        teamDuration += respDuration;
+                        teamPosCompleted += posInfo.pos_completed_count;
+                        teamPosTotal += posInfo.pos_total_count;
+                    }
+                }
+
+                // Tentukan status pengerjaan
+                let statusPengerjaan = 'BELUM_MULAI';
+                let statusPengerjaanText = 'Belum Mulai';
+                let isSubmitted = 0;
+
+                if (responses && responses.length > 0) {
+                    const allSubmitted = responses.every((r: any) => Number(r.response_is_submited) === 1);
+                    if (allSubmitted && (contestCases.length === 0 || responses.length >= contestCases.length)) {
+                        statusPengerjaan = 'SELESAI';
+                        statusPengerjaanText = 'Selesai';
+                        isSubmitted = 1;
+                    } else {
+                        statusPengerjaan = 'SEDANG_MENGERJAKAN';
+                        statusPengerjaanText = 'Sedang Mengerjakan';
+                        isSubmitted = 0;
+                    }
+                }
+
+                const finalPosTotal = teamPosTotal > 0 ? teamPosTotal : totalPosInContest;
+
+                teamsData.push({
+                    contestteam_id: team.contestteam_id,
+                    contestteam_name: team.contestteam_name,
+                    leader: leader ? {
+                        user_id: leader.user_id,
+                        user_name: leader.user_name,
+                        user_fullname: leader.user_fullname,
+                        user_email: leader.user_email
+                    } : null,
+                    leader_name: leader ? (leader.user_fullname || leader.user_name) : '-',
+                    total_members: members.length,
+                    members: members,
+                    status_pengerjaan: statusPengerjaan,
+                    status_pengerjaan_text: statusPengerjaanText,
+                    is_submitted: isSubmitted,
+                    score: teamScore,
+                    total_score: teamScore,
+                    total_duration: teamDuration,
+                    total_duration_text: this.formatDuration(teamDuration),
+                    total_duration_clock: this.formatDurationClock(teamDuration),
+                    pos_completed_count: teamPosCompleted,
+                    pos_total_count: finalPosTotal,
+                    pos_progress: `${teamPosCompleted}/${finalPosTotal}`,
+                    pos_progress_text: `${teamPosCompleted} dari ${finalPosTotal} Pos Selesai`,
+                    responses: responses
+                });
+            }
+
+            // Urutkan untuk penentuan ranking:
+            // 1. Nilai tertinggi
+            // 2. Status selesai (is_submitted = 1 lebih dulu)
+            // 3. Durasi tercepat jika nilai sama
+            // 4. Pos selesai terbanyak
+            // 5. Nama tim alfabetis
+            teamsData.sort((a, b) => {
+                if (b.total_score !== a.total_score) {
+                    return b.total_score - a.total_score;
+                }
+                if (b.is_submitted !== a.is_submitted) {
+                    return b.is_submitted - a.is_submitted;
+                }
+                if (a.total_duration > 0 && b.total_duration > 0 && a.total_duration !== b.total_duration) {
+                    return a.total_duration - b.total_duration;
+                }
+                if (b.pos_completed_count !== a.pos_completed_count) {
+                    return b.pos_completed_count - a.pos_completed_count;
+                }
+                return (a.contestteam_name || '').localeCompare(b.contestteam_name || '');
+            });
+
+            // Set nomor ranking (1-indexed)
+            teamsData.forEach((item, index) => {
+                item.rank = index + 1;
+            });
+
+            // Format data ranking (leaderboard ringkas)
+            const ranking = teamsData.map((item) => ({
+                rank: item.rank,
+                contestteam_id: item.contestteam_id,
+                contestteam_name: item.contestteam_name,
+                leader_name: item.leader_name,
+                leader: item.leader,
+                total_members: item.total_members,
+                score: item.total_score,
+                total_score: item.total_score,
+                status_pengerjaan: item.status_pengerjaan,
+                status_pengerjaan_text: item.status_pengerjaan_text,
+                is_submitted: item.is_submitted,
+                total_duration: item.total_duration,
+                total_duration_text: item.total_duration_text,
+                total_duration_clock: item.total_duration_clock,
+                pos_completed_count: item.pos_completed_count,
+                pos_total_count: item.pos_total_count,
+                pos_progress: item.pos_progress,
+                pos_progress_text: item.pos_progress_text
+            }));
+
+            // Summary / Statistik Lomba
+            const totalPeserta = teamsData.length;
+            const totalSelesai = teamsData.filter((t) => t.status_pengerjaan === 'SELESAI').length;
+            const totalSedangMengerjakan = teamsData.filter((t) => t.status_pengerjaan === 'SEDANG_MENGERJAKAN').length;
+            const totalBelumMulai = teamsData.filter((t) => t.status_pengerjaan === 'BELUM_MULAI').length;
+
+            const teamsWithScores = teamsData.filter((t) => t.status_pengerjaan !== 'BELUM_MULAI');
+            const scores = teamsWithScores.map((t) => t.total_score);
+
+            const nilaiTertinggi = scores.length > 0 ? Math.max(...scores) : 0;
+            const nilaiTerendah = scores.length > 0 ? Math.min(...scores) : 0;
+            const nilaiRataRata = scores.length > 0
+                ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100
+                : 0;
+            const persentaseSelesai = totalPeserta > 0
+                ? Math.round((totalSelesai / totalPeserta) * 10000) / 100
+                : 0;
+
+            const summary = {
+                total_peserta: totalPeserta,
+                total_selesai: totalSelesai,
+                total_sedang_mengerjakan: totalSedangMengerjakan,
+                total_belum_mulai: totalBelumMulai,
+                persentase_selesai: persentaseSelesai,
+                persentase_selesai_text: `${persentaseSelesai}%`,
+                nilai_tertinggi: nilaiTertinggi,
+                nilai_terendah: nilaiTerendah,
+                nilai_rata_rata: nilaiRataRata,
+                total_case: contestCases.length,
+                total_pos: totalPosInContest
+            };
+
+            data.peserta = teamsData;
+            data.ranking = ranking;
+            data.leaderboard = ranking;
+            data.summary = summary;
+            data.statistik = summary;
+
             result = {
                 'status' 	: true,
                 'message'   : 'Success',
@@ -70,6 +377,27 @@ export default class DataContestController {
             }
             response.status(404).send(result);
         }
+    }
+
+    private formatDuration(seconds: number): string {
+        if (!seconds || seconds <= 0) return '0 dtk';
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        const parts: string[] = [];
+        if (hrs > 0) parts.push(`${hrs} jam`);
+        if (mins > 0) parts.push(`${mins} mnt`);
+        if (secs > 0 || parts.length === 0) parts.push(`${secs} dtk`);
+        return parts.join(' ');
+    }
+
+    private formatDurationClock(seconds: number): string {
+        if (!seconds || seconds <= 0) return '00:00:00';
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
     }
 
     public async store ({request, response}) {
