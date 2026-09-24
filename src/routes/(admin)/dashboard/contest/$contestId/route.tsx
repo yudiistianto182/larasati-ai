@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { fallbackContests, type ContestRow } from "../-components/data";
+import { type ContestRow } from "../-components/data";
 import { ContestStepsNav, type Step } from "./-components/contest-steps-nav";
 import { ContestInfoPanel } from "./-components/contest-info-panel";
 import { TeamSetupWizard } from "./-components/team-setup-wizard";
+import { contestService } from "@/services/api";
 
 export const Route = createFileRoute("/(admin)/dashboard/contest/$contestId")({
   component: Page,
@@ -47,22 +48,32 @@ function Page() {
   const [newStepTitle, setNewStepTitle] = React.useState("");
   const [newStepDuration, setNewStepDuration] = React.useState("");
 
-  // Load contest record from mock fallback data
-  const initialContest = React.useMemo(() => {
-    const match = fallbackContests.find((c) => String(c.contest_id) === contestId);
-    return (
-      match ?? {
-        contest_id: Number(contestId),
-        contest_name: `Kontes ID ${contestId}`,
-        contest_periode_id: 1,
-        contest_datestart: new Date().toISOString(),
-        contest_dateend: new Date().toISOString(),
-        contest_desc: "Detail kontes tidak ditemukan.",
-      }
-    );
-  }, [contestId]);
+  const [contest, setContest] = React.useState<ContestRow | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const [contest, setContest] = React.useState<ContestRow>(initialContest);
+  React.useEffect(() => {
+    setIsLoading(true);
+    contestService.getDetail(contestId)
+      .then((res) => {
+        if (res.status && res.data) {
+          setContest({
+            contest_id: res.data.contest_id,
+            contest_name: res.data.contest_name,
+            contest_periode_id: res.data.contest_periode_id,
+            contest_datestart: res.data.contest_datestart,
+            contest_dateend: res.data.contest_dateend,
+            contest_desc: res.data.contest_desc,
+            contest_datestart_text: res.data.contest_datestart_text,
+            contest_dateend_text: res.data.contest_dateend_text,
+            scorer: res.data.scorer,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [contestId]);
 
   // Scroll detection using IntersectionObserver
   React.useEffect(() => {
@@ -108,7 +119,7 @@ function Page() {
     <div className="flex flex-col gap-8 pb-12 relative">
 
       {/* Floating Sticky Mini Contest Info Bar - pins below layout header */}
-      {isSticky && (
+      {isSticky && contest && (
         <div className="fixed top-12 left-0 md:left-[var(--sidebar-width,calc(var(--spacing)*68))] right-0 z-40 px-6 py-2.5 bg-background/95 backdrop-blur border-b flex items-center justify-between gap-4 shadow-sm animate-in fade-in-0 duration-150">
           <div className="flex flex-col gap-0.5">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Kontes Aktif</span>
@@ -141,7 +152,17 @@ function Page() {
       {/* Section 1: # Detail Kontes */}
       <div className="flex flex-col gap-3">
         <h2 className="text-lg font-bold text-foreground tracking-tight"># Detail Kontes</h2>
-        <ContestInfoPanel contest={contest} onUpdate={setContest} />
+        {isLoading ? (
+          <div className="rounded-xl border border-border/80 bg-card p-6 text-center text-xs text-muted-foreground">
+            Memuat detail kontes...
+          </div>
+        ) : contest ? (
+          <ContestInfoPanel contest={contest} onUpdate={setContest} />
+        ) : (
+          <div className="rounded-xl border border-border/80 bg-card p-6 text-center text-xs text-muted-foreground">
+            Kontes tidak ditemukan.
+          </div>
+        )}
       </div>
 
       {/* Scroll detection sentinel - triggers when detail kontes is scrolled past */}

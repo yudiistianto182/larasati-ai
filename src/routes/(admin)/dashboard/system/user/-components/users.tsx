@@ -23,13 +23,86 @@ import {
 } from "@/components/ui/dialog";
 import { dataTableFeatures } from "@/lib/data-table-features";
 
-import { fallbackAdminUsers, adminRoles, type AdminUserRow } from "./data";
+import { adminRoles, type AdminUserRow } from "./data";
 import { getAdminUsersColumns } from "./users-columns";
 import { AdminUsersTable } from "./users-table";
+import { userService, roleService } from "@/services/api";
 
 export function AdminUsers() {
-  // Local list state
-  const [users, setUsers] = React.useState<AdminUserRow[]>(fallbackAdminUsers);
+  // Users list state (purely from API, no fallback data)
+  const [users, setUsers] = React.useState<AdminUserRow[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  // Master roles state (loaded dynamically from roleService.getDropdown / Master Role API)
+  const [availableRoles, setAvailableRoles] = React.useState(adminRoles);
+  const hasFetchedRef = React.useRef(false);
+
+  const fetchUsers = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await userService.getAll();
+      const rawList = Array.isArray(res.data)
+        ? res.data
+        : (res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data))
+        ? (res.data as any).data
+        : null;
+
+      if (rawList) {
+        setUsers(
+          rawList.map((u: any, idx: number) => ({
+            user_id: u.user_id,
+            user_name: u.user_name || "",
+            user_fullname: u.user_fullname || u.user_name || "-",
+            user_email: u.user_email || "-",
+            user_role_id: Number(u.user_role_id || u.role_id || 1),
+            role_name: u.role_name || u.role?.role_name || "User",
+            user_is_banned: u.user_is_banned ?? 0,
+            numb: u.numb ?? idx + 1,
+            user_password: "••••••••",
+          }))
+        );
+      }
+    } catch (e) {
+      console.error("[Users] Failed to fetch users:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    fetchUsers();
+
+    // Memuat master role untuk dropdown dari Master Role API
+    async function fetchRoles() {
+      try {
+        const roleRes = await roleService.getDropdown();
+        if (roleRes.status && Array.isArray(roleRes.data) && roleRes.data.length > 0) {
+          setAvailableRoles(
+            roleRes.data.map((r) => ({
+              role_id: Number(r.id),
+              role_name: String(r.text),
+            }))
+          );
+        } else {
+          const allRoles = await roleService.getAll();
+          if (allRoles.status && Array.isArray(allRoles.data) && allRoles.data.length > 0) {
+            setAvailableRoles(
+              allRoles.data.map((r) => ({
+                role_id: Number(r.id),
+                role_name: String(r.text),
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[Users] Gagal memuat master role dari API:", err);
+      }
+    }
+
+    fetchRoles();
+  }, [fetchUsers]);
 
   // Dialog open states
   const [isAddOpen, setIsAddOpen] = React.useState(false);
@@ -108,69 +181,69 @@ export function AdminUsers() {
 
   const searchQuery = (table.getColumn("user_identity")?.getFilterValue() as string | undefined) ?? "";
 
-  const handleAddUserSubmit = (e: React.FormEvent) => {
+  const handleAddUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addUsername.trim() || !addFullname.trim() || !addEmail.trim() || !addPassword.trim()) return;
 
-    const matchedRole = adminRoles.find((r) => r.role_id === addRoleId);
-    const nextId = users.length > 0 ? Math.max(...users.map((u) => u.user_id)) + 1 : 1;
+    try {
+      await userService.create({
+        user_name: addUsername.trim(),
+        user_fullname: addFullname.trim(),
+        user_email: addEmail.trim(),
+        user_password: addPassword.trim(),
+        user_role_id: String(addRoleId),
+        user_is_banned: "0",
+      });
+      await fetchUsers();
 
-    const newUser: AdminUserRow = {
-      user_id: nextId,
-      user_name: addUsername.trim(),
-      user_fullname: addFullname.trim(),
-      user_email: addEmail.trim(),
-      user_password: addPassword.trim(),
-      user_role_id: addRoleId,
-      role_name: matchedRole ? matchedRole.role_name : "User",
-      user_is_banned: 0,
-      numb: nextId,
-    };
+      setIsAddOpen(false);
 
-    setUsers((prev) => [...prev, newUser]);
-    setIsAddOpen(false);
-
-    // Reset Form
-    setAddUsername("");
-    setAddFullname("");
-    setAddEmail("");
-    setAddPassword("");
-    setAddRoleId(adminRoles[0].role_id);
+      // Reset Form
+      setAddUsername("");
+      setAddFullname("");
+      setAddEmail("");
+      setAddPassword("");
+      setAddRoleId(availableRoles[0]?.role_id || 1);
+    } catch (err) {
+      console.error("[Users] Gagal menambahkan user:", err);
+    }
   };
 
-  const handleEditUserSubmit = (e: React.FormEvent) => {
+  const handleEditUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser || !editFullname.trim() || !editEmail.trim() || !editPassword.trim()) return;
 
-    const matchedRole = adminRoles.find((r) => r.role_id === editRoleId);
-
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.user_id === editingUser.user_id
-          ? {
-            ...user,
-            user_fullname: editFullname.trim(),
-            user_email: editEmail.trim(),
-            user_password: editPassword.trim(),
-            user_role_id: editRoleId,
-            role_name: matchedRole ? matchedRole.role_name : user.role_name,
-          }
-          : user
-      )
-    );
-    setEditingUser(null);
+    try {
+      await userService.update(editingUser.user_id, {
+        user_name: editingUser.user_name,
+        user_fullname: editFullname.trim(),
+        user_email: editEmail.trim(),
+        user_password: editPassword.trim(),
+        user_role_id: String(editRoleId),
+        user_is_banned: String(editingUser.user_is_banned ?? "0"),
+      });
+      await fetchUsers();
+      setEditingUser(null);
+    } catch (err) {
+      console.error("[Users] Gagal mengupdate user:", err);
+    }
   };
 
-  const confirmDeleteUser = () => {
+  const confirmDeleteUser = async () => {
     if (!deletingUser) return;
-    setUsers((prev) => prev.filter((user) => user.user_id !== deletingUser.user_id));
+    try {
+      await userService.delete(deletingUser.user_id);
+      await fetchUsers();
+    } catch (err) {
+      console.error("[Users] Gagal menghapus user:", err);
+    }
     setDeletingUser(null);
   };
 
   // Convert roles mapping to options formatted for Select items attribute
   const roleSelectItems = React.useMemo(
-    () => adminRoles.map((r) => ({ value: String(r.role_id), label: r.role_name })),
-    []
+    () => availableRoles.map((r) => ({ value: String(r.role_id), label: r.role_name })),
+    [availableRoles]
   );
 
   return (
@@ -202,7 +275,7 @@ export function AdminUsers() {
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 px-0">
-          <AdminUsersTable table={table} />
+          <AdminUsersTable table={table} isLoading={isLoading} />
         </CardContent>
       </Card>
 
@@ -259,7 +332,7 @@ export function AdminUsers() {
                 </SelectTrigger>
                 <SelectContent side="bottom">
                   <SelectGroup>
-                    {adminRoles.map((role) => (
+                    {availableRoles.map((role) => (
                       <SelectItem key={role.role_id} value={String(role.role_id)}>
                         {role.role_name}
                       </SelectItem>
@@ -363,7 +436,7 @@ export function AdminUsers() {
                 </SelectTrigger>
                 <SelectContent side="bottom">
                   <SelectGroup>
-                    {adminRoles.map((role) => (
+                    {availableRoles.map((role) => (
                       <SelectItem key={role.role_id} value={String(role.role_id)}>
                         {role.role_name}
                       </SelectItem>

@@ -1,19 +1,14 @@
 import * as React from "react";
 import {
-  AlertCircle,
   BookOpen,
   Clock,
-  Crown,
   FileText,
   HeartPulse,
-  HelpCircle,
-  Sparkles,
-  User,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { PanduanPengerjaanModal } from "./panduan-pengerjaan-modal";
 import { playCtaClickSound } from "./lomba-sound-effects";
 
@@ -21,7 +16,7 @@ interface LombaSidePanelProps {
   staseNumber: number;
   totalStase: number;
   staseName: string;
-  kodeAmplop: string;
+  kodeAmplop?: string;
   durasiRemainingSeconds: number;
   petunjukSoal: string;
   panduanPenggunaan: string;
@@ -32,11 +27,9 @@ export function LombaSidePanel({
   staseNumber,
   totalStase,
   staseName,
-  kodeAmplop,
   durasiRemainingSeconds,
   petunjukSoal,
   panduanPenggunaan,
-  groupName = "Kelompok Peserta",
 }: LombaSidePanelProps) {
   const [isGuideOpen, setIsGuideOpen] = React.useState(false);
 

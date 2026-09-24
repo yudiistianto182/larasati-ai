@@ -1,6 +1,4 @@
-import * as React from "react";
-import { AlertTriangle, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Clock } from "lucide-react";
 
 interface OneMinuteAlertProps {
   show: boolean;

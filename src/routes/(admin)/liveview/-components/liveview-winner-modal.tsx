@@ -1,8 +1,6 @@
-import * as React from "react";
-import { Award, Sparkles, Trophy, X } from "lucide-react";
+import { Sparkles, Trophy, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { GroupRaceState } from "./liveview-types";
 
 interface LiveviewWinnerModalProps {

@@ -5,16 +5,12 @@ import {
   ChevronRight,
   Database,
   FilePlus,
-  FileText,
-  FolderPlus,
   MailIcon,
   PlusCircle,
   PlusCircleIcon,
-  Radio,
   Trophy,
   Tv,
   UserPlus,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -151,11 +147,11 @@ export function NavMain({ items }: NavMainProps) {
                 size="icon"
                 className="h-9 w-9 shrink-0 group-data-[collapsible=icon]:opacity-0"
                 variant="outline"
-                nativeButton={false}
-                render={<Link to="/mail" />}
+                type="button"
+                onClick={() => setQuickCreateOpen(true)}
               >
                 <MailIcon />
-                <span className="sr-only">Inbox</span>
+                <span className="sr-only">Quick Action</span>
               </Button>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -364,7 +360,7 @@ function NavLinkIcon({ item, showFallback }: NavLinkIconProps) {
   return null;
 }
 
-function NavDropdownItem({ item, isActive, isSubItemActive }: NavDropdownItemProps) {
+function NavDropdownItem({ item, isActive }: NavDropdownItemProps) {
   const Icon = item.icon;
 
   return (

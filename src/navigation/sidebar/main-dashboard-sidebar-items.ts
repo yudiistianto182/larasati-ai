@@ -1,8 +1,6 @@
 import {
-  Activity,
   Database,
   LayoutDashboard,
-  Radio,
   Settings,
   Trophy,
   Tv,

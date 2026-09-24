@@ -4,6 +4,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { GlobalErrorModal } from "@/components/global-error-modal";
 import { APP_CONFIG } from "@/config/app-config";
 import { fontRegistry } from "@/lib/fonts/registry";
 import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
@@ -87,6 +88,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <PreferencesStoreProvider initialValues={PREFERENCE_DEFAULTS}>
             {children}
             <Toaster />
+            <GlobalErrorModal />
           </PreferencesStoreProvider>
         </TooltipProvider>
         <TanStackDevtools

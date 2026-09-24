@@ -1,5 +1,4 @@
-import * as React from "react";
-import { ChevronRight, Eye, Sparkles, Trophy, Users } from "lucide-react";
+import { ChevronRight, Eye, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";

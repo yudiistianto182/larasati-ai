@@ -1,19 +1,12 @@
-import * as React from "react";
 import {
-  Award,
-  BarChart3,
   Bot,
   CheckCircle2,
   Clock,
-  ExternalLink,
   Eye,
-  FileText,
   HeartHandshake,
   Image as ImageIcon,
   Layers,
-  Medal,
   ShieldAlert,
-  Sparkles,
   TrendingUp,
   Trophy,
   Users,
@@ -23,14 +16,31 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { type KelompokRekapData, REKAP_KELOMPOK_LIST } from "./rekap-data";
+import { type KelompokRekapData } from "./rekap-data";
 
 interface RekapOverviewCardsProps {
   onOpenKelompokModal: (kelompok: KelompokRekapData) => void;
+  groups?: KelompokRekapData[];
 }
 
-export function RekapOverviewCards({ onOpenKelompokModal }: RekapOverviewCardsProps) {
-  const groups = REKAP_KELOMPOK_LIST;
+export function RekapOverviewCards({
+  onOpenKelompokModal,
+  groups = [],
+}: RekapOverviewCardsProps) {
+  if (groups.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed bg-muted/20 gap-3">
+        <Users className="size-10 text-muted-foreground/60" />
+        <span className="font-serif font-bold text-base text-foreground">
+          Belum Ada Data Rekap Jawaban Kelompok
+        </span>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          Belum ada tim mahasiswa yang menyelesaikan sirkuit atau mengirimkan jawaban ujian untuk lomba ini.
+        </p>
+      </div>
+    );
+  }
+
   const topGroup = groups[0];
 
   // Calculate dynamic totals for each group

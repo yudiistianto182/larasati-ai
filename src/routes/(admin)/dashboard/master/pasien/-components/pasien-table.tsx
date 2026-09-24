@@ -45,7 +45,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function PasienTable({ table }: { table: ReactTable<DataTableFeatures, Pasien> }) {
+export function PasienTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, Pasien>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -68,7 +74,39 @@ export function PasienTable({ table }: { table: ReactTable<DataTableFeatures, Pa
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-pasien-${i}`} className="border-border/60">
+                  <TableCell className="px-3 py-3">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="size-7 rounded-full bg-muted animate-pulse" />
+                      <div className="flex flex-col gap-1">
+                        <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+                        <div className="h-3 w-16 rounded bg-muted/60 animate-pulse" />
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-4 w-12 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-5 w-16 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-right">
+                    <div className="h-8 w-8 ml-auto rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

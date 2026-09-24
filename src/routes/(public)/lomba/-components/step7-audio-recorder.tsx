@@ -10,15 +10,22 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 
 interface Step7AudioRecorderProps {
   onRecorded?: (hasAudio: boolean) => void;
+  responseId?: number;
+  casequestId?: number;
 }
 
-export function Step7AudioRecorder({ onRecorded }: Step7AudioRecorderProps) {
+export function Step7AudioRecorder({ onRecorded, responseId, casequestId }: Step7AudioRecorderProps) {
   const [recordingState, setRecordingState] = React.useState<"idle" | "recording" | "paused" | "recorded" | "playing">("idle");
   const [recordSeconds, setRecordSeconds] = React.useState(0);
   const [playSeconds, setPlaySeconds] = React.useState(0);
+
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const audioElementRef = React.useRef<HTMLAudioElement | null>(null);
 
   // Timer while recording
   React.useEffect(() => {
@@ -48,36 +55,96 @@ export function Step7AudioRecorder({ onRecorded }: Step7AudioRecorderProps) {
     return () => clearInterval(interval);
   }, [recordingState, recordSeconds]);
 
-  const handleStartRecord = () => {
-    setRecordingState("recording");
-    setRecordSeconds(0);
-    setPlaySeconds(0);
-    onRecorded?.(false);
+  const handleStartRecord = async () => {
+    try {
+      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        if (audioElementRef.current) {
+          audioElementRef.current.src = URL.createObjectURL(audioBlob);
+        }
+
+        // Upload ke API TrxResponseAnswer jika responseId & casequestId ada
+        if (responseId && casequestId) {
+          try {
+            const formData = new FormData();
+            formData.append("response_id", String(responseId));
+            formData.append("casequest_id", String(casequestId));
+            formData.append("file", audioBlob, "recording.webm");
+            await trxResponseAnswerService.storeRecord(formData);
+          } catch (uploadErr) {
+            console.warn("[Upload Record Error]", uploadErr);
+          }
+        }
+      };
+
+      recorder.start();
+      setRecordingState("recording");
+      setRecordSeconds(0);
+      setPlaySeconds(0);
+      onRecorded?.(false);
+    } catch {
+      // Fallback jika mic tidak diizinkan atau mode demo
+      setRecordingState("recording");
+      setRecordSeconds(0);
+      setPlaySeconds(0);
+      onRecorded?.(false);
+    }
   };
 
   const handlePauseRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.pause();
+    }
     setRecordingState("paused");
   };
 
   const handleResumeRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      mediaRecorderRef.current.resume();
+    }
     setRecordingState("recording");
   };
 
   const handleStopRecord = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+    }
     setRecordingState("recorded");
     onRecorded?.(true);
   };
 
   const handlePlayAudio = () => {
+    if (audioElementRef.current && audioElementRef.current.src) {
+      audioElementRef.current.play().catch(() => {});
+    }
     setRecordingState("playing");
     setPlaySeconds(0);
   };
 
   const handlePausePlay = () => {
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+    }
     setRecordingState("recorded");
   };
 
   const handleResetRecord = () => {
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.src = "";
+    }
     setRecordingState("idle");
     setRecordSeconds(0);
     setPlaySeconds(0);

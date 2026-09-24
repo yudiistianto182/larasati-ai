@@ -1,34 +1,22 @@
 import * as React from "react";
 import {
   Activity,
-  Award,
   Bot,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Clock,
-  ExternalLink,
-  Eye,
-  FileCheck,
   Headphones,
   ImageIcon,
   ListChecks,
   Lock,
   Magnet,
-  Mic,
-  RotateCcw,
-  ShieldAlert,
-  Sparkles,
-  Trophy,
-  Volume2,
   X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { GroupRaceState, StaseDetailData } from "./liveview-types";
-import { CIRCUIT_WAYPOINTS } from "./liveview-types";
+import type { GroupRaceState } from "./liveview-types";
 
 interface GroupStaseDetailViewProps {
   group: GroupRaceState;

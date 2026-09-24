@@ -41,7 +41,6 @@ export function LombaWindingStepper({
         {visiblePositions.map((posNumber, idx) => {
           const isCurrent = currentPos === posNumber;
           const isPassed = currentPos > posNumber;
-          const isNext = currentPos < posNumber;
 
           return (
             <React.Fragment key={posNumber}>

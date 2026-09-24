@@ -1,14 +1,10 @@
 import * as React from "react";
 import {
   Check,
-  CheckCircle2,
-  Edit2,
-  FileText,
   Image as ImageIcon,
   Plus,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

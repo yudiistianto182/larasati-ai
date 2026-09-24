@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import { playCtaClickSound } from "./lomba-sound-effects";
 
@@ -24,29 +25,7 @@ interface McqOption {
   isCorrect?: boolean;
 }
 
-const FALLBACK_MCQ_OPTIONS: McqOption[] = [
-  {
-    id: "opt-a",
-    label: "A. Normal (Epitel skuamosa licin, SSK tampak jelas, tanpa plak asetowhite)",
-    category: "Temuan Fisiologis",
-  },
-  {
-    id: "opt-b",
-    label: "B. Servisitis Akut (Eritema difus, sekret mukopurulen, tanpa batas tegas asetowhite)",
-    category: "Infeksi Benigna",
-  },
-  {
-    id: "opt-c",
-    label: "C. IVA Positif dengan Lesi Luas / Mencurigakan Keganasan",
-    category: "Lesi Pra-Kanker Serviks",
-    isCorrect: true,
-  },
-  {
-    id: "opt-d",
-    label: "D. Kanker Serviks Invasif (Massa eksofitik rapuh, mudah berdarah spontan)",
-    category: "Malignansi",
-  },
-];
+
 
 interface ClinicalImage {
   id: string;
@@ -56,33 +35,22 @@ interface ClinicalImage {
   isPrimary?: boolean;
 }
 
-const FALLBACK_CLINICAL_IMAGES: ClinicalImage[] = [
-  {
-    id: "img-1",
-    title: "Foto 1: Pasca Aplikasi Asam Asetat 3-5%",
-    description: "Tampak jelas plak putih pekat (Acetowhite epithelium) tebal dengan batas tegas menyentuh garis SSK porsio.",
-    url: "/images/pos4-pasien1.jfif",
-    isPrimary: true,
-  },
-  {
-    id: "img-2",
-    title: "Foto 2: Tampilan Makroskopis Serviks Polos",
-    description: "Inspeksi visual serviks dengan spekulum cocor bebek sebelum aplikasi asam asetat.",
-    url: "/images/pos4-pasien1.jfif",
-    isPrimary: false,
-  },
-];
-
 interface Step5InterpretasiMcqProps {
   selectedOptionId?: string;
   onSelectOption?: (optionId: string) => void;
   kasus?: Kasus;
+  responseId?: number;
+  casequestId?: number;
+  duration?: number | string;
 }
 
 export function Step5InterpretasiMcq({
   selectedOptionId: initialOptionId,
   onSelectOption,
   kasus,
+  responseId,
+  casequestId,
+  duration,
 }: Step5InterpretasiMcqProps) {
   const clinicalImages: ClinicalImage[] = React.useMemo(() => {
     const rawImages = kasus?.stase_data?.stase4?.images;
@@ -106,7 +74,7 @@ export function Step5InterpretasiMcq({
         };
       });
     }
-    return FALLBACK_CLINICAL_IMAGES;
+    return [];
   }, [kasus]);
 
   const mcqOptions: McqOption[] = React.useMemo(() => {
@@ -118,7 +86,7 @@ export function Step5InterpretasiMcq({
         isCorrect: opt.is_correct,
       }));
     }
-    return FALLBACK_MCQ_OPTIONS;
+    return [];
   }, [kasus]);
 
   const [selectedId, setSelectedId] = React.useState<string>(initialOptionId || "");
@@ -245,6 +213,23 @@ export function Step5InterpretasiMcq({
     playCtaClickSound();
     setSelectedId(id);
     onSelectOption?.(id);
+
+    const activeCasequestId = casequestId || kasus?.stase_data?.stase4?.casequest_id;
+    if (responseId && activeCasequestId) {
+      const currentDuration =
+        duration !== undefined
+          ? duration
+          : kasus?.stase_data?.stase4?.header?.durasi_detik ?? 0;
+
+      trxResponseAnswerService
+        .store({
+          response_id: responseId,
+          casequest_id: activeCasequestId,
+          casequestcioption_id: id,
+          duration: String(currentDuration),
+        })
+        .catch((err) => console.warn("[Pos 4 Store Error]", err));
+    }
   };
 
   return (
@@ -318,40 +303,54 @@ export function Step5InterpretasiMcq({
                   : "cursor-default",
               )}
             >
-              <img
-                src={activeImage.url}
-                alt={activeImage.title}
-                draggable={false}
-                style={{
-                  transform: `scale(${zoomScale}) translate(${panPosition.x / zoomScale}px, ${panPosition.y / zoomScale}px)`,
-                  transition: isDragging ? "none" : "transform 0.12s ease-out",
-                }}
-                className="w-full h-full object-contain pointer-events-none select-none max-h-[420px]"
-              />
+              {activeImage ? (
+                <>
+                  <img
+                    src={activeImage.url}
+                    alt={activeImage.title}
+                    draggable={false}
+                    style={{
+                      transform: `scale(${zoomScale}) translate(${panPosition.x / zoomScale}px, ${panPosition.y / zoomScale}px)`,
+                      transition: isDragging ? "none" : "transform 0.12s ease-out",
+                    }}
+                    className="w-full h-full object-contain pointer-events-none select-none max-h-[420px]"
+                  />
 
-              {/* Bottom Caption Overlay */}
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 text-white pointer-events-none">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-serif font-bold text-sm text-[#fff8db] drop-shadow truncate">
-                      {activeImage.title}
-                    </h4>
-                    <p className="text-xs text-[#e6d59c]/90 leading-tight mt-0.5 drop-shadow line-clamp-2">
-                      {activeImage.description}
-                    </p>
+                  {/* Bottom Caption Overlay */}
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 text-white pointer-events-none">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-serif font-bold text-sm text-[#fff8db] drop-shadow truncate">
+                          {activeImage.title}
+                        </h4>
+                        <p className="text-xs text-[#e6d59c]/90 leading-tight mt-0.5 drop-shadow line-clamp-2">
+                          {activeImage.description}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="outline" className="border-[#d4af37]/70 text-[#d4af37] text-[10px] bg-black/70 gap-1">
+                          <ZoomIn className="size-2.5" /> Scroll / Pinch
+                        </Badge>
+                        {zoomScale > 1 && (
+                          <Badge variant="outline" className="border-amber-400 text-amber-300 text-[10px] bg-black/70 gap-1">
+                            <Hand className="size-2.5" /> Geser Foto
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Badge variant="outline" className="border-[#d4af37]/70 text-[#d4af37] text-[10px] bg-black/70 gap-1">
-                      <ZoomIn className="size-2.5" /> Scroll / Pinch
-                    </Badge>
-                    {zoomScale > 1 && (
-                      <Badge variant="outline" className="border-amber-400 text-amber-300 text-[10px] bg-black/70 gap-1">
-                        <Hand className="size-2.5" /> Geser Foto
-                      </Badge>
-                    )}
-                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-[#d4af37]/60 gap-3">
+                  <ImageIcon className="size-12 text-[#d4af37]/30" />
+                  <span className="font-serif font-bold text-sm text-[#fff8db]/90">
+                    Belum Ada Foto Klinis
+                  </span>
+                  <p className="text-xs text-[#e6d59c]/60 max-w-xs">
+                    Kasus ini belum memiliki unggahan foto klinis pemeriksaan serviks.
+                  </p>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -442,47 +441,58 @@ export function Step5InterpretasiMcq({
 
           {/* 4 MCQ Vertical Stacked Option Cards */}
           <div className="flex flex-col gap-2.5">
-            {mcqOptions.map((opt) => {
-              const isSelected = selectedId === opt.id;
+            {mcqOptions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-6 text-center text-[#d4af37]/60 gap-2 border border-dashed border-[#8c6d23]/40 rounded-xl bg-[#140e08]/60 my-auto">
+                <span className="font-serif font-bold text-xs text-[#fff8db]/90">
+                  Belum Ada Pilihan Jawaban
+                </span>
+                <p className="text-[11px] text-[#e6d59c]/60 max-w-xs">
+                  Kasus ini belum memiliki konfigurasi opsi pilihan ganda kesimpulan diagnosis dari sistem ujian.
+                </p>
+              </div>
+            ) : (
+              mcqOptions.map((opt) => {
+                const isSelected = selectedId === opt.id;
 
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => handleSelectOption(opt.id)}
-                  className={cn(
-                    "flex items-start gap-3 rounded-xl border-2 p-3.5 transition-all cursor-pointer shadow-md group relative select-none",
-                    isSelected
-                      ? "border-[#d4af37] bg-gradient-to-r from-[#3a2717] via-[#2f1f12] to-[#3a2717] ring-2 ring-[#d4af37]/70 shadow-[0_0_18px_rgba(212,175,55,0.3)] scale-[1.01]"
-                      : "border-[#8c6d23]/40 bg-[#22160d] hover:border-[#d4af37]/80 hover:bg-[#2d1e12] hover:scale-[1.005]",
-                  )}
-                >
-                  {/* Radio Circle Indicator */}
+                return (
                   <div
+                    key={opt.id}
+                    onClick={() => handleSelectOption(opt.id)}
                     className={cn(
-                      "flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-0.5 shadow-xs",
+                      "flex items-start gap-3 rounded-xl border-2 p-3.5 transition-all cursor-pointer shadow-md group relative select-none",
                       isSelected
-                        ? "border-[#fff8db] bg-[#d4af37] text-[#14100c]"
-                        : "border-[#8c6d23]/60 bg-[#19110a] group-hover:border-[#d4af37]",
+                        ? "border-[#d4af37] bg-gradient-to-r from-[#3a2717] via-[#2f1f12] to-[#3a2717] ring-2 ring-[#d4af37]/70 shadow-[0_0_18px_rgba(212,175,55,0.3)] scale-[1.01]"
+                        : "border-[#8c6d23]/40 bg-[#22160d] hover:border-[#d4af37]/80 hover:bg-[#2d1e12] hover:scale-[1.005]",
                     )}
                   >
-                    {isSelected && <Check className="size-3.5 stroke-[3]" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p
+                    {/* Radio Circle Indicator */}
+                    <div
                       className={cn(
-                        "text-xs sm:text-[13px] font-serif leading-relaxed",
+                        "flex size-5 shrink-0 items-center justify-center rounded-full border-2 transition-all mt-0.5 shadow-xs",
                         isSelected
-                          ? "font-bold text-[#fff8db] drop-shadow"
-                          : "font-medium text-[#e6d59c] group-hover:text-[#fff8db]",
+                          ? "border-[#fff8db] bg-[#d4af37] text-[#14100c]"
+                          : "border-[#8c6d23]/60 bg-[#19110a] group-hover:border-[#d4af37]",
                       )}
                     >
-                      {opt.label}
-                    </p>
+                      {isSelected && <Check className="size-3.5 stroke-[3]" />}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={cn(
+                          "text-xs sm:text-[13px] font-serif leading-relaxed",
+                          isSelected
+                            ? "font-bold text-[#fff8db] drop-shadow"
+                            : "font-medium text-[#e6d59c] group-hover:text-[#fff8db]",
+                        )}
+                      >
+                        {opt.label}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
 
           {/* Helper Footer Note */}

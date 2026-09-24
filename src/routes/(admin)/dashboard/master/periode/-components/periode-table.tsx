@@ -45,7 +45,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function PeriodeTable({ table }: { table: ReactTable<DataTableFeatures, PeriodeRow> }) {
+export function PeriodeTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, PeriodeRow>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -68,7 +74,21 @@ export function PeriodeTable({ table }: { table: ReactTable<DataTableFeatures, P
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-periode-${i}`} className="border-border/60">
+                  <TableCell className="px-3 py-3">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-4 w-36 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-right">
+                    <div className="h-8 w-8 ml-auto rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -84,8 +104,8 @@ export function PeriodeTable({ table }: { table: ReactTable<DataTableFeatures, P
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-32 text-center text-muted-foreground">
-                  Tidak ada data periode yang ditemukan.
+                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-24 text-center">
+                  No results.
                 </TableCell>
               </TableRow>
             )}

@@ -45,7 +45,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function KasusTable({ table }: { table: ReactTable<DataTableFeatures, Kasus> }) {
+export function KasusTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, Kasus>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -68,7 +74,33 @@ export function KasusTable({ table }: { table: ReactTable<DataTableFeatures, Kas
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-kasus-${i}`} className="border-border/60">
+                  <TableCell className="px-3 py-3">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="h-4 w-36 rounded bg-muted animate-pulse" />
+                      <div className="h-3 w-20 rounded bg-muted/60 animate-pulse" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-4 w-48 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3">
+                    <div className="h-5 w-16 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-right">
+                    <div className="h-8 w-8 ml-auto rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -84,8 +116,13 @@ export function KasusTable({ table }: { table: ReactTable<DataTableFeatures, Kas
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-32 text-center text-muted-foreground">
-                  Tidak ada data kasus yang ditemukan.
+                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-40 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground py-6">
+                    <p className="text-sm font-medium text-foreground">Tidak Ada Data Kasus</p>
+                    <p className="text-xs max-w-sm text-muted-foreground">
+                      Belum ada skenario kasus yang tersimpan di server. Anda dapat membuat kasus baru melalui tombol &ldquo;Tambah Kasus Baru&rdquo;.
+                    </p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

@@ -32,7 +32,7 @@ export function VoiceInputCountdown({
   isAiSpeaking,
   isAiThinking = false,
   disabled = false,
-  placeholder = "Bicaralah menggunakan mikrofon atau ketik pertanyaan...",
+  placeholder: _placeholder = "Bicaralah menggunakan mikrofon atau ketik pertanyaan...",
   showQuickPrompts = true,
   quickPrompts = [
     "Sudah berapa lama keputihannya Bu?",

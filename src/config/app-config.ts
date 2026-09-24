@@ -1,14 +1,12 @@
-import packageJson from "../../package.json";
-
 const currentYear = new Date().getFullYear();
 
 export const APP_CONFIG = {
-  name: "Studio Admin",
-  // version: packageJson.version,
-  copyright: `© ${currentYear}, Studio Admin.`,
+  name: "Larasati Journey",
+  version: "1.0.0",
+  copyright: `© ${currentYear}, Larasati Journey.`,
   meta: {
-    title: "Studio Admin - Modern TanStack Start Dashboard Starter Template",
+    title: "Larasati Journey",
     description:
-      "Studio Admin is a modern, open-source dashboard starter template built with TanStack Start, Tailwind CSS v4, and shadcn/ui. Perfect for SaaS apps, admin panels, and internal tools—fully customizable and production-ready.",
+      "Larasati Journey adalah program simulasi berbasis kecerdasan artifisial yang dirancang untuk membantu peserta didik dalam melatih kompetensi anamnesis dan keterampilan klinis secara interaktif. Dengan visualisasi Avatar Digital dan alur kerja berbasis kasus nyata, Larasati Journey menghadirkan pengalaman belajar yang imersif dan personal.",
   },
 };

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import { useKasusStore } from "@/stores/kasus-store";
+import { extractNumericCaseId } from "@/services/api";
 import { DetailKasusModal } from "./detail-kasus-modal";
 import { KasusPickerModal } from "./kasus-picker-modal";
 
@@ -21,16 +22,26 @@ interface Step2PilihKasusProps {
 }
 
 export function Step2PilihKasus({ selectedKasusIds, onChange }: Step2PilihKasusProps) {
-  const { kasusList } = useKasusStore();
+  const { kasusList, fetchKasus, isLoading } = useKasusStore();
   const [isPickerModalOpen, setIsPickerModalOpen] = React.useState(false);
   const [viewingKasus, setViewingKasus] = React.useState<Kasus | null>(null);
 
+  React.useEffect(() => {
+    if (kasusList.length === 0) {
+      fetchKasus();
+    }
+  }, [kasusList.length, fetchKasus]);
+
   const selectedKasusList = React.useMemo(() => {
-    return kasusList.filter((k) => selectedKasusIds.includes(k.id));
+    return kasusList.filter((k) => {
+      const kNum = extractNumericCaseId(k.id);
+      return selectedKasusIds.some((sId) => sId === k.id || extractNumericCaseId(sId) === kNum);
+    });
   }, [kasusList, selectedKasusIds]);
 
   const handleRemoveKasus = (id: string) => {
-    onChange(selectedKasusIds.filter((kId) => kId !== id));
+    const numId = extractNumericCaseId(id);
+    onChange(selectedKasusIds.filter((kId) => kId !== id && extractNumericCaseId(kId) !== numId));
   };
 
   return (

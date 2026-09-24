@@ -1,22 +1,21 @@
 import * as React from "react";
-import { useSearch } from "@tanstack/react-router";
 import {
   Bot,
   HeartHandshake,
   ImageIcon,
   ListChecks,
-  Mic,
   ShieldAlert,
   Volume2,
   VolumeX,
 } from "lucide-react";
 
+import { useSimliAvatar } from "@/hooks/use-simli-avatar";
 import { cn } from "@/lib/utils";
-import { type KelompokLomba, useContestStore } from "@/stores/contest-store";
-import { useKasusStore } from "@/stores/kasus-store";
+import { useSysConfigStore } from "@/stores/sys-config-store";
+import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import { FloatingParticlesBackground } from "./floating-particles-background";
 import { LarasatiWatermarkOverlay } from "./larasati-watermark-overlay";
-import { LombaAuthScreen } from "./lomba-auth-screen";
+import { LombaAuthScreen, type LombaAuthResult } from "./lomba-auth-screen";
 import { LombaPrologScreen } from "./lomba-prolog-screen";
 import { LombaStickyFooter } from "./lomba-sticky-footer";
 import { currentLombaTheme } from "./lomba-theme";
@@ -30,9 +29,10 @@ import { Step3FaktorRisikoMagnet } from "./step3-faktor-risiko-magnet";
 import { Step4ProsedurIvaSequence } from "./step4-prosedur-iva-sequence";
 import { Step5InterpretasiMcq } from "./step5-interpretasi-mcq";
 import { Step6AsuhanAi } from "./step6-asuhan-ai";
-import { Step7AudioRecorder } from "./step7-audio-recorder";
 import { Step8LombaSummary } from "./step8-lomba-summary";
 import { TimeoutDialog } from "./timeout-dialog";
+import { trxResponseService, trxResponseAnswerService } from "@/services/api";
+import { formatDurationLabel } from "@/services/api/case-mapper";
 import {
   playCelebratoryFanfare,
   playCtaClickSound,
@@ -54,24 +54,24 @@ interface StaseConfig {
 }
 
 export function LombaExamContainer() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const search: any = useSearch({ strict: false });
-  const lombaId = (search?.lombaId as string) || "lomba-01";
-  const initialKelompokId = (search?.kelompokId as string) || "kel-01";
+  // Simli Virtual Avatar: connect HANYA saat di Pos 1 (step 2) atau Pos 5 (step 6), stase lain disconnect
+  const simli = useSimliAvatar({ autoConnect: false });
 
-  const { contests } = useContestStore();
-  const { kasusList } = useKasusStore();
-
-  const activeContest = contests.find((c) => c.id === lombaId) || contests[0];
+  // Akses fungsi pemuat konfigurasi API (Simli & Gemini) dari store
+  const loadConfigs = useSysConfigStore((s) => s.loadConfigs);
 
   // Prologue & Auth state: story prologue -> team login -> patient intro
   const [showProlog, setShowProlog] = React.useState<boolean>(true);
   const [isLoggedIn, setIsLoggedIn] = React.useState<boolean>(false);
-  const [loggedInKelompok, setLoggedInKelompok] = React.useState<KelompokLomba | null>(null);
+
+  // Data lomba & kasus dari hasil auth API
+  const [authResult, setAuthResult] = React.useState<LombaAuthResult | null>(null);
+  const activeKasus: Kasus | undefined = authResult?.kasus;
+  const activeKelompokNama = authResult?.contestTeamName;
 
   // Active step (1: Intro, 2: Pos 1, 3: Pos 2, 4: Pos 3, 5: Pos 4, 6: Pos 5, 8: Summary)
   const [currentStep, setCurrentStep] = React.useState<number>(1);
-  const [secondsRemaining, setSecondsRemaining] = React.useState<number>(3 * 60);
+  const [secondsRemaining, setSecondsRemaining] = React.useState<number>(5 * 60);
   const [showOneMinAlert, setShowOneMinAlert] = React.useState<boolean>(false);
   const [isTimeoutModalOpen, setIsTimeoutModalOpen] = React.useState<boolean>(false);
 
@@ -79,32 +79,52 @@ export function LombaExamContainer() {
   const [isBriefingModalOpen, setIsBriefingModalOpen] = React.useState<boolean>(false);
   const [isTimerRunning, setIsTimerRunning] = React.useState<boolean>(false);
 
+  // Mode Interaktif AI vs Mode Statis (Strict Default: false / OFF)
+  const [isAiEnabled, setIsAiEnabled] = React.useState<boolean>(false);
+
+  const handleToggleAi = React.useCallback((enabled: boolean) => {
+    setIsAiEnabled(enabled);
+  }, []);
+
   // Audio managers
+  const bgmAudioRef = React.useRef<HTMLAudioElement | null>(null);
   const [isBgmAudioMuted, setIsBgmAudioMuted] = React.useState<boolean>(false);
   const [isFanfareActive, setIsFanfareActive] = React.useState<boolean>(false);
-  const bgmAudioRef = React.useRef<HTMLAudioElement | null>(null);
-
-  const activeKelompok =
-    loggedInKelompok ||
-    activeContest?.kelompok_list.find((k) => k.id === initialKelompokId) ||
-    activeContest?.kelompok_list[0];
-
-  const assignedKasusId = activeKelompok?.kasus_id || activeContest?.kasus_ids[0] || "KSS-001";
-  const activeKasus = kasusList.find((k) => k.id === assignedKasusId) || kasusList[0];
-
+  // Cukup pos 1-5 saja, pos 6 record dinonaktifkan
   const hasAudioRecorder = false;
 
   const activeStaseConfigs: StaseConfig[] = React.useMemo(() => {
     const sd = activeKasus?.stase_data;
+
+    const getDuration = (header?: { durasi_detik?: number; durasi_menit?: number }, fallbackSec = 300) => {
+      const sec =
+        typeof header?.durasi_detik === "number" && header.durasi_detik > 0
+          ? header.durasi_detik
+          : typeof header?.durasi_menit === "number" && header.durasi_menit > 0
+            ? header.durasi_menit * 60
+            : fallbackSec;
+      return {
+        seconds: sec,
+        minutes: Math.max(1, Math.round(sec / 60)),
+        label: formatDurationLabel(sec),
+      };
+    };
+
+    const d1 = getDuration(sd?.stase1?.header, 300);
+    const d2 = getDuration(sd?.stase2?.header, 300);
+    const d3 = getDuration(sd?.stase3?.header, 300);
+    const d4 = getDuration(sd?.stase4?.header, 300);
+    const d5 = getDuration(sd?.stase5?.header, 300);
+
     return [
       {
         stepIndex: 2,
         staseNumber: 1,
         name: sd?.stase1?.header?.nama_stase || "Anamnesis (Wawancara Pasien)",
         kodeAmplop: sd?.stase1?.header?.kode_amplop || "AMP-ANM-01",
-        durationSeconds: 3 * 60,
-        durationMinutes: 3,
-        durationLabel: "3 Menit",
+        durationSeconds: d1.seconds,
+        durationMinutes: d1.minutes,
+        durationLabel: d1.label,
         petunjukSoal:
           sd?.stase1?.header?.petunjuk_soal ||
           "Lakukan wawancara klinis terarah kepada pasien seputar keluhan dan riwayat kesehatan reproduksi.",
@@ -117,9 +137,9 @@ export function LombaExamContainer() {
         staseNumber: 2,
         name: sd?.stase2?.header?.nama_stase || "Identifikasi Faktor Risiko (Papan Magnet)",
         kodeAmplop: sd?.stase2?.header?.kode_amplop || "AMP-RSK-02",
-        durationSeconds: 1 * 60,
-        durationMinutes: 1,
-        durationLabel: "1 Menit",
+        durationSeconds: d2.seconds,
+        durationMinutes: d2.minutes,
+        durationLabel: d2.label,
         petunjukSoal:
           sd?.stase2?.header?.petunjuk_soal ||
           "Tentukan faktor-faktor risiko kanker serviks dan patologi reproduksi yang teridentifikasi dari riwayat pasien.",
@@ -132,9 +152,9 @@ export function LombaExamContainer() {
         staseNumber: 3,
         name: sd?.stase3?.header?.nama_stase || "Penyusunan Prosedur Tindakan IVA",
         kodeAmplop: sd?.stase3?.header?.kode_amplop || "AMP-SOP-03",
-        durationSeconds: 1 * 60,
-        durationMinutes: 1,
-        durationLabel: "1 Menit",
+        durationSeconds: d3.seconds,
+        durationMinutes: d3.minutes,
+        durationLabel: d3.label,
         petunjukSoal:
           sd?.stase3?.header?.petunjuk_soal ||
           "Susun langkah-langkah standar operasional prosedur (SOP) pemeriksaan Inspeksi Visual Asam Asetat (IVA) secara berurutan.",
@@ -147,9 +167,9 @@ export function LombaExamContainer() {
         staseNumber: 4,
         name: sd?.stase4?.header?.nama_stase || "Interpretasi Visual & Pilihan Diagnosis",
         kodeAmplop: sd?.stase4?.header?.kode_amplop || "AMP-ITP-04",
-        durationSeconds: 30,
-        durationMinutes: 0.5,
-        durationLabel: "30 Detik",
+        durationSeconds: d4.seconds,
+        durationMinutes: d4.minutes,
+        durationLabel: d4.label,
         petunjukSoal:
           sd?.stase4?.header?.petunjuk_soal ||
           "Perhatikan foto inspeksi serviks pasca aplikasi asam asetat 3-5% dan tentukan pilihan diagnosis klinis yang tepat.",
@@ -162,9 +182,9 @@ export function LombaExamContainer() {
         staseNumber: 5,
         name: sd?.stase5?.header?.nama_stase || "Asuhan Kebidanan & Konseling Empatik",
         kodeAmplop: sd?.stase5?.header?.kode_amplop || "AMP-ASH-05",
-        durationSeconds: 2 * 60,
-        durationMinutes: 2,
-        durationLabel: "2 Menit",
+        durationSeconds: d5.seconds,
+        durationMinutes: d5.minutes,
+        durationLabel: d5.label,
         petunjukSoal:
           sd?.stase5?.header?.petunjuk_soal ||
           "Berikan konseling hasil pemeriksaan dan asuhan kebidanan secara empatik kepada pasien virtual.",
@@ -187,6 +207,35 @@ export function LombaExamContainer() {
       setIsTimerRunning(false);
     }
   }, [currentStep, currentStaseConfig]);
+
+  // Kelola konfigurasi backend & koneksi Simli:
+  // HANYA muat config dan hubungkan Simli saat di Pos 1 (step 2) atau Pos 5 (step 6) jika button LIVE (isAiEnabled) diaktifkan
+  const simliRef = React.useRef(simli);
+  simliRef.current = simli;
+
+  React.useEffect(() => {
+    const isInteractiveAiStep = (currentStep === 2 || currentStep === 6) && isAiEnabled;
+    if (isInteractiveAiStep) {
+      console.log(
+        `%c[Simli Manager] 🟡 Masuk Pos ${currentStep === 2 ? 1 : 5} dengan Mode LIVE aktif. Memuat konfigurasi backend & menghubungkan Simli Avatar...`,
+        "background: #1e3a8a; color: #ffffff; font-weight: bold; padding: 2px 6px; border-radius: 4px;",
+      );
+      // Muat config terlebih dahulu (menggunakan Bearer token hasil login) sebelum connect Simli
+      loadConfigs()
+        .then(() => {
+          return simliRef.current.connect(true);
+        })
+        .catch(() => {
+          console.log("[Simli Manager] 🟠 Gagal menghubungkan Simli, fallback ke mode foto.");
+        });
+    } else {
+      console.log(
+        `%c[Simli Manager] ⚪ Memutuskan (disconnect) Simli Avatar di luar pos interaktif AI atau mode statis (Pos ${currentStep}, AI ${isAiEnabled ? "ON" : "OFF"})...`,
+        "background: #475569; color: #ffffff; font-weight: bold; padding: 2px 6px; border-radius: 4px;",
+      );
+      simliRef.current.disconnect();
+    }
+  }, [currentStep, isAiEnabled, loadConfigs]);
 
   // Main countdown timer effect
   React.useEffect(() => {
@@ -214,19 +263,35 @@ export function LombaExamContainer() {
     return () => clearInterval(interval);
   }, [currentStep, currentStaseConfig, isTimerRunning]);
 
-  // Ambient Soundtrack Audio Manager (/audio/larasati-ambient.mp3)
-  // Continuous soundtrack across screens:
-  // Plays on: Prologue, Auth, Step 1 (Intro), Step 3 (Pos 2), Step 4 (Pos 3), Step 5 (Pos 4), Step 8 (Summary)
-  // Pauses on: Step 2 (Pos 1: Anamnesis - Wawancara), Step 6 (Pos 5: Asuhan - Konseling/Wawancara), Step 7 (Pos 6: Audio Recorder)
+  // Dual Soundtrack BGM Audio Manager
+  // Track 1: "/audio/larasati-intro.mpeg" for Prologue & Auth screens (Intro stage)
+  // Track 2: "/audio/larasati-backsound.mpeg" (Looped) for Step 1 (Tata Cara & Stase Kerja) to the end
+  // Pauses on: Step 2 (Pos 1: Anamnesis), Step 6 (Pos 5: Asuhan), Step 7 (Pos 6: Audio Recorder)
   React.useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const targetSrc = !isLoggedIn
+      ? "/audio/larasati-intro.mpeg"
+      : "/audio/larasati-backsound.mpeg";
+
     if (!bgmAudioRef.current) {
-      const audio = new Audio("/audio/larasati-ambient.mp3");
+      const audio = new Audio(targetSrc);
       audio.loop = true;
       audio.volume = 0.35;
       audio.preload = "auto";
       bgmAudioRef.current = audio;
+    } else {
+      // If track source changed (e.g. from intro to gamelan after completing auth), smoothly transition
+      const currentSrcPath = new URL(bgmAudioRef.current.src, window.location.href).pathname;
+      if (currentSrcPath !== targetSrc) {
+        const wasPlaying = !bgmAudioRef.current.paused;
+        bgmAudioRef.current.pause();
+        bgmAudioRef.current.src = targetSrc;
+        bgmAudioRef.current.load();
+        if (wasPlaying && !isBgmAudioMuted) {
+          bgmAudioRef.current.play().catch(() => {});
+        }
+      }
     }
 
     const audio = bgmAudioRef.current;
@@ -250,7 +315,7 @@ export function LombaExamContainer() {
         !isFanfareActive &&
         (!isLoggedIn || (currentStep !== 2 && currentStep !== 6 && currentStep !== 7))
       ) {
-        audio.play().catch(() => { });
+        audio.play().catch(() => {});
       }
     };
 
@@ -311,11 +376,64 @@ export function LombaExamContainer() {
     };
   }, []);
 
-  const handleLoginSuccess = (kelompok: KelompokLomba) => {
-    setLoggedInKelompok(kelompok);
+  const handleLoginSuccess = (result: LombaAuthResult) => {
+    setAuthResult(result);
     setIsLoggedIn(true);
     playTransitionChime();
     setCurrentStep(1);
+  };
+
+  const handleStartCircuit = async () => {
+    // Kirim trx_response store saat peserta menekan tombol Mulai Sirkuit (keluar dari review Step 1)
+    if (authResult && !authResult.responseId && authResult.contestId && authResult.contestTeamId) {
+      try {
+        const caseId = authResult.caseId || (authResult.kasus as any)?.id;
+        const patientId = authResult.patientId || 1;
+        if (caseId) {
+          const trxStoreRes = await trxResponseService.store({
+            contest_id: authResult.contestId,
+            contestteam_id: authResult.contestTeamId,
+            case_id: caseId,
+            patient_id: patientId,
+          });
+
+          const storeData = trxStoreRes.data;
+          let resolvedResponseId = 0;
+          if (storeData?.response_id) {
+            resolvedResponseId = Number(storeData.response_id);
+          } else if ((storeData as any)?.data?.response_id) {
+            resolvedResponseId = Number((storeData as any).data.response_id);
+          } else {
+            const allTrx = await trxResponseService.getAll(authResult.contestId);
+            const matched = allTrx.data?.find(
+              (r) => r.response_contestteam_id === authResult.contestTeamId,
+            );
+            if (matched) {
+              resolvedResponseId = Number(matched.response_id);
+            }
+          }
+
+          if (resolvedResponseId) {
+            setAuthResult((prev) => (prev ? { ...prev, responseId: resolvedResponseId } : null));
+          }
+        }
+      } catch (e) {
+        console.warn("[TrxResponse Start Circuit Warning]", e);
+        try {
+          const allTrx = await trxResponseService.getAll(authResult.contestId);
+          const matched = allTrx.data?.find(
+            (r) => r.response_contestteam_id === authResult.contestTeamId,
+          );
+          if (matched) {
+            const fallbackId = Number(matched.response_id);
+            setAuthResult((prev) => (prev ? { ...prev, responseId: fallbackId } : null));
+          }
+        } catch {}
+      }
+    }
+
+    playTransitionChime();
+    setCurrentStep(2);
   };
 
   const handleStartStase = () => {
@@ -327,6 +445,34 @@ export function LombaExamContainer() {
   const handleNextStep = () => {
     setIsTimeoutModalOpen(false);
     playTransitionChime();
+
+    // Auto-submit stase jawaban ke API saat berpindah pos (Pos 1 & Pos 5)
+    if (authResult?.responseId) {
+      const spentSeconds = currentStaseConfig
+        ? Math.max(1, currentStaseConfig.durationSeconds - secondsRemaining)
+        : 100;
+
+      if (currentStep === 2 && activeKasus?.stase_data?.stase1?.casequest_id) {
+        trxResponseAnswerService
+          .store({
+            response_id: authResult.responseId,
+            casequest_id: activeKasus.stase_data.stase1.casequest_id,
+            responseanswer_submited: "1",
+            duration: String(spentSeconds),
+          })
+          .catch((err) => console.warn("[Pos 1 Submit Error]", err));
+      } else if (currentStep === 6 && activeKasus?.stase_data?.stase5?.casequest_id) {
+        trxResponseAnswerService
+          .store({
+            response_id: authResult.responseId,
+            casequest_id: activeKasus.stase_data.stase5.casequest_id,
+            responseanswer_submited: "1",
+            duration: String(spentSeconds),
+          })
+          .catch((err) => console.warn("[Pos 5 Submit Error]", err));
+      }
+    }
+
     if (currentStep === 6 && !hasAudioRecorder) {
       setCurrentStep(8);
     } else if (currentStep < 8) {
@@ -343,14 +489,14 @@ export function LombaExamContainer() {
   return (
     <div
       className={cn(
-        "relative min-h-screen w-full max-w-full overflow-x-hidden flex flex-col justify-between select-none",
+        "relative isolate min-h-screen w-full max-w-full overflow-x-hidden flex flex-col justify-between select-none",
         currentLombaTheme.backgroundGradient,
       )}
     >
-      {/* Floating Ambient Firefly / Laron Particles */}
+      {/* Background Larasati: Overlay Path Titik-Titik, Laron Fireflies Berkilau, & Smooth Antigravity Mouse Matrix (Layer Paling Belakang: z-0) */}
       <FloatingParticlesBackground />
 
-      {/* Larasati Full Body Watermark Overlay (Bottom-Right with Theme Gradient Blend) */}
+      {/* Larasati Full Body Watermark Overlay (Layer Tengah: z-10, Di Depan Partikel & Di Belakang Konten) */}
       <LarasatiWatermarkOverlay />
 
       {/* 1-Minute Warning Center Notification (Only for stases with duration > 1 minute) */}
@@ -382,39 +528,44 @@ export function LombaExamContainer() {
           durationLabel={currentStaseConfig.durationLabel}
           petunjukSoal={currentStaseConfig.petunjukSoal}
           panduanPenggunaan={currentStaseConfig.panduanPenggunaan}
+          isAvatarReady={!isAiEnabled || simli.isReady}
         />
       )}
 
       {/* ============================================================ */}
-      {/* SCREEN PROLOG: LARASATI JOURNEY (SEBELUM LOGIN TIM)           */}
+      {/* SCREEN PROLOG: LARASATI JOURNEY (SEBELUM LOGIN TIM) (z-20)   */}
       {/* ============================================================ */}
       {!isLoggedIn && showProlog && (
-        <LombaPrologScreen onProceed={() => setShowProlog(false)} />
+        <div className="relative z-20 w-full flex-1 flex flex-col">
+          <LombaPrologScreen onProceed={() => setShowProlog(false)} />
+        </div>
       )}
 
       {/* ============================================================ */}
-      {/* SCREEN AUTH: LOGIN TIM SEBELUM INTRO & SIRKUIT               */}
+      {/* SCREEN AUTH: LOGIN TIM SEBELUM INTRO & SIRKUIT (z-20)        */}
       {/* ============================================================ */}
       {!isLoggedIn && !showProlog && (
-        <LombaAuthScreen
-          contest={activeContest}
-          kasus={activeKasus}
-          onLoginSuccess={handleLoginSuccess}
-        />
+        <div className="relative z-20 w-full flex-1 flex flex-col">
+          <LombaAuthScreen
+            onLoginSuccess={handleLoginSuccess}
+          />
+        </div>
       )}
 
       {/* ============================================================ */}
-      {/* STEPS 1 TO 8: LOGGED IN PARTICIPANT EXAM FLOW                */}
+      {/* STEPS 1 TO 8: LOGGED IN PARTICIPANT EXAM FLOW (z-20)         */}
       {/* ============================================================ */}
       {isLoggedIn && (
-        <main className="relative z-10 flex-1 w-full max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
+        <main className="relative z-20 flex-1 w-full max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8 flex flex-col gap-4">
           {/* Step 1: Patient Intro & Circuit Guide Screen */}
           {currentStep === 1 && (
             <div className="w-full max-w-6xl mx-auto my-auto">
               <Step1IntroLarasati
-                onStart={() => setCurrentStep(2)}
+                onStart={handleStartCircuit}
                 kasus={activeKasus}
-                kelompok={activeKelompok}
+                kelompokNama={activeKelompokNama}
+                isAiEnabled={isAiEnabled}
+                onToggleAi={handleToggleAi}
               />
             </div>
           )}
@@ -438,7 +589,7 @@ export function LombaExamContainer() {
                 durasiRemainingSeconds={secondsRemaining}
                 petunjukSoal={currentStaseConfig.petunjukSoal}
                 panduanPenggunaan={currentStaseConfig.panduanPenggunaan}
-                groupName={activeKelompok?.nama}
+                groupName={activeKelompokNama}
               />
 
               {/* 3. Active Interactive Station Stage */}
@@ -448,15 +599,64 @@ export function LombaExamContainer() {
                     isStarted={!isBriefingModalOpen && isTimerRunning}
                     onComplete={handleNextStep}
                     kasus={activeKasus}
+                    simli={simli}
+                    isAiEnabled={isAiEnabled}
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase1?.casequest_id}
                   />
                 )}
-                {currentStep === 3 && <Step3FaktorRisikoMagnet kasus={activeKasus} />}
-                {currentStep === 4 && <Step4ProsedurIvaSequence kasus={activeKasus} />}
-                {currentStep === 5 && <Step5InterpretasiMcq kasus={activeKasus} />}
-                {currentStep === 6 && (
-                  <Step6AsuhanAi isStarted={!isBriefingModalOpen && isTimerRunning} kasus={activeKasus} />
+                {currentStep === 3 && (
+                  <Step3FaktorRisikoMagnet
+                    kasus={activeKasus}
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase2?.casequest_id}
+                    duration={
+                      currentStaseConfig
+                        ? Math.max(1, currentStaseConfig.durationSeconds - secondsRemaining)
+                        : 0
+                    }
+                  />
                 )}
-                {currentStep === 7 && hasAudioRecorder && <Step7AudioRecorder />}
+                {currentStep === 4 && (
+                  <Step4ProsedurIvaSequence
+                    kasus={activeKasus}
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase3?.casequest_id}
+                    duration={
+                      currentStaseConfig
+                        ? Math.max(1, currentStaseConfig.durationSeconds - secondsRemaining)
+                        : 0
+                    }
+                  />
+                )}
+                {currentStep === 5 && (
+                  <Step5InterpretasiMcq
+                    kasus={activeKasus}
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase4?.casequest_id}
+                    duration={
+                      currentStaseConfig
+                        ? Math.max(1, currentStaseConfig.durationSeconds - secondsRemaining)
+                        : 0
+                    }
+                  />
+                )}
+                {currentStep === 6 && (
+                  <Step6AsuhanAi
+                    isStarted={!isBriefingModalOpen && isTimerRunning}
+                    kasus={activeKasus}
+                    simli={simli}
+                    isAiEnabled={isAiEnabled}
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase5?.casequest_id}
+                  />
+                )}
+                {currentStep === 7 && hasAudioRecorder && (
+                  <Step7AudioRecorder
+                    responseId={authResult?.responseId}
+                    casequestId={activeKasus?.stase_data?.stase6?.casequest_id}
+                  />
+                )}
               </div>
 
               {/* Bottom Safe Spacer */}
@@ -468,7 +668,7 @@ export function LombaExamContainer() {
           {currentStep === 8 && (
             <div className="w-full max-w-7xl mx-auto my-auto">
               <Step8LombaSummary
-                groupName={activeKelompok?.nama}
+                groupName={activeKelompokNama}
                 kasus={activeKasus}
                 hasAudioRecorder={hasAudioRecorder}
               />
@@ -488,7 +688,14 @@ export function LombaExamContainer() {
       )}
 
       {/* Floating Ambient BGM Control Button */}
-      <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40">
+      <div
+        className={cn(
+          "fixed right-4 sm:right-6 z-40 transition-all duration-300",
+          isLoggedIn && currentStep >= 2 && currentStep <= 7
+            ? "bottom-20 sm:bottom-20"
+            : "bottom-6 sm:bottom-6",
+        )}
+      >
         <button
           type="button"
           onClick={() => setIsBgmAudioMuted((prev) => !prev)}

@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Bot, MessageSquare, RotateCcw, Sparkles, Volume2, VolumeX, X, Zap } from "lucide-react";
+import { Bot, MessageSquare, RotateCcw, Sparkles, Video, VideoOff, Volume2, VolumeX, X, Zap } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { AiKeywordTrigger, Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 
+import { useSimliAvatar } from "@/hooks/use-simli-avatar";
 import { AiVideoAvatar } from "./ai-video-avatar";
 import { useTextToSpeech } from "./use-text-to-speech";
 import { VoiceInputCountdown } from "./voice-input-countdown";
@@ -48,7 +49,7 @@ export function InteractiveAiConsultationModal({
   patientName = "Ny. Ani",
   patientAge = "29",
   patientParity = "G2P1A0",
-  avatarUrl = "/images/ny_ani_patient_torso.jpg",
+  avatarUrl = "/images/fallback-pasien-2.jfif",
   backgroundUrl = "/images/puskesmas_clinic_empty.jpg",
   aiSystemPrompt,
   triggers = [],
@@ -58,8 +59,42 @@ export function InteractiveAiConsultationModal({
   const [isAiThinking, setIsAiThinking] = React.useState(false);
   const [autoPlayAudio, setAutoPlayAudio] = React.useState(true);
   const [engineMode, setEngineMode] = React.useState<"gemini" | "fallback">("gemini");
+  const [useSimli, setUseSimli] = React.useState<boolean>(true);
 
-  const { speak, cancel: cancelSpeech, isSpeaking } = useTextToSpeech();
+  // Simli Virtual Avatar WebRTC Stream
+  const {
+    status: simliStatus,
+    isConnected: isSimliConnected,
+    isAvatarSpeaking,
+    activeStream,
+    videoRef: simliVideoRef,
+    audioRef: simliAudioRef,
+    sendAudioData: sendSimliAudioData,
+    connect: connectSimli,
+    disconnect: disconnectSimli,
+  } = useSimliAvatar({ autoConnect: open && useSimli });
+
+  // Handle Simli connect/disconnect toggle
+  React.useEffect(() => {
+    if (!open) {
+      disconnectSimli();
+      return;
+    }
+    if (useSimli) {
+      if (simliStatus !== "connected" && simliStatus !== "connecting") {
+        connectSimli(true).catch(() => {});
+      }
+    } else {
+      disconnectSimli();
+    }
+  }, [useSimli, open, connectSimli, disconnectSimli, simliStatus]);
+
+  const { speak, cancel: cancelSpeech, isSpeaking: isTtsSpeaking } = useTextToSpeech({
+    onSendPcmAudio: useSimli ? sendSimliAudioData : undefined,
+    isSimliActive: useSimli && isSimliConnected,
+  });
+
+  const isSpeaking = isTtsSpeaking || isAvatarSpeaking;
   const chatScrollRef = React.useRef<HTMLDivElement>(null);
 
   // Initialize initial greeting when modal opens
@@ -127,8 +162,11 @@ export function InteractiveAiConsultationModal({
     const mockKasus: Kasus = {
       id: "KSS-SIMULASI",
       nama: `${patientName} (${patientAge} tahun)`,
-      tipe: "Utama",
       deskripsi: `Simulasi Kasus Telekonsultasi KIA - ${patientName}`,
+      teks_perkenalan: `Simulasi Kasus Telekonsultasi KIA - ${patientName}`,
+      pasien_ids: [],
+      has_perekam_nilai: false,
+      created_at: new Date().toISOString(),
       atribut: [
         { id: "attr-sim-1", key: "Status Obstetri", value: patientParity },
         { id: "attr-sim-2", key: "Usia", value: String(patientAge) },
@@ -146,11 +184,12 @@ export function InteractiveAiConsultationModal({
         },
         stase3: {
           header: { nama_stase: "Pos 3", kode_amplop: "SIM-03", durasi_menit: 7, petunjuk_soal: "" },
-          sop_items: [],
+          langkah_prosedur: [],
         },
         stase4: {
           header: { nama_stase: "Pos 4", kode_amplop: "SIM-04", durasi_menit: 5, petunjuk_soal: "" },
-          soal_mcq: [],
+          images: [],
+          pilihan_jawaban: [],
         },
         stase5: {
           header: { nama_stase: staseTitle, kode_amplop: "SIM-05", durasi_menit: 7, petunjuk_soal: "" },
@@ -325,6 +364,23 @@ export function InteractiveAiConsultationModal({
               </button>
             </div>
 
+            {/* 🎭 TOGGLE SIMLI AVATAR (VIDEO 3D vs FOTO) */}
+            <button
+              type="button"
+              onClick={() => setUseSimli((prev) => !prev)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md border transition-all shadow-2xs",
+                useSimli
+                  ? "bg-purple-600/15 border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-600/25"
+                  : "bg-muted/60 border-border/80 text-muted-foreground hover:text-foreground"
+              )}
+              title={useSimli ? "Simli Avatar Aktif - Klik untuk beralih ke Mode Foto" : "Simli Dinonaktifkan - Klik untuk mengaktifkan Avatar 3D Simli"}
+            >
+              {useSimli ? <Video className="size-3.5 text-purple-500" /> : <VideoOff className="size-3.5 text-muted-foreground" />}
+              <span className="hidden sm:inline">{useSimli ? "Simli: Aktif" : "Simli: Nonaktif"}</span>
+              <span className="sm:hidden">{useSimli ? "Simli ON" : "Simli OFF"}</span>
+            </button>
+
             {/* Button Putar Ulang Suara Terakhir dari Pasien */}
             <Button
               type="button"
@@ -386,8 +442,8 @@ export function InteractiveAiConsultationModal({
 
         {/* Modal Body: Two-Column Split (Left: Zoom Video Feed, Right: Chat Stream) */}
         <div className="grid grid-cols-1 md:grid-cols-12 flex-1 overflow-hidden min-h-[520px]">
-          {/* LEFT COLUMN: Zoom-Style Video Feed (5 Cols) */}
-          <div className="md:col-span-5 border-r border-border/80 bg-neutral-950 p-3 flex flex-col justify-between overflow-hidden">
+          {/* LEFT COLUMN: Zoom-Style Video Feed (6 Cols - Expanded to Right) */}
+          <div className="md:col-span-6 border-r border-border/80 bg-neutral-950 p-3 flex flex-col justify-between overflow-hidden">
             <AiVideoAvatar
               patientName={patientName}
               patientAge={patientAge}
@@ -396,11 +452,15 @@ export function InteractiveAiConsultationModal({
               backgroundUrl={backgroundUrl}
               isSpeaking={isSpeaking}
               isListening={!isSpeaking && !isAiThinking}
+              simliStatus={useSimli ? simliStatus : "fallback"}
+              simliStream={useSimli ? activeStream : null}
+              simliVideoRef={simliVideoRef}
+              simliAudioRef={simliAudioRef}
             />
           </div>
 
-          {/* RIGHT COLUMN: Dialogue Transcript & Voice Input (7 Cols) */}
-          <div className="md:col-span-7 flex flex-col justify-between overflow-hidden bg-background">
+          {/* RIGHT COLUMN: Dialogue Transcript & Voice Input (6 Cols) */}
+          <div className="md:col-span-6 flex flex-col justify-between overflow-hidden bg-background">
             {/* Dialogue Header Info */}
             <div className="flex items-center justify-between border-b px-4 py-2.5 bg-muted/20 text-xs">
               <span className="font-semibold text-muted-foreground flex items-center gap-1.5">

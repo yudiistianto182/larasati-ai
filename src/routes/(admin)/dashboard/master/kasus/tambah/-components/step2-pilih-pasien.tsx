@@ -1,9 +1,10 @@
 import * as React from "react";
-import { Plus, Trash2, User, Users } from "lucide-react";
+import { Plus, Trash2, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { fallbackPasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
+import { type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
+import { patientService } from "@/services/api";
 import { PasienPickerModal } from "./pasien-picker-modal";
 
 interface Step2PilihPasienProps {
@@ -11,18 +12,93 @@ interface Step2PilihPasienProps {
   onSelectedPasienIdsChange: (ids: string[]) => void;
 }
 
+// In-memory cache & in-flight promise deduplication to avoid double fetching
+let cachedPatients: Pasien[] | null = null;
+let patientFetchPromise: Promise<Pasien[]> | null = null;
+
+async function fetchAllPatientsOnce(): Promise<Pasien[]> {
+  if (cachedPatients) return cachedPatients;
+  if (patientFetchPromise) return patientFetchPromise;
+
+  patientFetchPromise = patientService
+    .getAll()
+    .then((res) => {
+      const rawList = Array.isArray(res.data)
+        ? res.data
+        : res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data)
+          ? (res.data as any).data
+          : [];
+
+      if (rawList.length > 0) {
+        const mapped: Pasien[] = rawList.map((p: any) => ({
+          id: `PSN-${p.patient_id}`,
+          nama: p.patient_name || "Pasien",
+          tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
+          umur: undefined,
+          jenis_kelamin: p.patient_gender === "Laki-laki" ? "Laki-laki" : "Perempuan",
+          latar_belakang: p.patient_desc || "-",
+          atribut: Array.isArray(p.patient_attribute)
+            ? p.patient_attribute.map((a: any, idx: number) => ({
+              id: `attr-${p.patient_id}-${idx}`,
+              key: a.caseattribute_name || a.attribute_name || a.key || "Atribut",
+              value: a.caseattribute_value || a.attribute_value || a.value || "-",
+            }))
+            : [],
+          created_at: p.insert_timestamp ? p.insert_timestamp.split("T")[0] : "2026-08-10",
+        }));
+        cachedPatients = mapped;
+        return mapped;
+      }
+      cachedPatients = [];
+      return [];
+    })
+    .catch((err) => {
+      console.error("[Step2PilihPasien] Gagal load master pasien:", err);
+      cachedPatients = null;
+      return [];
+    })
+    .finally(() => {
+      patientFetchPromise = null;
+    });
+
+  return patientFetchPromise;
+}
+
 export function Step2PilihPasien({
   selectedPasienIds,
   onSelectedPasienIdsChange,
 }: Step2PilihPasienProps) {
   const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [allPasien, setAllPasien] = React.useState<Pasien[]>(() => cachedPatients || []);
+  const [isLoadingPasien, setIsLoadingPasien] = React.useState(!cachedPatients);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    fetchAllPatientsOnce()
+      .then((data) => {
+        if (!isMounted) return;
+        setAllPasien(data);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingPasien(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const selectedPasienList = React.useMemo(() => {
-    return fallbackPasien.filter((p) => selectedPasienIds.includes(p.id));
-  }, [selectedPasienIds]);
+    return allPasien.filter((p) => {
+      const pNum = String(p.id).replace(/[^0-9]/g, "");
+      return selectedPasienIds.some((sId) => String(sId).replace(/[^0-9]/g, "") === pNum);
+    });
+  }, [allPasien, selectedPasienIds]);
 
   const handleRemovePasien = (id: string) => {
-    onSelectedPasienIdsChange(selectedPasienIds.filter((pId) => pId !== id));
+    const num = String(id).replace(/[^0-9]/g, "");
+    onSelectedPasienIdsChange(selectedPasienIds.filter((pId) => String(pId).replace(/[^0-9]/g, "") !== num));
   };
 
   return (
@@ -131,6 +207,8 @@ export function Step2PilihPasien({
         onOpenChange={setIsModalOpen}
         selectedIds={selectedPasienIds}
         onConfirmSelection={onSelectedPasienIdsChange}
+        pasienList={allPasien}
+        isLoading={isLoadingPasien}
       />
     </div>
   );

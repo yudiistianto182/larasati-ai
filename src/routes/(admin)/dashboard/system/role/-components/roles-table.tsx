@@ -31,7 +31,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function RolesTable({ table }: { table: ReactTable<DataTableFeatures, RoleRow> }) {
+export function RolesTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, RoleRow>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -54,7 +60,18 @@ export function RolesTable({ table }: { table: ReactTable<DataTableFeatures, Rol
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-role-${i}`} className="border-border/60">
+                  <TableCell className="px-3 py-4">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    <div className="h-4 w-36 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

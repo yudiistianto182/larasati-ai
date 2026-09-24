@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, Filter, Search, Tag, UserCheck, User, Users, X } from "lucide-react";
+import { Filter, Search, UserCheck, User, Users, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { fallbackPasien, type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
+import { type Pasien } from "@/routes/(admin)/dashboard/master/pasien/-components/data";
 
 interface PasienPickerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedIds: string[];
   onConfirmSelection: (selectedIds: string[]) => void;
+  pasienList?: Pasien[];
+  isLoading?: boolean;
 }
 
 export function PasienPickerModal({
@@ -36,10 +38,23 @@ export function PasienPickerModal({
   onOpenChange,
   selectedIds,
   onConfirmSelection,
+  pasienList,
+  isLoading = false,
 }: PasienPickerModalProps) {
   const [tempSelected, setTempSelected] = React.useState<string[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [genderFilter, setGenderFilter] = React.useState<string>("all");
+
+  const effectivePasienList = pasienList || [];
+
+  // Normalisasi helper untuk mencocokkan ID (baik KSS-xx, PSN-xx, maupun angka murni)
+  const isPasienSelected = React.useCallback(
+    (pasienId: string) => {
+      const num = String(pasienId).replace(/[^0-9]/g, "");
+      return tempSelected.some((id) => String(id).replace(/[^0-9]/g, "") === num);
+    },
+    [tempSelected]
+  );
 
   // Sync tempSelected when modal opens
   React.useEffect(() => {
@@ -51,14 +66,20 @@ export function PasienPickerModal({
   }, [open, selectedIds]);
 
   const toggleSelect = (id: string) => {
-    setTempSelected((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    );
+    const num = String(id).replace(/[^0-9]/g, "");
+    setTempSelected((prev) => {
+      const already = prev.some((pId) => String(pId).replace(/[^0-9]/g, "") === num);
+      if (already) {
+        return prev.filter((pId) => String(pId).replace(/[^0-9]/g, "") !== num);
+      } else {
+        return [...prev, id];
+      }
+    });
   };
 
   const filteredPasien = React.useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return fallbackPasien.filter((p) => {
+    return effectivePasienList.filter((p) => {
       const matchGender = genderFilter === "all" || p.jenis_kelamin === genderFilter;
       if (!matchGender) return false;
       if (!q) return true;
@@ -74,7 +95,7 @@ export function PasienPickerModal({
         )
       );
     });
-  }, [searchQuery, genderFilter]);
+  }, [effectivePasienList, searchQuery, genderFilter]);
 
   const handleSelectAll = () => {
     if (tempSelected.length === filteredPasien.length) {
@@ -144,7 +165,12 @@ export function PasienPickerModal({
             </InputGroup>
 
             {/* Gender Filter Select */}
-            <Select value={genderFilter} onValueChange={setGenderFilter}>
+            <Select
+              value={genderFilter}
+              onValueChange={(val) => {
+                if (val) setGenderFilter(val);
+              }}
+            >
               <SelectTrigger size="sm" className="h-8 w-36 text-xs">
                 <Filter className="size-3.5 mr-1 text-muted-foreground" />
                 <SelectValue placeholder="Semua Gender" />
@@ -179,7 +205,12 @@ export function PasienPickerModal({
 
         {/* Patient Cards Grid (Max 3 Columns for Broad Spacing) */}
         <div className="min-h-64 max-h-[55vh] flex-1 overflow-y-auto px-5 py-2.5">
-          {filteredPasien.length === 0 ? (
+          {isLoading ? (
+            <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
+              <span className="inline-block animate-spin mr-2">⏳</span>
+              <span>Memuat data pasien dari server...</span>
+            </div>
+          ) : filteredPasien.length === 0 ? (
             <div className="flex h-48 flex-col items-center justify-center rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
               <User className="size-8 text-muted-foreground/50 mb-1.5" />
               <span>Tidak ada data pasien yang sesuai dengan filter atau kata kunci pencarian.</span>
@@ -187,7 +218,7 @@ export function PasienPickerModal({
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {filteredPasien.map((pasien) => {
-                const isSelected = tempSelected.includes(pasien.id);
+                const isSelected = isPasienSelected(pasien.id);
                 return (
                   <div
                     key={pasien.id}

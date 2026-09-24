@@ -1,15 +1,7 @@
-import * as React from "react";
 import {
   Activity,
-  Bot,
   CheckCircle2,
-  Clock,
-  Headphones,
-  ImageIcon,
-  ListChecks,
   Lock,
-  Magnet,
-  Sparkles,
   Trophy,
   X,
 } from "lucide-react";

@@ -1,12 +1,5 @@
 import * as React from "react";
-import {
-  BookOpen,
-  Clock,
-  FileText,
-  HeartPulse,
-  Sparkles,
-  User,
-} from "lucide-react";
+import { BookOpen, Clock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,11 +22,11 @@ export function LombaTopHeader({
   staseNumber,
   totalStase,
   staseName,
-  kodeAmplop,
+  kodeAmplop: _kodeAmplop,
   durasiRemainingSeconds,
-  petunjukSoal,
+  petunjukSoal: _petunjukSoal,
   panduanPenggunaan,
-  groupName = "Kelompok Peserta",
+  groupName: _groupName = "Kelompok Peserta",
 }: LombaTopHeaderProps) {
   const [isGuideOpen, setIsGuideOpen] = React.useState(false);
 
@@ -43,16 +36,6 @@ export function LombaTopHeader({
 
   const isLowTime = durasiRemainingSeconds <= 10;
   const isWarningTime = durasiRemainingSeconds <= 25;
-
-  // Dynamic patient attributes list
-  const patientAttributes = [
-    { label: "HPHT", value: "3 Bulan Lalu" },
-    { label: "Riwayat KB", value: "Suntik 3 Bulan" },
-    { label: "Paritas", value: "G2P1A0 Normal" },
-    { label: "Keluhan Tambahan", value: "Kram Perut Bawah" },
-    { label: "Kontak Berdarah", value: "Pasca Senggama" },
-    { label: "Poli Periksa", value: "KIA Puskesmas" },
-  ];
 
   return (
     <header className="w-full max-w-full overflow-hidden flex flex-col gap-3.5 rounded-2xl border border-[#8c6d23]/40 bg-[#1a130d]/90 p-4 sm:p-5 shadow-lg text-[#f3e5ab] select-none">

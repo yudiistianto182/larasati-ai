@@ -1,12 +1,6 @@
-import * as React from "react";
 import {
-  ArrowLeft,
   Award,
-  CheckCircle2,
-  Printer,
-  Sparkles,
   Trophy,
-  Users,
   X,
 } from "lucide-react";
 

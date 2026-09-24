@@ -1,6 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { Eye, MoreHorizontal } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -40,11 +41,15 @@ export const getAdminUsersColumns = (
   {
     id: "user_identity",
     header: "User",
-    accessorFn: (row) => `${row.user_name} ${row.user_fullname}`,
+    accessorFn: (row) => `${row.user_fullname} ${row.user_name}`,
     cell: ({ row }) => (
       <div className="flex flex-col gap-0.5">
-        <span className="font-bold text-sm text-foreground leading-tight">{row.original.user_name}</span>
-        <span className="text-xs text-muted-foreground leading-normal">{row.original.user_fullname}</span>
+        <span className="font-semibold text-sm text-foreground leading-tight">
+          {row.original.user_fullname || row.original.user_name}
+        </span>
+        <span className="font-mono text-xs text-muted-foreground leading-normal">
+          @{row.original.user_name}
+        </span>
       </div>
     ),
   },
@@ -58,7 +63,7 @@ export const getAdminUsersColumns = (
     header: "Password",
     cell: ({ row }) => (
       <div className="flex items-center gap-1.5">
-        <span className="font-mono text-muted-foreground text-xs">****</span>
+        <span className="font-mono text-muted-foreground text-xs">••••••••</span>
         <Button
           size="icon-xs"
           variant="ghost"
@@ -74,7 +79,34 @@ export const getAdminUsersColumns = (
   {
     accessorKey: "role_name",
     header: "Role",
-    cell: ({ row }) => <span className="font-medium text-foreground">{row.original.role_name}</span>,
+    cell: ({ row }) => {
+      const role = row.original.role_name || "User";
+      const roleLower = role.toLowerCase();
+      let badgeStyle = "capitalize font-medium text-xs px-2.5 py-0.5 ";
+      let variant: "default" | "secondary" | "outline" = "outline";
+
+      if (roleLower.includes("root")) {
+        variant = "default";
+        badgeStyle += "bg-primary text-primary-foreground";
+      } else if (roleLower.includes("admin")) {
+        variant = "secondary";
+        badgeStyle += "bg-blue-500/15 text-blue-400 border border-blue-500/30";
+      } else if (roleLower.includes("juri")) {
+        badgeStyle += "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+      } else if (roleLower.includes("reporter")) {
+        badgeStyle += "bg-amber-500/15 text-amber-400 border border-amber-500/30";
+      } else if (roleLower.includes("peserta")) {
+        badgeStyle += "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30";
+      } else {
+        badgeStyle += "bg-muted text-muted-foreground";
+      }
+
+      return (
+        <Badge variant={variant} className={badgeStyle}>
+          {role}
+        </Badge>
+      );
+    },
   },
   {
     id: "actions",

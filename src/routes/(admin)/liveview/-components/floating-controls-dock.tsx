@@ -6,9 +6,7 @@ import {
   Pause,
   Play,
   RotateCcw,
-  Sparkles,
   Trophy,
-  Tv,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -44,10 +42,10 @@ export function FloatingControlsDock({
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(() => { });
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       setIsFullscreen(false);
     }
   };
@@ -57,63 +55,39 @@ export function FloatingControlsDock({
       {/* 1. Contest Selector Dropdown */}
       <div className="flex items-center gap-1.5 px-2 border-r border-[#8c6d23]/40">
         <Trophy className="size-3.5 text-[#d4af37] shrink-0 hidden sm:inline" />
-        <Select value={selectedContestId} onValueChange={onSelectContestId}>
-          <SelectTrigger className="h-8 text-xs bg-[#24170d] text-[#fff8db] border-[#8c6d23]/60 rounded-xl min-w-[140px] sm:min-w-[180px] shadow-xs">
-            <SelectValue placeholder="Pilih Lomba" />
+        <Select
+          value={String(selectedContestId)}
+          onValueChange={(val) => {
+            if (val) onSelectContestId(val);
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs bg-[#24170d] text-[#fff8db] border-[#8c6d23]/60 rounded-xl min-w-[160px] sm:min-w-[220px] shadow-xs">
+            <SelectValue placeholder="Pilih Lomba">
+              {contests.find((c) => String(c.id) === String(selectedContestId))?.nama ||
+                contests.find((c) => String(c.id) === String(selectedContestId))?.judul ||
+                undefined}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-[#1e130a] text-[#fef08a] border-[#8c6d23]">
-            {contests.map((c) => (
-              <SelectItem key={c.id} value={c.id} className="text-xs focus:bg-[#342416] focus:text-white">
-                {c.nama || c.judul}
-              </SelectItem>
-            ))}
+            {contests.map((c) => {
+              const label = c.nama || c.judul || `Lomba #${c.id}`;
+              return (
+                <SelectItem
+                  key={c.id}
+                  value={String(c.id)}
+                  label={label}
+                  className="text-xs focus:bg-[#342416] focus:text-white"
+                >
+                  {label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
 
-      {/* 2. Action Buttons */}
+      {/* 2. Action Buttons (Tombol Simulasi, Auto Race & Reset di-hide sesuai permintaan) */}
       <div className="flex items-center gap-1.5 shrink-0">
-        {/* Simulate Step Button */}
-        <Button
-          type="button"
-          size="sm"
-          onClick={onSimulateStep}
-          className="h-8 px-3 text-xs font-serif font-bold tracking-wider bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] hover:brightness-110 shadow-md border border-[#fff8db]/60 gap-1.5 cursor-pointer"
-        >
-          <Dices className="size-3.5 stroke-[2.5]" />
-          <span>Simulasi</span>
-        </Button>
-
-        {/* Auto Race Toggle Button */}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onToggleAutoRace}
-          className={cn(
-            "h-8 px-3 text-xs font-semibold gap-1.5 transition-all shadow-xs cursor-pointer",
-            isAutoRacing
-              ? "bg-[#854d0e] text-white border-[#fde047] animate-pulse"
-              : "bg-[#251b11] hover:bg-[#382313] border-[#8c6d23]/70 text-[#fde047]",
-          )}
-        >
-          {isAutoRacing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-          <span>{isAutoRacing ? "Jeda" : "Auto Race"}</span>
-        </Button>
-
-        {/* Reset Race Button */}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onResetRace}
-          className="h-8 px-2.5 text-xs font-semibold gap-1 bg-[#251b11] hover:bg-[#382313] border-[#8c6d23]/70 text-[#e6cf9b] shadow-xs cursor-pointer"
-          title="Reset Posisi Seluruh Tim ke Gerbang Awal"
-        >
-          <RotateCcw className="size-3.5 text-[#d4af37]" />
-          <span className="hidden sm:inline">Reset</span>
-        </Button>
-
         {/* Mode TV Fullscreen Button */}
         <Button
           type="button"

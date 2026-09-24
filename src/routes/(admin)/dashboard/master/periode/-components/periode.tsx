@@ -30,13 +30,46 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { Label } from "@/components/ui/label";
 import { dataTableFeatures } from "@/lib/data-table-features";
 
-import { fallbackPeriodes, type PeriodeRow } from "./data";
+import { type PeriodeRow } from "./data";
 import { getPeriodeColumns } from "./periode-columns";
 import { PeriodeTable } from "./periode-table";
+import { periodeService } from "@/services/api";
 
 export function Periode() {
-  // Periodes list state (seeded with dummy fallback data)
-  const [periodes, setPeriodes] = React.useState<PeriodeRow[]>(fallbackPeriodes);
+  // Periodes list state (purely from API, no fallback data)
+  const [periodes, setPeriodes] = React.useState<PeriodeRow[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const hasFetchedRef = React.useRef(false);
+
+  const fetchPeriodes = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await periodeService.getAll();
+      const rawList = Array.isArray(res.data)
+        ? res.data
+        : (res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data))
+        ? (res.data as any).data
+        : [];
+
+      setPeriodes(
+        rawList.map((item: any) => ({
+          periode_id: item.periode_id,
+          periode_name: item.periode_name,
+        }))
+      );
+    } catch (e) {
+      console.error("[Periode] Gagal memuat data periode:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    fetchPeriodes();
+  }, [fetchPeriodes]);
 
   // Dialog and form states
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
@@ -89,39 +122,46 @@ export function Periode() {
 
   const searchQuery = (table.getColumn("periode_name")?.getFilterValue() as string | undefined) ?? "";
 
-  const handleAddPeriode = (e: React.FormEvent) => {
+  const handleAddPeriode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPeriodeName.trim()) return;
 
-    const nextId = periodes.length > 0 ? Math.max(...periodes.map((r) => r.periode_id)) + 1 : 1;
-    const newPeriode: PeriodeRow = {
-      periode_id: nextId,
-      periode_name: newPeriodeName.trim(),
-    };
+    try {
+      await periodeService.create({ periode_name: newPeriodeName.trim() });
+      await fetchPeriodes();
+    } catch (err) {
+      console.error("[Periode] Gagal menambahkan periode:", err);
+    }
 
-    setPeriodes((prev) => [newPeriode, ...prev]);
     setNewPeriodeName("");
     setIsDialogOpen(false);
   };
 
-  const handleEditPeriodeSubmit = (e: React.FormEvent) => {
+  const handleEditPeriodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPeriode || !editPeriodeName.trim()) return;
 
-    setPeriodes((prev) =>
-      prev.map((p) =>
-        p.periode_id === editingPeriode.periode_id
-          ? { ...p, periode_name: editPeriodeName.trim() }
-          : p,
-      ),
-    );
+    try {
+      await periodeService.update(editingPeriode.periode_id, {
+        periode_name: editPeriodeName.trim(),
+      });
+      await fetchPeriodes();
+    } catch (err) {
+      console.error("[Periode] Gagal mengupdate periode:", err);
+    }
+
     setEditingPeriode(null);
     setEditPeriodeName("");
   };
 
-  const confirmDeletePeriode = () => {
+  const confirmDeletePeriode = async () => {
     if (!deletingPeriode) return;
-    setPeriodes((prev) => prev.filter((p) => p.periode_id !== deletingPeriode.periode_id));
+    try {
+      await periodeService.delete(deletingPeriode.periode_id);
+      await fetchPeriodes();
+    } catch (err) {
+      console.error("[Periode] Gagal menghapus periode:", err);
+    }
     setDeletingPeriode(null);
   };
 
@@ -228,7 +268,7 @@ export function Periode() {
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4 px-0 pt-0">
-          <PeriodeTable table={table} />
+          <PeriodeTable table={table} isLoading={isLoading} />
         </CardContent>
       </Card>
 

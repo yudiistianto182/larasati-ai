@@ -22,6 +22,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import { useKasusStore } from "@/stores/kasus-store";
+import { extractNumericCaseId } from "@/services/api";
 
 interface KasusPickerModalProps {
   open: boolean;
@@ -36,21 +37,26 @@ export function KasusPickerModal({
   selectedIds: initialSelectedIds,
   onConfirmSelection,
 }: KasusPickerModalProps) {
-  const { kasusList } = useKasusStore();
+  const { kasusList, fetchKasus, isLoading } = useKasusStore();
   const [selectedIds, setSelectedIds] = React.useState<string[]>(initialSelectedIds);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Sync state on open
+  // Sync state on open & fetch cases only if state is empty
   React.useEffect(() => {
     if (open) {
       setSelectedIds(initialSelectedIds);
       setSearchQuery("");
+      if (kasusList.length === 0) {
+        fetchKasus();
+      }
     }
-  }, [open, initialSelectedIds]);
+  }, [open, initialSelectedIds, kasusList.length, fetchKasus]);
 
   const toggleKasus = (id: string) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter((kId) => kId !== id));
+    const numId = extractNumericCaseId(id);
+    const isSelected = selectedIds.some((sId) => sId === id || extractNumericCaseId(sId) === numId);
+    if (isSelected) {
+      setSelectedIds(selectedIds.filter((sId) => sId !== id && extractNumericCaseId(sId) !== numId));
     } else {
       setSelectedIds([...selectedIds, id]);
     }
@@ -144,7 +150,9 @@ export function KasusPickerModal({
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {filteredKasus.map((kasus) => {
-                const isSelected = selectedIds.includes(kasus.id);
+                const isSelected = selectedIds.some(
+                  (sId) => sId === kasus.id || extractNumericCaseId(sId) === extractNumericCaseId(kasus.id),
+                );
                 const totalPasien = kasus.pasien_ids?.length || 0;
 
                 return (

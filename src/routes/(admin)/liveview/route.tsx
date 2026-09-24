@@ -1,13 +1,17 @@
 import * as React from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { Flag, Sparkles, Trophy } from "lucide-react";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { Flag, Trophy } from "lucide-react";
 
-import { useContestStore } from "@/stores/contest-store";
+import { contestService } from "@/services/api/contest-service";
+import { trxResponseService } from "@/services/api/trx-response-service";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
+import type { TrxResponseItem } from "@/types/api/trx-response";
+import type { TrxResponseAnswerDetail } from "@/types/api/trx-response-answer";
 import { FloatingParticlesBackground } from "@/routes/(public)/lomba/-components/floating-particles-background";
 import { FloatingControlsDock } from "./-components/floating-controls-dock";
 import { GroupSidebarList } from "./-components/group-sidebar-list";
 import { GroupStaseDetailView } from "./-components/group-stase-detail-view";
-import type { GroupRaceState } from "./-components/liveview-types";
+import type { GroupRaceState, StaseDetailData } from "./-components/liveview-types";
 import {
   DEFAULT_GROUPS_META,
   INITIAL_MOCK_STASES_FACTORY,
@@ -21,15 +25,221 @@ export const Route = createFileRoute("/(admin)/liveview")({
   component: LiveviewRouteComponent,
 });
 
-function LiveviewRouteComponent() {
-  const { contests } = useContestStore();
-  const [selectedContestId, setSelectedContestId] = React.useState<string>(
-    contests[0]?.id || "lomba-01",
+function createBaseStaseData(
+  item: TrxResponseItem,
+  completedCount: number,
+): Record<number, StaseDetailData> {
+  const result: Record<number, StaseDetailData> = {};
+  for (let p = 1; p <= 5; p++) {
+    const posInfo = item.pos?.find((x) => x.pos_order === p || x.casequest_order === p);
+    const isCompleted = posInfo ? posInfo.is_completed : p <= completedCount;
+    const isWorking = !isCompleted && p === completedCount + 1;
+    const score = posInfo?.score !== undefined ? posInfo.score : (isCompleted ? 70 : undefined);
+
+    result[p] = {
+      pos: p,
+      name: posInfo?.pos_name || posInfo?.casequest_name || `Pos 0${p}`,
+      kodeAmplop: `AMP-0${p}`,
+      status: isCompleted ? "completed" : isWorking ? "in_progress" : "locked",
+      score,
+      maxScore: 100,
+      timeSpentFormatted: isCompleted ? "02:00" : "-",
+      summaryAnswer: isCompleted
+        ? posInfo?.status_text || "Telah Diselesaikan"
+        : isWorking
+          ? "Sedang Dikerjakan"
+          : "Menunggu Giliran",
+      liveActivity: isWorking ? "Sedang Mengerjakan Soal..." : undefined,
+    };
+  }
+  return result;
+}
+
+function mapTrxAnswerDetailToStaseData(
+  detail: TrxResponseAnswerDetail,
+  completedCount: number,
+): Record<number, StaseDetailData> {
+  const result: Record<number, StaseDetailData> = {};
+
+  // Pos 1: Anamnesis Pasien (Method 1)
+  const pos1 = detail.pos?.find((p) => p.casequest_order === 1 || p.casequest_method_id === 1);
+  const pos1Chats = Array.isArray(pos1?.answers?.chats) ? pos1.answers.chats : [];
+  const pos1Completed = Boolean(pos1Chats.length > 0 || completedCount >= 1);
+  result[1] = {
+    pos: 1,
+    name: pos1?.casequest_name || "Pos 1: Anamnesis Pasien",
+    kodeAmplop: "AMP-ANM-01",
+    status: pos1Completed ? "completed" : completedCount === 0 ? "in_progress" : "locked",
+    score: pos1?.total_score ?? 0,
+    maxScore: 100,
+    timeSpentFormatted: pos1Completed ? "01:30" : "-",
+    summaryAnswer:
+      pos1Chats.length > 0
+        ? `${pos1Chats.length} Pesan Percakapan Terkirim (${pos1?.total_score ?? 0} Poin)`
+        : "Belum ada riwayat dialog anamnesis.",
+    liveActivity: pos1Chats.length > 0 ? "Dialog anamnesis selesai." : "Sedang melakukan anamnesis...",
+    details: {
+      type: "chat",
+      chatMessages: pos1Chats.map((c) => ({
+        sender: c.sender || (c.responseia_sender === 2 ? "Bidan" : "Pasien"),
+        text: c.responseia_text,
+      })),
+    },
+  };
+
+  // Pos 2: Faktor Risiko (Method 2)
+  const pos2 = detail.pos?.find((p) => p.casequest_order === 2 || p.casequest_method_id === 2);
+  const pos2Answers = Array.isArray(pos2?.answers) ? pos2.answers : [];
+  const pos2Completed = Boolean(pos2Answers.length > 0 || completedCount >= 2);
+  const pos2Items = pos2Answers.map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (a: any) => a.casequestmc_name || a.name || `Pilihan #${a.casequestmc_id || ""}`,
   );
-  const activeContest = contests.find((c) => c.id === selectedContestId) || contests[0];
+  result[2] = {
+    pos: 2,
+    name: pos2?.casequest_name || "Pos 2: Deteksi Faktor Risiko",
+    kodeAmplop: "AMP-RSK-02",
+    status: pos2Completed ? "completed" : completedCount === 1 ? "in_progress" : "locked",
+    score: pos2?.total_score ?? 0,
+    maxScore: 100,
+    timeSpentFormatted: pos2Completed ? "01:15" : "-",
+    summaryAnswer:
+      pos2Items.length > 0
+        ? `${pos2Items.length} Kartu Faktor Risiko Tertempel (${pos2?.total_score ?? 0} Poin)`
+        : "Belum ada kartu tertempel.",
+    liveActivity: pos2Items.length > 0 ? "Papan magnet terisi." : "Menempelkan kartu...",
+    details: {
+      type: "magnet",
+      items: pos2Items,
+    },
+  };
+
+  // Pos 3: Prosedur IVA (Method 3)
+  const pos3 = detail.pos?.find((p) => p.casequest_order === 3 || p.casequest_method_id === 3);
+  const pos3Answers = Array.isArray(pos3?.answers) ? pos3.answers : [];
+  const pos3Completed = Boolean(pos3Answers.length > 0 || completedCount >= 3);
+  const sortedPos3 = [...pos3Answers].sort(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (a: any, b: any) => (a.responseos_order || a.user_order || 0) - (b.responseos_order || b.user_order || 0),
+  );
+  const pos3Items = sortedPos3.map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (a: any, idx) => `${idx + 1}. ${a.casequestos_name || a.name || `Langkah ${idx + 1}`}`,
+  );
+  result[3] = {
+    pos: 3,
+    name: pos3?.casequest_name || "Pos 3: Prosedur IVA",
+    kodeAmplop: "AMP-SOP-03",
+    status: pos3Completed ? "completed" : completedCount === 2 ? "in_progress" : "locked",
+    score: pos3?.total_score ?? 0,
+    maxScore: 100,
+    timeSpentFormatted: pos3Completed ? "01:45" : "-",
+    summaryAnswer:
+      pos3Items.length > 0
+        ? `${pos3Items.length} Langkah SOP Tersusun (${pos3?.total_score ?? 0} Poin)`
+        : "Belum ada urutan langkah.",
+    liveActivity: pos3Items.length > 0 ? "Urutan SOP tersusun." : "Menyusun langkah SOP...",
+    details: {
+      type: "sequence",
+      items: pos3Items,
+    },
+  };
+
+  // Pos 4: Interpretasi Visual (Method 4)
+  const pos4 = detail.pos?.find((p) => p.casequest_order === 4 || p.casequest_method_id === 4);
+  const pos4Answers = Array.isArray(pos4?.answers) ? pos4.answers : [];
+  const pos4Completed = Boolean(pos4Answers.length > 0 || completedCount >= 4);
+  const selectedOption =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (pos4Answers[0] as any)?.casequestcioption_name ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (pos4Answers[0] as any)?.name ||
+    (pos4Answers.length > 0 ? "Jawaban Terpilih" : "-");
+  result[4] = {
+    pos: 4,
+    name: pos4?.casequest_name || "Pos 4: Interpretasi Visual",
+    kodeAmplop: "AMP-ITP-04",
+    status: pos4Completed ? "completed" : completedCount === 3 ? "in_progress" : "locked",
+    score: pos4?.total_score ?? 0,
+    maxScore: 100,
+    timeSpentFormatted: pos4Completed ? "01:20" : "-",
+    summaryAnswer:
+      selectedOption !== "-"
+        ? `Diagnosis: ${selectedOption} (${pos4?.total_score ?? 0} Poin)`
+        : "Belum memilih kesimpulan diagnosis.",
+    liveActivity: selectedOption !== "-" ? "Diagnosis telah dipilih." : "Menganalisis foto porsio serviks...",
+    details: {
+      type: "mcq",
+      selectedOption,
+    },
+  };
+
+  // Pos 5: Asuhan Kebidanan (Method 1 kedua / order 5)
+  const pos5 = detail.pos?.find(
+    (p) => p.casequest_order === 5 || (p.casequest_method_id === 1 && p !== pos1),
+  );
+  const pos5Chats = Array.isArray(pos5?.answers?.chats) ? pos5.answers.chats : [];
+  const pos5Completed = Boolean(pos5Chats.length > 0 || completedCount >= 5);
+  result[5] = {
+    pos: 5,
+    name: pos5?.casequest_name || "Pos 5: Asuhan Kebidanan & Konseling",
+    kodeAmplop: "AMP-ASH-05",
+    status: pos5Completed ? "completed" : completedCount === 4 ? "in_progress" : "locked",
+    score: pos5?.total_score ?? 0,
+    maxScore: 100,
+    timeSpentFormatted: pos5Completed ? "01:30" : "-",
+    summaryAnswer:
+      pos5Chats.length > 0
+        ? `${pos5Chats.length} Pesan Edukasi & Konseling Terkirim (${pos5?.total_score ?? 0} Poin)`
+        : "Belum ada dialog asuhan/konseling.",
+    liveActivity: pos5Chats.length > 0 ? "Asuhan dan konseling selesai." : "Sedang memberikan konseling...",
+    details: {
+      type: "chat",
+      chatMessages: pos5Chats.map((c) => ({
+        sender: c.sender || (c.responseia_sender === 2 ? "Bidan" : "Pasien"),
+        text: c.responseia_text,
+      })),
+    },
+  };
+
+  return result;
+}
+
+function LiveviewRouteComponent() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const search: any = useSearch({ strict: false });
+  const isPodiumSimulation =
+    search?.mode === "podium" || search?.simulate === true || search?.simulate === "true";
+
+  // List Lomba dari API
+  const [apiContests, setApiContests] = React.useState<Array<{ id: string; nama: string }>>([]);
+  const [selectedContestId, setSelectedContestId] = React.useState<string>(
+    search?.contestId ? String(search.contestId) : "",
+  );
+
+  React.useEffect(() => {
+    contestService
+      .getAll()
+      .then((res) => {
+        if (res.status && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map((c) => ({
+            id: String(c.contest_id),
+            nama: c.contest_name || `Lomba #${c.contest_id}`,
+          }));
+          setApiContests(mapped);
+          setSelectedContestId((prev) => prev || mapped[0].id);
+        }
+      })
+      .catch((err) => console.warn("[Liveview Contests Error]", err));
+  }, []);
+
+  const currentContestName =
+    apiContests.find((c) => String(c.id) === String(selectedContestId))?.nama || "Lomba Utama";
 
   // Display Mode: "circuit" (panoramic board) or "podium" (finishers-only grand podium)
-  const [viewMode, setViewMode] = React.useState<"circuit" | "podium">("circuit");
+  const [viewMode, setViewMode] = React.useState<"circuit" | "podium">(
+    isPodiumSimulation ? "podium" : "circuit",
+  );
 
   // Selected Group for Drill-down answer inspection (null = show full circuit board)
   const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
@@ -41,40 +251,96 @@ function LiveviewRouteComponent() {
   const KEL_A_TIMES = ["00:00", "01:30", "02:45", "04:30", "05:40", "07:45"];
   const KEL_B_TIMES = ["00:00", "01:40", "03:10", "05:10", "06:30", "08:30"];
 
-  // Initial group race states (strictly 2 groups matching Rekap Penilaian)
-  const [groups, setGroups] = React.useState<GroupRaceState[]>([
-    {
-      id: "grp-1",
-      groupNum: 1,
-      name: activeContest?.kelompok_list[0]?.nama || "Kelompok A (Ny. Ani)",
-      pos: 1,
-      color: DEFAULT_GROUPS_META[1].color,
-      borderClass: DEFAULT_GROUPS_META[1].borderClass,
-      badgeBg: DEFAULT_GROUPS_META[1].badgeBg,
-      totalScore: 100,
-      timeElapsedFormatted: "01:30",
-      currentStaseStatus: "working",
-      staseData: INITIAL_MOCK_STASES_FACTORY(1, 1),
-    },
-    {
-      id: "grp-2",
-      groupNum: 2,
-      name: activeContest?.kelompok_list[1]?.nama || "Kelompok B (Ny. B)",
-      pos: 0,
-      color: DEFAULT_GROUPS_META[2].color,
-      borderClass: DEFAULT_GROUPS_META[2].borderClass,
-      badgeBg: DEFAULT_GROUPS_META[2].badgeBg,
-      totalScore: 0,
-      timeElapsedFormatted: "00:00",
-      currentStaseStatus: "idle",
-      staseData: INITIAL_MOCK_STASES_FACTORY(0, 2),
-    },
-  ]);
-
-  const [isAutoRacing, setIsAutoRacing] = React.useState<boolean>(false);
+  const [groups, setGroups] = React.useState<GroupRaceState[]>([]);
   const [winnerGroup, setWinnerGroup] = React.useState<GroupRaceState | null>(null);
 
-  // Manual step adjustment
+  // 1-Second Real-time Polling from TrxResponse API + Real Answers Detail
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const fetchLiveTeams = async () => {
+      try {
+        const contestNumericId = selectedContestId
+          ? parseInt(selectedContestId.replace(/\D/g, ""), 10) || undefined
+          : undefined;
+        const res = await trxResponseService.getAll(contestNumericId);
+
+        if (isMounted && res.status && Array.isArray(res.data) && res.data.length > 0) {
+          // Ambil detail jawaban real secara paralel untuk setiap tim yang memiliki response_id
+          const detailsMap = new Map<number, TrxResponseAnswerDetail>();
+          await Promise.allSettled(
+            res.data.map(async (item) => {
+              if (item.response_id) {
+                try {
+                  const detailRes = await trxResponseAnswerService.getDetail(item.response_id);
+                  if (detailRes.status && detailRes.data) {
+                    detailsMap.set(item.response_id, detailRes.data);
+                  }
+                } catch {}
+              }
+            }),
+          );
+
+          const mappedGroups: GroupRaceState[] = res.data.map((item, idx) => {
+            const metaIdx = ((idx % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+            const meta = DEFAULT_GROUPS_META[metaIdx] || DEFAULT_GROUPS_META[1];
+            const completedCount =
+              item.pos_completed_count ??
+              item.pos?.filter((p) => p.is_completed).length ??
+              0;
+            const totalScore =
+              item.calculated_total_score ??
+              Math.round(parseFloat(item.response_total_score || "0"));
+
+            const realDetail = item.response_id ? detailsMap.get(item.response_id) : undefined;
+            const staseData = realDetail
+              ? mapTrxAnswerDetailToStaseData(realDetail, completedCount)
+              : createBaseStaseData(item, completedCount);
+
+            return {
+              id: String(item.response_contestteam_id),
+              groupNum: idx + 1,
+              name: item.contestteam_name || `Kelompok ${idx + 1}`,
+              pos: Math.min(5, completedCount),
+              color: meta.color,
+              borderClass: meta.borderClass,
+              badgeBg: meta.badgeBg,
+              totalScore,
+              timeElapsedFormatted: item.pos_completed_orders?.length
+                ? `${String(item.pos_completed_orders.length * 2).padStart(2, "0")}:00`
+                : "00:00",
+              currentStaseStatus: item.response_is_submited
+                ? "completed"
+                : completedCount > 0
+                  ? "working"
+                  : "idle",
+              staseData,
+            };
+          });
+
+          setGroups(mappedGroups);
+
+          // Cek pemenang jika ada tim yang mencapai pos 5
+          const finisher = mappedGroups.find((g) => g.pos >= 5);
+          if (finisher && !winnerGroup) {
+            setWinnerGroup(finisher);
+          }
+        }
+      } catch {
+        // Fallback hening jika server belum merespon
+      }
+    };
+
+    fetchLiveTeams();
+    const interval = setInterval(fetchLiveTeams, 1000); // 1 DETIK INTERVAL
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [selectedContestId, winnerGroup]);
+
+  // Manual step adjustment (jika dibutuhkan admin)
   const handleStepGroup = (groupNum: number, delta: number) => {
     setGroups((prev) =>
       prev.map((g) => {
@@ -112,80 +378,14 @@ function LiveviewRouteComponent() {
     );
   };
 
-  // Random simulation step
-  const handleSimulateStep = () => {
-    let firstToFinish: GroupRaceState | null = null;
-
-    setGroups((prev) =>
-      prev.map((g) => {
-        const advance = Math.floor(Math.random() * 2) + 1;
-        const nextPos = Math.min(5, g.pos + advance);
-        const updatedStaseData = INITIAL_MOCK_STASES_FACTORY(nextPos, g.groupNum);
-        const updatedTotalScore = Object.values(updatedStaseData).reduce(
-          (acc, st) => acc + (st.score || 0),
-          0,
-        );
-        const updatedTime =
-          g.groupNum === 1
-            ? KEL_A_TIMES[nextPos] || "07:45"
-            : KEL_B_TIMES[nextPos] || "08:30";
-
-        if (nextPos === 5 && g.pos < 5 && !firstToFinish && !winnerGroup) {
-          firstToFinish = {
-            ...g,
-            pos: 5,
-            totalScore: updatedTotalScore,
-            timeElapsedFormatted: updatedTime,
-          };
-        }
-
-        return {
-          ...g,
-          pos: nextPos,
-          totalScore: updatedTotalScore,
-          timeElapsedFormatted: updatedTime,
-          staseData: updatedStaseData,
-        };
-      }),
-    );
-
-    if (firstToFinish) {
-      setWinnerGroup(firstToFinish);
-    }
-  };
-
-  // Auto-Race interval toggle
-  React.useEffect(() => {
-    if (!isAutoRacing) return;
-
-    const interval = setInterval(() => {
-      handleSimulateStep();
-    }, 1800);
-
-    return () => clearInterval(interval);
-  }, [isAutoRacing, winnerGroup]);
-
-  const handleToggleAutoRace = () => {
-    setIsAutoRacing((prev) => !prev);
-  };
-
-  const handleResetRace = () => {
-    setIsAutoRacing(false);
-    setWinnerGroup(null);
-    setGroups((prev) =>
-      prev.map((g) => ({
-        ...g,
-        pos: 0,
-        totalScore: 0,
-        staseData: INITIAL_MOCK_STASES_FACTORY(0, g.groupNum),
-      })),
-    );
-  };
+  const handleSimulateStep = () => {};
+  const handleToggleAutoRace = () => {};
+  const handleResetRace = () => {};
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
   return (
-    <div className="relative h-screen max-h-screen w-full max-w-full overflow-hidden bg-[#0a0705] text-[#fef08a] flex flex-col justify-between select-none">
+    <div className="relative isolate h-screen max-h-screen w-full max-w-full overflow-hidden bg-[#0a0705] text-[#fef08a] flex flex-col justify-between select-none">
       {/* Background Floating Particles */}
       <FloatingParticlesBackground />
 
@@ -217,7 +417,7 @@ function LiveviewRouteComponent() {
               Larasati Journey
             </h1>
             <span className="text-[10px] text-[#d4af37]/80">
-              Live Arena Sirkuit Balapan Kebidanan &bull; {activeContest?.nama || "Lomba Utama"}
+              Live Arena Sirkuit Balapan Kebidanan &bull; {currentContestName}
             </span>
           </div>
         </div>
@@ -328,8 +528,8 @@ function LiveviewRouteComponent() {
       <FloatingControlsDock
         selectedContestId={selectedContestId}
         onSelectContestId={setSelectedContestId}
-        contests={contests}
-        isAutoRacing={isAutoRacing}
+        contests={apiContests}
+        isAutoRacing={false}
         onSimulateStep={handleSimulateStep}
         onToggleAutoRace={handleToggleAutoRace}
         onResetRace={handleResetRace}

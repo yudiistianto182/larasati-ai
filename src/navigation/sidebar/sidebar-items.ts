@@ -27,7 +27,7 @@ import {
 import type { FileRoutesByTo } from "@/routeTree.gen";
 
 export type NavBadge = "new" | "soon" | "live";
-export type AppPath = keyof FileRoutesByTo;
+export type AppPath = (keyof FileRoutesByTo) | (string & {});
 
 export interface NavSubItem {
   id: string;

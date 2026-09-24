@@ -1,19 +1,11 @@
-import * as React from "react";
 import {
   BookOpen,
   Bot,
-  Check,
   CheckCircle2,
-  Clock,
-  FileCheck2,
   HeartHandshake,
-  HelpCircle,
   Image as ImageIcon,
   Layers,
-  Magnet,
   ShieldAlert,
-  Sparkles,
-  Zap,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

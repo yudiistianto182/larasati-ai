@@ -11,10 +11,11 @@ import { useTextToSpeech } from "@/components/ai-consultation/use-text-to-speech
 import { VoiceInputCountdown } from "@/components/ai-consultation/voice-input-countdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { type SimliAvatarHandle, useSimliAvatar } from "@/hooks/use-simli-avatar";
 import { cn } from "@/lib/utils";
-import { fetchPatientAnamnesisAiReply } from "@/lib/gemini-ai";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
-import { playCountdownTickSound, playCtaClickSound } from "./lomba-sound-effects";
+import { playCountdownTickSound } from "./lomba-sound-effects";
 
 interface Message {
   id: string;
@@ -28,10 +29,23 @@ interface Step2AnamnesisAiProps {
   isStarted?: boolean;
   onComplete?: () => void;
   kasus?: Kasus;
+  simli?: SimliAvatarHandle;
+  isAiEnabled?: boolean;
+  responseId?: number;
+  casequestId?: number;
 }
 
-export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, kasus }: Step2AnamnesisAiProps) {
-  const patientName = kasus?.nama?.split("—")[0]?.trim() || "Ny. Ani";
+export function Step2AnamnesisAi({
+  isStarted = false,
+  onComplete: _onComplete,
+  kasus,
+  simli: simliProp,
+  isAiEnabled = true,
+  responseId,
+  casequestId,
+}: Step2AnamnesisAiProps) {
+  const rawPatientName = kasus?.nama?.split("—")[0]?.trim() || "Ny. Ani";
+  const patientName = rawPatientName.replace(/\s*\([^)]*\)/g, "").trim() || "Ny. Ani";
   const stase1Data = kasus?.stase_data?.stase1;
   const triggers = stase1Data?.triggers || [];
 
@@ -59,8 +73,45 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
   const [isCountingDown, setIsCountingDown] = React.useState<boolean>(false);
   const hasSpokenInitialRef = React.useRef<boolean>(false);
 
-  const { speak, isSpeaking, cancel } = useTextToSpeech();
+  // Simli Virtual Avatar WebRTC Stream
+  const localSimli = useSimliAvatar({ autoConnect: false });
+  const simli = simliProp || localSimli;
+
+  const {
+    status: simliStatus,
+    isConnected: isSimliConnected,
+    isAvatarSpeaking,
+    activeStream,
+    videoRef: simliVideoRef,
+    audioRef: simliAudioRef,
+    sendAudioData: sendSimliAudioData,
+    clearBuffer: clearSimliBuffer,
+  } = simli;
+
+  const { speak, isSpeaking: isTtsSpeaking, cancel } = useTextToSpeech({
+    onSendPcmAudio: isAiEnabled ? sendSimliAudioData : undefined,
+    onClearBuffer: isAiEnabled ? clearSimliBuffer : undefined,
+    isSimliActive: isAiEnabled && isSimliConnected,
+  });
+
+  const isSpeaking = isTtsSpeaking || isAvatarSpeaking;
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // 1x Reconnect retry saat masuk Pos 1 jika koneksi awal belum connected dan isAiEnabled aktif
+  const hasAttemptedPos1ConnectRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!isAiEnabled) return;
+    if (!hasAttemptedPos1ConnectRef.current && simli.status !== "connected" && !simli.isConnecting) {
+      hasAttemptedPos1ConnectRef.current = true;
+      console.log(
+        "%c[Pos 1 Anamnesis] 🟡 Mencoba koneksi ulang Simli Avatar 1x saat masuk Pos 1...",
+        "background: #1e3a8a; color: #ffffff; font-weight: bold; padding: 2px 6px; border-radius: 4px;",
+      );
+      simli.connect(true).catch(() => {
+        console.log("[Pos 1 Anamnesis] 🟠 Koneksi ulang Simli gagal, tetap fallback ke foto.");
+      });
+    }
+  }, [simli, isAiEnabled]);
 
   // Reset when kasus changes
   React.useEffect(() => {
@@ -142,48 +193,59 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
     setMessages((prev) => [...prev, userMsg]);
     setIsAiThinking(true);
 
-    try {
-      const historyItems = messages.map((m) => ({ sender: m.sender, text: m.text }));
-      const aiResult = await fetchPatientAnamnesisAiReply({
-        userMessage: text,
-        kasus,
-        chatHistory: [...historyItems, { sender: "midwife", text }],
-      });
+    const activeCasequestId = casequestId || stase1Data?.casequest_id || 0;
+    const activeResponseId = responseId || 0;
 
-      setIsAiThinking(false);
-      const aiMsg: Message = {
-        id: `msg-ai-${Date.now()}`,
-        sender: "ai",
-        text: aiResult.replyText,
-        category: aiResult.matchedCategory || "Anamnesis",
-        timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-      };
+    // 1. Coba panggil API backend jika response_id & casequest_id tersedia
+    if (activeResponseId > 0 && activeCasequestId > 0) {
+      try {
+        const chatRes = await trxResponseAnswerService.chat({
+          response_id: activeResponseId,
+          casequest_id: activeCasequestId,
+          sender: 2,
+          text,
+        });
 
-      setMessages((prev) => [...prev, aiMsg]);
-      setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
-      speak(aiResult.replyText);
-    } catch {
-      setIsAiThinking(false);
-      // Fallback
-      const fallbackReply =
-        triggers[currentStepIndex]?.jawaban_cadangan ||
-        "Iya Bu Bidan, saya mengerti. Mohon bantuannya untuk pemeriksaan selanjutnya ya Bu.";
-      const aiMsg: Message = {
-        id: `msg-ai-${Date.now()}`,
-        sender: "ai",
-        text: fallbackReply,
-        category: triggers[currentStepIndex]?.konteks || "Anamnesis",
-        timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-      setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
-      speak(fallbackReply);
+        setIsAiThinking(false);
+
+        const replyText =
+          chatRes.data?.ai_reply?.responseia_text ||
+          triggers[currentStepIndex]?.jawaban_cadangan ||
+          "Iya Bu Bidan, saya mengerti. Mohon bantuannya untuk pemeriksaan selanjutnya ya Bu.";
+
+        const aiMsg: Message = {
+          id: `msg-ai-${chatRes.data?.ai_reply?.responseia_id || Date.now()}`,
+          sender: "ai",
+          text: replyText,
+          category: triggers[currentStepIndex]?.konteks || "Anamnesis Pasien",
+          timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+        };
+
+        setMessages((prev) => [...prev, aiMsg]);
+        setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
+        speak(replyText);
+        return;
+      } catch (err) {
+        console.warn("[Pos 1 Chat API Error, fallback ke respon lokal]", err);
+      }
     }
+
+    // 2. Fallback jika offline / mode lokal
+    setIsAiThinking(false);
+    const fallbackReply =
+      triggers[currentStepIndex]?.jawaban_cadangan ||
+      "Iya Bu Bidan, saya mengerti. Mohon bantuannya untuk pemeriksaan selanjutnya ya Bu.";
+    const aiMsg: Message = {
+      id: `msg-ai-${Date.now()}`,
+      sender: "ai",
+      text: fallbackReply,
+      category: triggers[currentStepIndex]?.konteks || "Anamnesis Pasien",
+      timestamp: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+    };
+    setMessages((prev) => [...prev, aiMsg]);
+    setCurrentStepIndex((prev) => Math.min(prev + 1, Math.max(triggers.length, 9)));
+    speak(fallbackReply);
   };
-
-  const totalSteps = Math.max(triggers.length, 9);
-  const revealedCount = Math.min(currentStepIndex, totalSteps);
-
   return (
     <div className="relative flex flex-col gap-4 w-full select-none text-[#f3e5ab]">
       {/* 3-Second Pre-Conversation Countdown Overlay */}
@@ -213,8 +275,8 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Left 5 Cols: Video Patient Avatar (Equal Height: 540px) */}
-        <div className="lg:col-span-5 flex flex-col justify-between gap-3 h-[540px]">
+        {/* Left 7 Cols: Video Patient Avatar (Enlarged, Equal Height: 540px) */}
+        <div className="lg:col-span-7 flex flex-col justify-between gap-3 h-[540px]">
           <div className="flex-1 rounded-2xl border-2 border-[#8c6d23]/50 overflow-hidden shadow-xl bg-black relative">
             <AiVideoAvatar
               isSpeaking={isSpeaking}
@@ -222,9 +284,13 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
               patientName={patientName}
               patientAge={parseInt(kasus?.atribut?.find((a) => a.key === "Usia")?.value || "45", 10) || 45}
               patientSubtitle="Pasien Virtual Poli KIA"
-              avatarImageUrl="/images/ny_ani_patient_torso.jpg"
+              avatarImageUrl="/images/fallback-pasien-2.jfif"
               backgroundImageUrl="/images/puskesmas_clinic_empty.jpg"
               theme="wayang"
+              simliStatus={isAiEnabled ? simliStatus : "fallback"}
+              simliStream={isAiEnabled ? activeStream : null}
+              simliVideoRef={simliVideoRef}
+              simliAudioRef={simliAudioRef}
               onReplayVoice={handleReplayLastAiVoice}
             />
           </div>
@@ -232,7 +298,7 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
           <div className="flex items-center justify-between rounded-xl border border-[#8c6d23]/40 bg-[#1a130d]/90 px-3.5 py-2 text-xs shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-[#d4af37]/80 flex items-center gap-1.5 font-medium">
-                <Volume2 className="size-3.5 text-[#d4af37]" /> Audio Sintesis
+                <Volume2 className="size-3.5 text-[#d4af37]" /> {isAiEnabled && isSimliConnected ? "Audio Sintesis Interaktif" : "Audio Sintesis Standar"}
               </span>
             </div>
             <Button
@@ -248,8 +314,8 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
           </div>
         </div>
 
-        {/* Right 7 Cols: Dialogue Chat & Voice Input Controls (Equal Height: 540px) */}
-        <div className="lg:col-span-7 flex flex-col rounded-2xl border border-[#8c6d23]/40 bg-[#1a130d]/90 overflow-hidden shadow-lg h-[540px]">
+        {/* Right 5 Cols: Dialogue Chat & Voice Input Controls (Equal Height: 540px) */}
+        <div className="lg:col-span-5 flex flex-col rounded-2xl border border-[#8c6d23]/40 bg-[#1a130d]/90 overflow-hidden shadow-lg h-[540px]">
           {/* Chat Header */}
           <div className="flex items-center justify-between border-b border-[#8c6d23]/30 px-4 py-2.5 bg-[#23180f] shrink-0">
             <div className="flex items-center gap-2">
@@ -257,12 +323,6 @@ export function Step2AnamnesisAi({ isStarted = false, onComplete: _onComplete, k
               <span className="font-serif font-bold text-xs text-[#fff8db]">
                 Transkrip Wawancara Klinis Pasien
               </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px] font-mono border-[#d4af37]/40 text-[#d4af37] bg-[#1a130d]">
-                Langkah {revealedCount} dari {totalSteps}
-              </Badge>
             </div>
           </div>
 

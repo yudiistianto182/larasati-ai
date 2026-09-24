@@ -1,29 +1,20 @@
-import * as React from "react";
 import {
   AlertCircle,
-  ArrowRight,
   Bot,
   Check,
   CheckCircle2,
-  Clock,
   HeartHandshake,
-  HelpCircle,
   Image as ImageIcon,
   Layers,
   Magnet,
   MessageSquare,
   ShieldAlert,
-  Sparkles,
-  Trophy,
-  User,
   Users,
-  X,
   XCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { KelompokRekapData } from "./rekap-data";
 
 interface KelompokStaseAnswersCardProps {

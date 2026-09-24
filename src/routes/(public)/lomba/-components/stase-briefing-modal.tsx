@@ -1,4 +1,3 @@
-import * as React from "react";
 import {
   ArrowRight,
   Clock,
@@ -71,7 +70,7 @@ export function StaseBriefingModal({
   onStart,
   staseNumber,
   staseName,
-  kodeAmplop,
+  kodeAmplop: _kodeAmplop,
   durationMinutes = 1,
   durationSeconds,
   durationLabel,

@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { DataTableFeatures } from "@/lib/data-table-features";
-import type { Contest } from "@/stores/contest-store";
+import type { DataContestItem } from "@/types/api";
 
 function preventPaginationNavigation(event: MouseEvent<HTMLAnchorElement>) {
   event.preventDefault();
@@ -46,7 +46,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function ContestTable({ table }: { table: ReactTable<DataTableFeatures, Contest> }) {
+export function ContestTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, DataContestItem>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -69,7 +75,36 @@ export function ContestTable({ table }: { table: ReactTable<DataTableFeatures, C
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-contest-${i}`} className="border-border/60">
+                  <TableCell className="px-4 py-3">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="h-4 w-40 rounded bg-muted animate-pulse" />
+                      <div className="h-3 w-24 rounded bg-muted/60 animate-pulse" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="h-5 w-24 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-4 py-3 text-right">
+                    <div className="h-7 w-7 ml-auto rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

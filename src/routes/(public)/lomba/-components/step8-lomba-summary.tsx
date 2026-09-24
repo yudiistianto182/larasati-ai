@@ -1,15 +1,15 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles, Trophy } from "lucide-react";
+import { Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
-import type { KasusSimulasi } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
+import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 
 interface Step8LombaSummaryProps {
   groupName?: string;
-  kasus?: KasusSimulasi;
+  kasus?: Kasus;
   hasAudioRecorder?: boolean;
 }
 

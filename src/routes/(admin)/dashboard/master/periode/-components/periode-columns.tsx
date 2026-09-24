@@ -38,15 +38,6 @@ export const getPeriodeColumns = (
     enableHiding: false,
   },
   {
-    accessorKey: "periode_id",
-    header: "ID",
-    cell: ({ row }) => (
-      <span className="text-xs font-mono text-muted-foreground">
-        PRD-{String(row.original.periode_id).padStart(3, "0")}
-      </span>
-    ),
-  },
-  {
     accessorKey: "periode_name",
     header: "Nama Periode",
     cell: ({ row }) => (

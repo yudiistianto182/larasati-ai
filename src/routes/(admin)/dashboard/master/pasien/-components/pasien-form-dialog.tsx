@@ -213,7 +213,6 @@ export function PasienFormDialog({
                     defaultMonth={parsedDate || new Date(2000, 0, 1)}
                     captionLayout="dropdown"
                     disabled={(date) => date > new Date() || date < new Date("1920-01-01")}
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>

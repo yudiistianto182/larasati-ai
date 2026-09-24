@@ -1,5 +1,4 @@
 import * as React from "react";
-import { useSearch } from "@tanstack/react-router";
 import {
   type ColumnFiltersState,
   type PaginationState,
@@ -29,16 +28,61 @@ import {
 } from "@/components/ui/select";
 import { dataTableFeatures } from "@/lib/data-table-features";
 
-import { fallbackPasien, type Pasien } from "./data";
+import { type Pasien } from "./data";
 import { getPasienColumns } from "./pasien-columns";
 import { PasienDeleteDialog } from "./pasien-delete-dialog";
 import { PasienDetailDialog } from "./pasien-detail-dialog";
 import { PasienFormDialog } from "./pasien-form-dialog";
 import { PasienTable } from "./pasien-table";
+import { patientService } from "@/services/api";
 
 export function PasienComponent() {
-  // Pasien list state
-  const [pasienList, setPasienList] = React.useState<Pasien[]>(fallbackPasien);
+  // Pasien list state (purely from API, no fallback data)
+  const [pasienList, setPasienList] = React.useState<Pasien[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const hasFetchedRef = React.useRef(false);
+
+  const fetchPatients = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await patientService.getAll();
+      const rawList = Array.isArray(res.data)
+        ? res.data
+        : (res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data))
+        ? (res.data as any).data
+        : [];
+
+      setPasienList(
+        rawList.map((p: any) => ({
+          id: `PSN-${p.patient_id}`,
+          nama: p.patient_name || "Pasien",
+          tanggal_lahir: p.patient_birthdate ? p.patient_birthdate.split("T")[0] : "1990-01-01",
+          umur: undefined,
+          jenis_kelamin: p.patient_gender === "Laki-laki" ? "Laki-laki" : "Perempuan",
+          latar_belakang: p.patient_desc || "-",
+          atribut: Array.isArray(p.patient_attribute)
+            ? p.patient_attribute.map((a: any, idx: number) => ({
+                id: `attr-${p.patient_id}-${idx}`,
+                key: a.key || a.attribute_name || "Atribut",
+                value: a.value || a.attribute_value || "-",
+              }))
+            : [],
+          created_at: p.created_at ? p.created_at.split("T")[0] : "2026-08-10",
+        }))
+      );
+    } catch (e) {
+      console.error("[Pasien] Gagal memuat data pasien:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    fetchPatients();
+  }, [fetchPatients]);
 
   // Dialog states
   const [isAddOpen, setIsAddOpen] = React.useState(false);
@@ -103,45 +147,43 @@ export function PasienComponent() {
   const searchQuery = (table.getColumn("nama")?.getFilterValue() as string | undefined) ?? "";
 
   // Handle Add Pasien
-  const handleAddPasien = (formData: Omit<Pasien, "id" | "created_at">) => {
-    const nextNum =
-      pasienList.length > 0
-        ? Math.max(
-            ...pasienList.map((p) => {
-              const num = parseInt(p.id.replace("PSN-", ""), 10);
-              return isNaN(num) ? 0 : num;
-            }),
-          ) + 1
-        : 1;
-
-    const newId = `PSN-${String(nextNum).padStart(3, "0")}`;
-    const today = new Date().toISOString().split("T")[0];
-
-    const newPasien: Pasien = {
-      ...formData,
-      id: newId,
-      created_at: today,
-    };
-
-    setPasienList((prev) => [newPasien, ...prev]);
+  const handleAddPasien = async (formData: Omit<Pasien, "id" | "created_at">) => {
+    try {
+      await patientService.create({
+        patient_name: formData.nama,
+        patient_birthdate: formData.tanggal_lahir,
+        patient_gender: formData.jenis_kelamin,
+        attribute: formData.atribut.map((a) => ({
+          patientattribute_name: a.key,
+          patientattribute_value: a.value,
+        })),
+      });
+      await fetchPatients();
+    } catch (err) {
+      console.error("[Pasien] Gagal menambahkan pasien:", err);
+    }
   };
 
   // Handle Edit Pasien
-  const handleEditPasien = (formData: Omit<Pasien, "id" | "created_at">) => {
+  const handleEditPasien = async (formData: Omit<Pasien, "id" | "created_at">) => {
     if (!editingPasien) return;
+    const patientId = editingPasien.id.replace("PSN-", "");
 
-    setPasienList((prev) =>
-      prev.map((p) =>
-        p.id === editingPasien.id
-          ? {
-              ...p,
-              ...formData,
-            }
-          : p,
-      ),
-    );
+    try {
+      await patientService.update(patientId, {
+        patient_name: formData.nama,
+        patient_birthdate: formData.tanggal_lahir,
+        patient_gender: formData.jenis_kelamin,
+        attribute: formData.atribut.map((a) => ({
+          patientattribute_name: a.key,
+          patientattribute_value: a.value,
+        })),
+      });
+      await fetchPatients();
+    } catch (err) {
+      console.error("[Pasien] Gagal mengupdate pasien:", err);
+    }
 
-    // If detail modal is currently showing the edited patient, sync it
     if (viewingPasien && viewingPasien.id === editingPasien.id) {
       setViewingPasien({
         ...viewingPasien,
@@ -153,9 +195,17 @@ export function PasienComponent() {
   };
 
   // Handle Delete Pasien
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingPasien) return;
-    setPasienList((prev) => prev.filter((p) => p.id !== deletingPasien.id));
+    const patientId = deletingPasien.id.replace("PSN-", "");
+
+    try {
+      await patientService.delete(patientId);
+      await fetchPatients();
+    } catch (err) {
+      console.error("[Pasien] Gagal menghapus pasien:", err);
+    }
+
     if (viewingPasien && viewingPasien.id === deletingPasien.id) {
       setViewingPasien(null);
     }
@@ -300,7 +350,12 @@ export function PasienComponent() {
             </InputGroup>
 
             <div className="flex items-center gap-2.5">
-              <Select value={genderFilter} onValueChange={handleGenderFilterChange}>
+              <Select
+                value={genderFilter}
+                onValueChange={(val) => {
+                  if (val) handleGenderFilterChange(val);
+                }}
+              >
                 <SelectTrigger className="h-9 w-40 text-xs">
                   <Filter className="size-3.5 mr-1.5 text-muted-foreground" />
                   <SelectValue placeholder="Semua Gender" />
@@ -317,7 +372,7 @@ export function PasienComponent() {
           </div>
 
           {/* TanStack Table */}
-          <PasienTable table={table} />
+          <PasienTable table={table} isLoading={isLoading} />
         </CardContent>
       </Card>
 

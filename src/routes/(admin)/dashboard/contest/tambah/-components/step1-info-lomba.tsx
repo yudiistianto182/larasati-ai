@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { fallbackContestPeriodes } from "../../-components/data";
+import { periodeService } from "@/services/api";
 
 interface Step1InfoLombaProps {
   nama: string;
@@ -27,6 +27,42 @@ interface Step1InfoLombaProps {
   onDeskripsiChange: (val: string) => void;
 }
 
+// In-memory cache and promise deduplication for periodes
+let cachedPeriodes: { periode_id: number; periode_name: string }[] | null = null;
+let periodeFetchPromise: Promise<{ periode_id: number; periode_name: string }[]> | null = null;
+
+async function fetchPeriodesOnce(): Promise<{ periode_id: number; periode_name: string }[]> {
+  if (cachedPeriodes) return cachedPeriodes;
+  if (periodeFetchPromise) return periodeFetchPromise;
+
+  periodeFetchPromise = periodeService
+    .getAll()
+    .then((res) => {
+      const rawList = Array.isArray(res.data)
+        ? res.data
+        : (res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data))
+          ? (res.data as any).data
+          : [];
+
+      const mapped = rawList.map((p: any) => ({
+        periode_id: Number(p.periode_id),
+        periode_name: p.periode_name || `Periode ${p.periode_id}`,
+      }));
+      cachedPeriodes = mapped;
+      return mapped;
+    })
+    .catch((err) => {
+      console.warn("[Step1InfoLomba] Gagal load periode:", err);
+      cachedPeriodes = null;
+      return [];
+    })
+    .finally(() => {
+      periodeFetchPromise = null;
+    });
+
+  return periodeFetchPromise;
+}
+
 export function Step1InfoLomba({
   nama,
   onNamaChange,
@@ -37,6 +73,20 @@ export function Step1InfoLomba({
   deskripsi,
   onDeskripsiChange,
 }: Step1InfoLombaProps) {
+  const [periodes, setPeriodes] = React.useState<{ periode_id: number; periode_name: string }[]>(
+    () => cachedPeriodes || [],
+  );
+
+  React.useEffect(() => {
+    let isMounted = true;
+    fetchPeriodesOnce().then((list) => {
+      if (isMounted) setPeriodes(list);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-border/80 bg-card p-4 sm:p-5 shadow-2xs">
       <div className="flex items-center gap-2.5 border-b pb-3.5">
@@ -75,14 +125,21 @@ export function Step1InfoLomba({
             </Label>
             <Select
               value={String(periodeId)}
-              onValueChange={(val) => onPeriodeIdChange(Number(val) || 1)}
+              onValueChange={(val) => {
+                if (val) onPeriodeIdChange(Number(val));
+              }}
             >
               <SelectTrigger id="lomba-periode" className="h-8 w-full text-xs font-medium bg-background">
-                <SelectValue placeholder="Pilih Periode" />
+                <SelectValue placeholder="Pilih Periode">
+                  {(val) => {
+                    const found = periodes.find((p) => String(p.periode_id) === String(val));
+                    return found ? found.periode_name : (val ? `Periode ${val}` : "Pilih Periode");
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="text-xs">
                 <SelectGroup>
-                  {fallbackContestPeriodes.map((p) => (
+                  {periodes.map((p) => (
                     <SelectItem key={p.periode_id} value={String(p.periode_id)}>
                       {p.periode_name}
                     </SelectItem>

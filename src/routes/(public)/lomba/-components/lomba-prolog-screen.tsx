@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   ArrowRight,
-  BookOpen,
   Crown,
   Flame,
   Heart,

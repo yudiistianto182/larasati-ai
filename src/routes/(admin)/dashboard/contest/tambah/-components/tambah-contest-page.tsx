@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   FileCheck,
   Link2,
+  Loader2,
   ShieldCheck,
   Trophy,
   Users,
@@ -16,11 +17,17 @@ import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  type Contest,
   type KelompokLomba,
   useContestStore,
 } from "@/stores/contest-store";
-import { fallbackContestPeriodes } from "../../-components/data";
+import { useKasusStore } from "@/stores/kasus-store";
+import { triggerErrorAlert } from "@/stores/error-alert-store";
+import {
+  contestService,
+  contestTeamService,
+  extractNumericCaseId,
+  trxResponseService,
+} from "@/services/api";
 import { Step1InfoLomba } from "./step1-info-lomba";
 import { Step2PilihKasus } from "./step2-pilih-kasus";
 import { Step3KelompokMahasiswa } from "./step3-kelompok-mahasiswa";
@@ -73,50 +80,50 @@ export function TambahContestPage() {
   const search: any = useSearch({ strict: false });
   const editContestId = search?.contestId as string | undefined;
 
-  const { addContest, updateContest, getContestById } = useContestStore();
+  const { addContest, updateContest, getContestById, getContestDetail, fetchUsers } = useContestStore();
+  const { fetchKasus, getKasusById } = useKasusStore();
 
   const isEditing = Boolean(editContestId);
   const existingContest = editContestId ? getContestById(editContestId) : undefined;
 
   const [currentStep, setCurrentStep] = React.useState<number>(1);
-  const [maxStepReached, setMaxStepReached] = React.useState<number>(1);
+  const [maxStepReached, setMaxStepReached] = React.useState<number>(isEditing ? 5 : 1);
+  const [isLoadingDetail, setIsLoadingDetail] = React.useState<boolean>(isEditing);
+  const [isSaving, setIsSaving] = React.useState<boolean>(false);
+
+  // Preload users & cases on mount
+  React.useEffect(() => {
+    fetchUsers();
+    fetchKasus();
+  }, [fetchUsers, fetchKasus]);
 
   // Form State: Step 1
   const [nama, setNama] = React.useState(existingContest?.nama || "");
   const [periodeId, setPeriodeId] = React.useState<number>(
-    existingContest?.periode_id || fallbackContestPeriodes[0].periode_id,
+    existingContest?.periode_id || 1,
   );
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
     existingContest
       ? {
-          from: new Date(existingContest.tanggal_mulai),
-          to: new Date(existingContest.tanggal_selesai),
-        }
+        from: new Date(existingContest.tanggal_mulai),
+        to: new Date(existingContest.tanggal_selesai),
+      }
       : undefined,
   );
   const [deskripsi, setDeskripsi] = React.useState(existingContest?.deskripsi || "");
 
-  // Form State: Step 2
+  // Form State: Step 2 (Start clean empty if new)
   const [selectedKasusIds, setSelectedKasusIds] = React.useState<string[]>(
-    existingContest?.kasus_ids || ["KSS-001"],
+    existingContest?.kasus_ids || [],
   );
 
-  // Form State: Step 3
+  // Form State: Step 3 (Start clean with 1 empty group)
   const [kelompokList, setKelompokList] = React.useState<KelompokLomba[]>(
     existingContest?.kelompok_list || [
       {
-        id: "kel-init-1",
-        nama: "Kelompok A (Stase Pagi)",
-        mahasiswa_ids: ["mhs-01", "mhs-02"],
-        ketua_mhs_id: "mhs-01",
-        kasus_id: "KSS-001",
-      },
-      {
-        id: "kel-init-2",
-        nama: "Kelompok B (Stase Siang)",
-        mahasiswa_ids: ["mhs-03", "mhs-04"],
-        ketua_mhs_id: "mhs-03",
-        kasus_id: "KSS-001",
+        id: `kel-${Date.now()}-1`,
+        nama: "Kelompok 1",
+        mahasiswa_ids: [],
       },
     ],
   );
@@ -126,28 +133,77 @@ export function TambahContestPage() {
     existingContest?.allow_shared_kasus ?? false,
   );
 
-  // Form State: Step 5
+  // Form State: Step 5 (Start clean empty if new)
   const [selectedPenilaiIds, setSelectedPenilaiIds] = React.useState<string[]>(
-    existingContest?.penilai_ids || ["pnl-01", "pnl-02"],
+    existingContest?.penilai_ids || [],
   );
 
-  // Prepopulate form if existingContest loaded later
+  // Fetch full contest detail from API when editing
   React.useEffect(() => {
-    if (existingContest) {
-      setNama(existingContest.nama);
-      setPeriodeId(existingContest.periode_id);
-      setDateRange({
-        from: new Date(existingContest.tanggal_mulai),
-        to: new Date(existingContest.tanggal_selesai),
-      });
-      setDeskripsi(existingContest.deskripsi);
-      setSelectedKasusIds(existingContest.kasus_ids || []);
-      setKelompokList(existingContest.kelompok_list || []);
-      setAllowSharedKasus(existingContest.allow_shared_kasus ?? false);
-      setSelectedPenilaiIds(existingContest.penilai_ids || ["pnl-01"]);
-      setMaxStepReached(5);
+    if (!editContestId) {
+      setIsLoadingDetail(false);
+      return;
     }
-  }, [existingContest]);
+
+    let isCancelled = false;
+    setIsLoadingDetail(true);
+
+    getContestDetail(editContestId)
+      .then((detail) => {
+        if (isCancelled) return;
+        if (detail) {
+          setNama(detail.nama || "");
+          setPeriodeId(detail.periode_id || 1);
+
+          let parsedFrom: Date | undefined;
+          let parsedTo: Date | undefined;
+          if (detail.tanggal_mulai) {
+            const d = new Date(detail.tanggal_mulai);
+            if (!isNaN(d.getTime())) parsedFrom = d;
+          }
+          if (detail.tanggal_selesai) {
+            const d = new Date(detail.tanggal_selesai);
+            if (!isNaN(d.getTime())) parsedTo = d;
+          }
+          setDateRange(parsedFrom && parsedTo ? { from: parsedFrom, to: parsedTo } : undefined);
+
+          setDeskripsi(detail.deskripsi || "");
+          setSelectedKasusIds(detail.kasus_ids || []);
+          setKelompokList(
+            detail.kelompok_list && detail.kelompok_list.length > 0
+              ? detail.kelompok_list
+              : [{ id: `kel-${Date.now()}-1`, nama: "Kelompok 1", mahasiswa_ids: [] }],
+          );
+          setAllowSharedKasus(detail.allow_shared_kasus ?? false);
+          setSelectedPenilaiIds(detail.penilai_ids || []);
+          setMaxStepReached(5);
+        } else {
+          triggerErrorAlert(
+            "Lomba Tidak Ditemukan",
+            `Data lomba dengan ID ${editContestId} tidak ditemukan di server.`,
+            404,
+          );
+        }
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        console.error("[TambahContestPage] Gagal memuat detail lomba:", err);
+        triggerErrorAlert(
+          "Gagal Memuat Data Lomba",
+          err?.message || "Terjadi kesalahan saat mengambil rincian lomba dari server.",
+          500,
+        );
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingDetail(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editContestId, getContestDetail]);
 
   const handleStepClick = (stepNum: number) => {
     if (stepNum <= maxStepReached) {
@@ -192,36 +248,202 @@ export function TambahContestPage() {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!isStep1Valid || !isStep2Valid || !isStep3Valid) {
       return;
     }
 
-    const periodeObj = fallbackContestPeriodes.find((p) => p.periode_id === periodeId);
-    const startDate = dateRange?.from ? dateRange.from.toISOString() : new Date().toISOString();
-    const endDate = dateRange?.to ? dateRange.to.toISOString() : new Date().toISOString();
-
-    const contestPayload = {
-      nama: nama.trim(),
-      periode_id: periodeId,
-      periode_nama: periodeObj?.periode_name || `Periode ${periodeId}`,
-      tanggal_mulai: startDate,
-      tanggal_selesai: endDate,
-      deskripsi: deskripsi.trim(),
-      kasus_ids: selectedKasusIds,
-      kelompok_list: kelompokList,
-      allow_shared_kasus: allowSharedKasus,
-      penilai_ids: selectedPenilaiIds,
-      status: "Sedang Berlangsung" as const,
+    const formatDateForApi = (d?: Date) => {
+      if (!d) return new Date().toISOString().split("T")[0];
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     };
 
-    if (isEditing && editContestId) {
-      updateContest(editContestId, contestPayload);
-    } else {
-      addContest(contestPayload);
-    }
+    const datestart = formatDateForApi(dateRange?.from);
+    const dateend = formatDateForApi(dateRange?.to);
 
-    navigate({ to: "/dashboard/contest" });
+    setIsSaving(true);
+
+    try {
+      // 1. Simpan Data Lomba ke endpoint /v1/data_contest (Adonis)
+      const contestApiPayload = {
+        name: nama.trim(),
+        periode_id: String(periodeId),
+        datestart,
+        dateend,
+        desc: deskripsi.trim() || "-",
+        scorer: selectedPenilaiIds.map((id) => ({ user_id: extractNumericCaseId(id) })),
+        case: selectedKasusIds.map((id) => ({ case_id: extractNumericCaseId(id) })),
+      };
+
+      let currentContestId: string | number | undefined = editContestId;
+
+      if (isEditing && editContestId) {
+        const cleanId = extractNumericCaseId(editContestId);
+        const updateRes = await contestService.update(cleanId, contestApiPayload);
+        if (updateRes && (updateRes as any).status === false) {
+          throw new Error((updateRes as any).message || "Gagal memperbarui data lomba di server.");
+        }
+      } else {
+        const createRes = await contestService.create(contestApiPayload);
+        if (createRes && (createRes as any).status === false) {
+          throw new Error((createRes as any).message || "Gagal membuat lomba baru di server.");
+        }
+
+        const newId =
+          (createRes?.data as any)?.contest_id ||
+          (createRes?.data as any)?.id ||
+          (createRes as any)?.contest_id ||
+          (createRes as any)?.id;
+
+        if (newId) {
+          currentContestId = String(newId);
+        } else {
+          // Lacak dari getAll terbaru jika response tidak memuat contest_id langsung
+          const allContests = await contestService.getAll();
+          const list = Array.isArray(allContests.data)
+            ? allContests.data
+            : (allContests.data as any)?.data || [];
+          const found = list.find((c: any) => c.contest_name === nama.trim());
+          if (found?.contest_id) {
+            currentContestId = String(found.contest_id);
+          } else {
+            throw new Error("Lomba berhasil disimpan tetapi ID lomba tidak ditemukan dari respon server.");
+          }
+        }
+      }
+
+      // 2. Simpan Tim / Kelompok Mahasiswa ke endpoint /v1/data_contest_team
+      if (!currentContestId) {
+        throw new Error("ID lomba tidak valid untuk mendaftarkan kelompok.");
+      }
+
+      const cleanContestId = extractNumericCaseId(currentContestId);
+      for (const kel of kelompokList) {
+        if (kel.mahasiswa_ids.length > 0) {
+          const teamPayload = {
+            name: kel.nama.trim(),
+            contest_id: String(cleanContestId),
+            member: kel.mahasiswa_ids.map((mId) => ({
+              user_id: String(extractNumericCaseId(mId)),
+              is_leader: kel.ketua_mhs_id === mId ? "1" : "0",
+            })),
+          };
+
+          const isExistingTeam = isEditing && kel.id && !kel.id.startsWith("kel-") && !isNaN(Number(kel.id));
+          let teamRes;
+          if (isExistingTeam) {
+            try {
+              teamRes = await contestTeamService.update(kel.id, teamPayload);
+            } catch {
+              teamRes = await contestTeamService.create(teamPayload);
+            }
+          } else {
+            teamRes = await contestTeamService.create(teamPayload);
+          }
+
+          if (teamRes && (teamRes as any).status === false) {
+            throw new Error((teamRes as any).message || `Gagal menyimpan kelompok ${kel.nama}`);
+          }
+        }
+      }
+
+      // 3. Tautkan Kasus & Pasien ke masing-masing Kelompok via POST /v1/trx_response
+      try {
+        const allTeamsRes = await contestTeamService.getAll(cleanContestId);
+        const serverTeams = Array.isArray(allTeamsRes.data)
+          ? allTeamsRes.data
+          : (allTeamsRes.data as any)?.data || [];
+
+        const existingTrxRes = await trxResponseService.getAll(cleanContestId).catch(() => ({ data: [] }));
+        const existingTrxList = Array.isArray(existingTrxRes.data)
+          ? existingTrxRes.data
+          : (existingTrxRes.data as any)?.data || [];
+
+        for (const kel of kelompokList) {
+          if (!kel.kasus_id) continue;
+
+          let serverTeamId: string | number | undefined;
+          if (kel.id && !kel.id.startsWith("kel-") && !isNaN(Number(kel.id))) {
+            serverTeamId = kel.id;
+          } else {
+            const foundTeam = serverTeams.find((st: any) => st.contestteam_name?.trim() === kel.nama.trim());
+            serverTeamId = foundTeam?.contestteam_id;
+          }
+
+          if (!serverTeamId) continue;
+
+          const numericCaseId = extractNumericCaseId(kel.kasus_id);
+          if (!numericCaseId) continue;
+
+          const targetKasus = getKasusById(kel.kasus_id);
+          let patientId = 1;
+          if (targetKasus?.pasien_ids && targetKasus.pasien_ids.length > 0) {
+            patientId = extractNumericCaseId(targetKasus.pasien_ids[0]) || 1;
+          }
+
+          const existingTrx = existingTrxList.find(
+            (r: any) => String(r.response_contestteam_id || r.contestteam_id) === String(serverTeamId),
+          );
+
+          const trxPayload = {
+            contest_id: String(cleanContestId),
+            contestteam_id: String(serverTeamId),
+            case_id: String(numericCaseId),
+            patient_id: String(patientId),
+          };
+
+          if (existingTrx) {
+            try {
+              await trxResponseService.update(numericCaseId, trxPayload);
+            } catch {
+              await trxResponseService.store(trxPayload);
+            }
+          } else {
+            await trxResponseService.store(trxPayload);
+          }
+        }
+      } catch (trxErr) {
+        console.warn("[TambahContestPage] Gagal menautkan kasus ke trx_response:", trxErr);
+      }
+
+      // 3. Simpan juga ke Zustand store agar view lokal sinkron (Hanya jika semua API berhasil)
+      const contestPayload = {
+        nama: nama.trim(),
+        periode_id: periodeId,
+        periode_nama: `Periode ${periodeId}`,
+        tanggal_mulai: dateRange?.from ? dateRange.from.toISOString() : new Date().toISOString(),
+        tanggal_selesai: dateRange?.to ? dateRange.to.toISOString() : new Date().toISOString(),
+        deskripsi: deskripsi.trim(),
+        kasus_ids: selectedKasusIds,
+        kelompok_list: kelompokList,
+        allow_shared_kasus: allowSharedKasus,
+        penilai_ids: selectedPenilaiIds,
+        status: "Sedang Berlangsung" as const,
+      };
+
+      if (isEditing && editContestId) {
+        updateContest(editContestId, contestPayload);
+      } else {
+        addContest({
+          ...contestPayload,
+          id: String(currentContestId),
+        });
+      }
+
+      navigate({ to: "/dashboard/contest" });
+    } catch (err: any) {
+      console.error("[TambahContestPage] Gagal menyimpan lomba:", err);
+      triggerErrorAlert(
+        isEditing ? "Gagal Memperbarui Lomba" : "Gagal Membuat Lomba",
+        err?.message || "Terjadi kesalahan saat menyimpan data lomba ke server.",
+        err?.statusCode || 400,
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -320,48 +542,62 @@ export function TambahContestPage() {
 
       {/* Main Step Content Container */}
       <div className="flex flex-col gap-4">
-        {currentStep === 1 && (
-          <Step1InfoLomba
-            nama={nama}
-            onNamaChange={setNama}
-            periodeId={periodeId}
-            onPeriodeIdChange={setPeriodeId}
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            deskripsi={deskripsi}
-            onDeskripsiChange={setDeskripsi}
-          />
-        )}
+        {isLoadingDetail ? (
+          <div className="flex flex-col items-center justify-center min-h-[350px] gap-3 rounded-xl border border-dashed border-border/80 bg-card p-8 text-center shadow-2xs">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <div className="flex flex-col gap-1">
+              <p className="font-semibold text-sm text-foreground">Memuat Data Lomba</p>
+              <p className="text-xs text-muted-foreground">
+                Mengambil konfigurasi lomba, pembagian kelompok, dan dewan penilai dari server...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentStep === 1 && (
+              <Step1InfoLomba
+                nama={nama}
+                onNamaChange={setNama}
+                periodeId={periodeId}
+                onPeriodeIdChange={setPeriodeId}
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                deskripsi={deskripsi}
+                onDeskripsiChange={setDeskripsi}
+              />
+            )}
 
-        {currentStep === 2 && (
-          <Step2PilihKasus
-            selectedKasusIds={selectedKasusIds}
-            onChange={setSelectedKasusIds}
-          />
-        )}
+            {currentStep === 2 && (
+              <Step2PilihKasus
+                selectedKasusIds={selectedKasusIds}
+                onChange={setSelectedKasusIds}
+              />
+            )}
 
-        {currentStep === 3 && (
-          <Step3KelompokMahasiswa
-            kelompokList={kelompokList}
-            onChange={setKelompokList}
-          />
-        )}
+            {currentStep === 3 && (
+              <Step3KelompokMahasiswa
+                kelompokList={kelompokList}
+                onChange={setKelompokList}
+              />
+            )}
 
-        {currentStep === 4 && (
-          <Step4TautkanKasus
-            selectedKasusIds={selectedKasusIds}
-            kelompokList={kelompokList}
-            allowSharedKasus={allowSharedKasus}
-            onAllowSharedKasusChange={setAllowSharedKasus}
-            onKelompokListChange={setKelompokList}
-          />
-        )}
+            {currentStep === 4 && (
+              <Step4TautkanKasus
+                selectedKasusIds={selectedKasusIds}
+                kelompokList={kelompokList}
+                allowSharedKasus={allowSharedKasus}
+                onAllowSharedKasusChange={setAllowSharedKasus}
+                onKelompokListChange={setKelompokList}
+              />
+            )}
 
-        {currentStep === 5 && (
-          <Step5PilihPenilai
-            selectedPenilaiIds={selectedPenilaiIds}
-            onChange={setSelectedPenilaiIds}
-          />
+            {currentStep === 5 && (
+              <Step5PilihPenilai
+                selectedPenilaiIds={selectedPenilaiIds}
+                onChange={setSelectedPenilaiIds}
+              />
+            )}
+          </>
         )}
 
         {/* Wizard Bottom Navigation Bar */}
@@ -371,7 +607,7 @@ export function TambahContestPage() {
             variant="outline"
             size="sm"
             onClick={handlePrev}
-            disabled={currentStep === 1}
+            disabled={isLoadingDetail || currentStep === 1}
             className="h-8 gap-1.5 text-xs font-semibold"
           >
             <ArrowLeft className="size-3.5" />
@@ -388,7 +624,7 @@ export function TambahContestPage() {
                 type="button"
                 size="sm"
                 onClick={handleNext}
-                disabled={!isCurrentStepValid()}
+                disabled={isLoadingDetail || !isCurrentStepValid()}
                 className="h-8 gap-1.5 text-xs font-semibold shadow-xs"
               >
                 <span>Lanjut: {WIZARD_STEPS[currentStep].title}</span>
@@ -399,11 +635,25 @@ export function TambahContestPage() {
                 type="button"
                 size="sm"
                 onClick={handleSave}
-                disabled={!isStep1Valid || !isStep2Valid || !isStep3Valid || !isStep4Valid || !isStep5Valid}
+                disabled={
+                  isLoadingDetail ||
+                  isSaving ||
+                  !isStep1Valid ||
+                  !isStep2Valid ||
+                  !isStep3Valid ||
+                  !isStep4Valid ||
+                  !isStep5Valid
+                }
                 className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs"
               >
-                <CheckCircle2 className="size-3.5" />
-                <span>{isEditing ? "Simpan Perubahan Lomba" : "Simpan & Terbitkan Lomba"}</span>
+                {isSaving ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+                <span>
+                  {isSaving
+                    ? "Menyimpan ke Server..."
+                    : isEditing
+                      ? "Simpan Perubahan Lomba"
+                      : "Simpan & Terbitkan Lomba"}
+                </span>
               </Button>
             )}
           </div>

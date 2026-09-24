@@ -31,7 +31,13 @@ function getPageNumbers(currentPage: number, pageCount: number) {
   return [currentPage - 1, currentPage, currentPage + 1];
 }
 
-export function AdminUsersTable({ table }: { table: ReactTable<DataTableFeatures, AdminUserRow> }) {
+export function AdminUsersTable({
+  table,
+  isLoading = false,
+}: {
+  table: ReactTable<DataTableFeatures, AdminUserRow>;
+  isLoading?: boolean;
+}) {
   const pageCount = Math.max(table.getPageCount(), 1);
   const currentPage = Math.min(table.state.pagination.pageIndex + 1, pageCount);
   const pageNumbers = getPageNumbers(currentPage, pageCount);
@@ -54,7 +60,33 @@ export function AdminUsersTable({ table }: { table: ReactTable<DataTableFeatures
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <TableRow key={`skeleton-user-${i}`} className="border-border/60">
+                  <TableCell className="px-3 py-4">
+                    <div className="size-4 rounded-sm bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="h-4 w-28 rounded bg-muted animate-pulse" />
+                      <div className="h-3 w-16 rounded bg-muted/60 animate-pulse" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-4">
+                    <div className="h-5 w-20 rounded-full bg-muted animate-pulse" />
+                  </TableCell>
+                  <TableCell className="px-3 py-4 text-right">
+                    <div className="h-8 w-8 ml-auto rounded bg-muted animate-pulse" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
@@ -70,8 +102,11 @@ export function AdminUsersTable({ table }: { table: ReactTable<DataTableFeatures
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={table.getVisibleLeafColumns().length} className="h-24 text-center">
-                  No results.
+                <TableCell
+                  colSpan={table.getVisibleLeafColumns().length}
+                  className="h-32 text-center text-muted-foreground text-sm"
+                >
+                  Tidak ada data pengguna.
                 </TableCell>
               </TableRow>
             )}

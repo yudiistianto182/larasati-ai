@@ -14,7 +14,6 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { KasusAttribute, StaseSoalData } from "../../-components/data";
@@ -33,7 +32,6 @@ export function Step4PerekamNilai({
   hasPerekamNilai,
   onHasPerekamNilaiChange,
   nama,
-  deskripsi,
   atribut,
   selectedPasienCount,
   staseData,

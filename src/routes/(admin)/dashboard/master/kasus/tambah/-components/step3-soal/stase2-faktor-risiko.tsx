@@ -112,7 +112,7 @@ export function Stase2FaktorRisiko({
             Belum ada faktor risiko. Klik tombol di bawah untuk menambahkan item evaluasi.
           </div>
         ) : (
-          faktorRisiko.map((item, index) => (
+          faktorRisiko.map((item, _) => (
             <div
               key={item.id}
               className="grid grid-cols-1 gap-2 rounded-xl border border-border/70 bg-card p-2.5 shadow-2xs sm:grid-cols-[2fr_1.8fr_90px_auto] sm:items-center"
@@ -127,10 +127,16 @@ export function Stase2FaktorRisiko({
               {/* Syarat Select Dropdown */}
               <Select
                 value={item.syarat_id}
-                onValueChange={(val) => handleItemChange(item.id, "syarat_id", val)}
+                onValueChange={(val) => handleItemChange(item.id, "syarat_id", val ?? "tanpa_syarat")}
               >
                 <SelectTrigger size="sm" className="h-8 w-full text-xs">
-                  <SelectValue placeholder="Pilih Syarat" />
+                  <SelectValue placeholder="Pilih Syarat">
+                    {(val) => {
+                      if (!val || val === "tanpa_syarat" || val === "0") return "Tanpa Syarat (Default)";
+                      const trg = stase1Triggers.find((t) => String(t.id) === String(val));
+                      return trg?.konteks || (trg?.keyword ? `Trigger: ${trg.keyword}` : `Trigger ${val}`);
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent side="bottom" className="max-h-56">
                   <SelectGroup>

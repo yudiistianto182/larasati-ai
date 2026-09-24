@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  ArrowRight,
   CheckCircle2,
   GripHorizontal,
   Magnet,
@@ -13,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 
@@ -23,38 +25,7 @@ interface RiskFactorOption {
   isCorrect?: boolean;
 }
 
-const FALLBACK_RISK_FACTOR_POOL: RiskFactorOption[] = [
-  {
-    id: "rf-1",
-    label: "Perdarahan Kontak Pasca Senggama (Post-Coital Bleeding)",
-    category: "Klinis & Simtomatik",
-  },
-  {
-    id: "rf-2",
-    label: "Keputihan Patologis Kental, Kuning Kehijauan & Berbau",
-    category: "Klinis & Simtomatik",
-  },
-  {
-    id: "rf-3",
-    label: "Riwayat Paritas Tinggi (Multiparitas G5P4A0)",
-    category: "Obstetri & Reproduksi",
-  },
-  {
-    id: "rf-4",
-    label: "Usia Pertama Kali Menikah dan Berhubungan Seksual Muda (18 Tahun)",
-    category: "Kebiasaan & Perilaku",
-  },
-  {
-    id: "rf-5",
-    label: "Belum Pernah Melakukan Skrining IVA Maupun Pap Smear Sebelumnya",
-    category: "Skrining & Pencegahan",
-  },
-  {
-    id: "rf-6",
-    label: "Belum Pernah Mendapatkan Vaksinasi HPV",
-    category: "Skrining & Pencegahan",
-  },
-];
+
 
 const PIN_COLORS = [
   "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]",
@@ -96,66 +67,41 @@ function playMagneticSnapSound() {
     // A. Primary transient impact (thud/click)
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
-    osc1.type = "triangle";
-    osc1.frequency.setValueAtTime(140, now);
-    osc1.frequency.exponentialRampToValueAtTime(35, now + 0.09);
 
-    gain1.gain.setValueAtTime(0.7, now);
-    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(420, now);
+    osc1.frequency.exponentialRampToValueAtTime(70, now + 0.05);
+
+    gain1.gain.setValueAtTime(0.4, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
 
-    // B. High metallic resonance ping (the magnet clack)
+    osc1.start(now);
+    osc1.stop(now + 0.06);
+
+    // B. Resonant metallic ping harmonic
     const osc2 = ctx.createOscillator();
     const gain2 = ctx.createGain();
-    osc2.type = "sine";
-    osc2.frequency.setValueAtTime(1600, now);
-    osc2.frequency.exponentialRampToValueAtTime(520, now + 0.07);
 
-    gain2.gain.setValueAtTime(0.4, now);
-    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(1480, now + 0.01);
+    osc2.frequency.exponentialRampToValueAtTime(320, now + 0.12);
+
+    gain2.gain.setValueAtTime(0.2, now + 0.01);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     osc2.connect(gain2);
     gain2.connect(ctx.destination);
 
-    // C. Physical snap noise burst
-    const bufferSize = Math.floor(ctx.sampleRate * 0.035);
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-
-    const whiteNoise = ctx.createBufferSource();
-    whiteNoise.buffer = noiseBuffer;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 2400;
-    filter.Q.value = 3.5;
-
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.45, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
-
-    whiteNoise.connect(filter);
-    filter.connect(noiseGain);
-    noiseGain.connect(ctx.destination);
-
-    osc1.start(now);
-    osc1.stop(now + 0.1);
-    osc2.start(now);
-    osc2.stop(now + 0.08);
-    whiteNoise.start(now);
-    whiteNoise.stop(now + 0.04);
-  } catch {
-    // Graceful fallback if audio context is blocked
-  }
+    osc2.start(now + 0.01);
+    osc2.stop(now + 0.13);
+  } catch {}
 }
 
-// 2. Pickup / Drag Start Sound (Lifting card)
-function playPickupSound() {
+// 2. Magnetic Detach Sound (Quick gentle 'unstick' pop)
+function playDetachSound() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -165,22 +111,22 @@ function playPickupSound() {
     const gain = ctx.createGain();
 
     osc.type = "sine";
-    osc.frequency.setValueAtTime(360, now);
-    osc.frequency.exponentialRampToValueAtTime(720, now + 0.05);
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(520, now + 0.04);
 
-    gain.gain.setValueAtTime(0.2, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.06);
+    osc.stop(now + 0.05);
   } catch {}
 }
 
-// 3. Detach / Unpin Sound (Removing from magnet board)
-function playDetachSound() {
+// 3. Card Pickup / Drag Sound
+function playPickupSound() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -257,12 +203,18 @@ interface Step3FaktorRisikoMagnetProps {
   selectedIds?: string[];
   onChange?: (ids: string[]) => void;
   kasus?: Kasus;
+  responseId?: number;
+  casequestId?: number;
+  duration?: number | string;
 }
 
 export function Step3FaktorRisikoMagnet({
   selectedIds: initialSelectedIds,
   onChange,
   kasus,
+  responseId,
+  casequestId,
+  duration,
 }: Step3FaktorRisikoMagnetProps) {
   const riskFactorPool: RiskFactorOption[] = React.useMemo(() => {
     const rawFactors = kasus?.stase_data?.stase2?.faktor_risiko;
@@ -274,7 +226,7 @@ export function Step3FaktorRisikoMagnet({
         category: "Temuan / Riwayat Pasien",
       }));
     }
-    return FALLBACK_RISK_FACTOR_POOL;
+    return [];
   }, [kasus]);
 
   const [pinnedIds, setPinnedIds] = React.useState<string[]>(initialSelectedIds || []);
@@ -285,6 +237,32 @@ export function Step3FaktorRisikoMagnet({
   React.useEffect(() => {
     setPinnedIds([]);
   }, [kasus]);
+
+  const saveAnswerTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const saveAnswersToApi = React.useCallback(
+    (ids: string[]) => {
+      const activeCasequestId = casequestId || kasus?.stase_data?.stase2?.casequest_id;
+      if (responseId && activeCasequestId) {
+        if (saveAnswerTimeoutRef.current) clearTimeout(saveAnswerTimeoutRef.current);
+        saveAnswerTimeoutRef.current = setTimeout(() => {
+          const currentDuration =
+            duration !== undefined
+              ? duration
+              : kasus?.stase_data?.stase2?.header?.durasi_detik ?? 0;
+
+          trxResponseAnswerService
+            .store({
+              response_id: responseId,
+              casequest_id: activeCasequestId,
+              answers: ids,
+              duration: String(currentDuration),
+            })
+            .catch((err) => console.warn("[Pos 2 Store Error]", err));
+        }, 400);
+      }
+    },
+    [responseId, casequestId, kasus, duration],
+  );
 
   const handleTogglePin = (id: string) => {
     const isCurrentlyPinned = pinnedIds.includes(id);
@@ -300,6 +278,7 @@ export function Step3FaktorRisikoMagnet({
       : [...pinnedIds, id];
     setPinnedIds(next);
     onChange?.(next);
+    saveAnswersToApi(next);
   };
 
   const handleResetBoard = () => {
@@ -308,6 +287,7 @@ export function Step3FaktorRisikoMagnet({
     }
     setPinnedIds([]);
     onChange?.([]);
+    saveAnswersToApi([]);
   };
 
   // Drag and Drop handlers
@@ -343,6 +323,7 @@ export function Step3FaktorRisikoMagnet({
       const next = [...pinnedIds, droppedId];
       setPinnedIds(next);
       onChange?.(next);
+      saveAnswersToApi(next);
     }
   };
 
@@ -378,9 +359,13 @@ export function Step3FaktorRisikoMagnet({
         {unpinnedPool.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-xs text-[#d4af37]/60 italic border border-dashed border-[#8c6d23]/30 rounded-xl bg-[#150e08]/40 min-h-[240px]">
             <CheckCircle2 className="size-8 text-[#d4af37]/40 mb-2" />
-            <span className="font-semibold text-[#fff8db]/90">Semua kartu telah ditempel</span>
+            <span className="font-semibold text-[#fff8db]/90">
+              {riskFactorPool.length === 0 ? "Belum Ada Opsi Faktor Risiko" : "Semua kartu telah ditempel"}
+            </span>
             <p className="text-[11px] text-[#d4af37]/60 mt-1 max-w-xs">
-              Semua opsi faktor risiko telah dipindahkan ke Papan Magnet di sebelah kanan.
+              {riskFactorPool.length === 0
+                ? "Kasus ini belum memiliki konfigurasi faktor risiko dari sistem ujian."
+                : "Semua opsi faktor risiko telah dipindahkan ke Papan Magnet di sebelah kanan."}
             </p>
           </div>
         ) : (
@@ -391,29 +376,31 @@ export function Step3FaktorRisikoMagnet({
                 draggable
                 onDragStart={(e) => handleDragStart(e, item.id)}
                 onClick={() => handleTogglePin(item.id)}
-                className="group relative flex flex-col justify-between rounded-xl border border-[#8c6d23]/40 bg-[#251b11] p-3 text-xs transition-all duration-150 hover:border-[#d4af37] hover:bg-[#322315] hover:shadow-lg cursor-grab active:cursor-grabbing shrink-0"
-                title="Klik atau Drag ke Papan Magnet di sebelah kanan"
+                className="group relative flex flex-col justify-between rounded-xl border border-[#8c6d23]/40 bg-[#251b11] p-3 sm:p-3.5 text-xs transition-all duration-150 hover:border-[#d4af37] hover:bg-[#322315] hover:shadow-lg cursor-grab active:cursor-grabbing shrink-0 gap-2.5"
+                title="Klik atau Tarik (Drag) ke Papan Magnet di sebelah kanan"
               >
-                <div className="flex items-start justify-between gap-2 mb-1.5">
-                  <Badge variant="secondary" className="text-[9px] font-semibold bg-[#140e08] text-[#e6d59c] border border-[#8c6d23]/40">
+                <div className="flex items-start justify-between gap-2">
+                  <Badge variant="secondary" className="text-[9px] font-semibold bg-[#140e08] text-[#e6d59c] border border-[#8c6d23]/40 shadow-2xs">
                     {item.category}
                   </Badge>
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[#d4af37]/20 text-[#d4af37] font-bold text-xs group-hover:bg-[#d4af37] group-hover:text-[#14100c] transition-colors shadow-xs">
-                    +
-                  </span>
+                  <div className="flex items-center gap-1 text-[10px] font-mono text-[#d4af37]/70 group-hover:text-[#f9f586] transition-colors">
+                    <GripHorizontal className="size-3.5" />
+                    <span className="hidden sm:inline">Tarik</span>
+                  </div>
                 </div>
 
-                <p className="font-medium text-[#fff8db] text-xs leading-snug group-hover:text-[#f9f586] transition-colors mb-2">
+                <p className="font-semibold text-[#fff8db] text-xs sm:text-[13px] leading-snug group-hover:text-[#f9f586] transition-colors">
                   {item.label}
                 </p>
 
-                <div className="flex items-center justify-between text-[10px] text-[#d4af37]/60 border-t border-[#8c6d23]/20 pt-1.5 mt-auto">
-                  <span className="flex items-center gap-1 font-mono text-[9px]">
-                    <GripHorizontal className="size-3" /> Tarik / Klik
+                <div className="flex items-center justify-between text-[11px] text-[#d4af37]/80 border-t border-[#8c6d23]/30 pt-2 mt-auto">
+                  <span className="text-[10px] font-mono text-[#d4af37]/60">
+                    Opsi Faktor Risiko
                   </span>
-                  <span className="text-[10px] font-semibold text-[#d4af37] opacity-0 group-hover:opacity-100 transition-opacity">
-                    Tempelkan &rarr;
-                  </span>
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#f9f586] bg-[#140e08] border border-[#d4af37]/50 px-2 py-0.5 rounded-md group-hover:bg-[#d4af37] group-hover:text-[#14100c] group-hover:border-[#fff8db] transition-all shadow-xs">
+                    <span>Pindah ke Papan</span>
+                    <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -523,32 +510,33 @@ export function Step3FaktorRisikoMagnet({
                       )}
                     />
 
-                    <div className="flex items-start justify-between gap-2 mt-1">
+                    <div className="flex items-center justify-between gap-2 mt-1">
                       <Badge className="text-[9px] font-bold bg-[#140e08] text-[#f9f586] border border-[#d4af37] shadow-xs">
                         {item.category}
                       </Badge>
                       <button
                         type="button"
                         onClick={() => handleTogglePin(item.id)}
-                        className="text-[#fff8db]/70 hover:text-rose-400 transition-colors p-0.5 rounded"
+                        className="text-[#fff8db]/70 hover:text-rose-400 hover:bg-rose-500/20 transition-colors p-1 rounded-md shrink-0"
                         title="Lepas dari papan magnet"
                       >
                         <X className="size-3.5" />
                       </button>
                     </div>
 
-                    <p className="my-2.5 font-serif font-bold text-xs text-[#fff8db] leading-snug drop-shadow">
+                    <p className="my-3 font-serif font-bold text-sm sm:text-[15px] text-[#fff8db] leading-snug drop-shadow-md">
                       {item.label}
                     </p>
 
-                    <div className="border-t border-[#d4af37]/40 pt-1.5 flex items-center justify-between text-[10px] text-[#f9f586] font-bold">
-                      <span className="flex items-center gap-1">
-                        <CheckCircle2 className="size-3 text-[#d4af37]" /> Tertempel di Papan
+                    <div className="border-t border-[#d4af37]/40 pt-2 flex items-center justify-between text-[11px] text-[#f9f586] font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="size-3.5 text-[#d4af37]" />
+                        <span>Tertempel di Papan</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => handleTogglePin(item.id)}
-                        className="text-[#fff8db]/80 hover:text-rose-300 hover:underline text-[10px]"
+                        className="text-[#fff8db]/80 hover:text-rose-300 hover:underline text-[11px] font-medium"
                       >
                         Lepas
                       </button>

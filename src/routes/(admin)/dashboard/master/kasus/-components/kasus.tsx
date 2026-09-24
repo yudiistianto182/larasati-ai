@@ -29,6 +29,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { dataTableFeatures } from "@/lib/data-table-features";
 import { useKasusStore } from "@/stores/kasus-store";
+import { triggerErrorAlert } from "@/stores/error-alert-store";
 
 import type { Kasus } from "./data";
 import { getKasusColumns } from "./kasus-columns";
@@ -36,7 +37,14 @@ import { KasusTable } from "./kasus-table";
 
 export function KasusComponent() {
   const navigate = useNavigate();
-  const { kasusList, deleteKasus } = useKasusStore();
+  const { kasusList, isLoading, fetchKasus, deleteKasus } = useKasusStore();
+  const hasFetchedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    fetchKasus();
+  }, [fetchKasus]);
 
   const [deletingKasus, setDeletingKasus] = React.useState<Kasus | null>(null);
 
@@ -83,10 +91,20 @@ export function KasusComponent() {
 
   const searchQuery = (table.getColumn("nama")?.getFilterValue() as string | undefined) ?? "";
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deletingKasus) return;
-    deleteKasus(deletingKasus.id);
-    setDeletingKasus(null);
+    try {
+      await deleteKasus(deletingKasus.id);
+      setDeletingKasus(null);
+    } catch (e: any) {
+      console.error("[Kasus] Gagal menghapus kasus:", e);
+      let errorMsg = e?.message || "Terjadi kesalahan saat menghapus data kasus.";
+      if (typeof errorMsg === "string" && errorMsg.includes("foreign key constraint fails")) {
+        errorMsg = "Kasus ini tidak dapat dihapus dari basis data karena telah memiliki riwayat sesi ujian atau jawaban peserta.";
+      }
+      triggerErrorAlert("Gagal Menghapus Kasus", errorMsg, e?.statusCode || 400);
+      setDeletingKasus(null);
+    }
   };
 
   // Metrics
@@ -192,7 +210,7 @@ export function KasusComponent() {
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4 px-0 pt-0">
-          <KasusTable table={table} />
+          <KasusTable table={table} isLoading={isLoading} />
         </CardContent>
       </Card>
 

@@ -1,8 +1,6 @@
-import * as React from "react";
-import { ArrowRight, Check, Trophy } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { playCtaClickSound, playTransitionChime } from "./lomba-sound-effects";
 
 interface LombaStickyFooterProps {
@@ -14,7 +12,7 @@ interface LombaStickyFooterProps {
 
 export function LombaStickyFooter({
   currentStep,
-  totalSteps,
+  totalSteps: _totalSteps,
   hasAudioRecorder,
   onNext,
 }: LombaStickyFooterProps) {

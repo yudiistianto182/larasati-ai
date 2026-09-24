@@ -1,12 +1,16 @@
+import * as React from "react";
 import type { CSSProperties } from "react";
 
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
+import { ShieldAlert, ArrowLeft } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { users } from "@/data/users";
 import { cn } from "@/lib/utils";
 import { getDashboardLayout } from "@/server/server-actions";
+import { isUserAdmin, getAuthUser, getAuthToken } from "@/lib/api/api-helper";
 
 import { AccountSwitcher } from "@/routes/(main)/dashboard/-components/header/account-switcher";
 import { GitHubRepositoriesMenu } from "@/routes/(main)/dashboard/-components/header/github-repositories-menu";
@@ -22,6 +26,63 @@ export const Route = createFileRoute("/(admin)/dashboard")({
 
 function MidwifeLayout() {
   const { defaultOpen, variant, collapsible } = Route.useLoaderData();
+
+  const [authChecked, setAuthChecked] = React.useState(false);
+  const [hasAdminAccess, setHasAdminAccess] = React.useState(false);
+
+  React.useEffect(() => {
+    // Jalankan pengecekan otentikasi dan hak akses admin di sisi client
+    const token = getAuthToken();
+    const admin = isUserAdmin();
+
+    if (!token || !admin) {
+      setHasAdminAccess(false);
+    } else {
+      setHasAdminAccess(true);
+    }
+    setAuthChecked(true);
+  }, []);
+
+  // Jika pengecekan selesai dan bukan admin, tampilkan layar Access Denied
+  if (authChecked && !hasAdminAccess) {
+    const user = getAuthUser();
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-6 text-foreground">
+        <div className="flex max-w-md flex-col items-center text-center gap-4 rounded-3xl border border-destructive/30 bg-destructive/5 p-8 shadow-2xl">
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-destructive/15 text-destructive border border-destructive/20 shadow-md">
+            <ShieldAlert className="size-8" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-xl font-serif font-black text-foreground">
+              Akses Khusus Administrator
+            </h1>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Halaman Dashboard hanya dapat diakses oleh akun dengan peran <strong>Administrator</strong> atau <strong>Root</strong>.
+              {user ? (
+                <span className="block mt-2 font-mono text-[11px] text-foreground bg-muted p-1.5 rounded-lg border">
+                  Akun: <strong>{user.user_name}</strong> &bull; Role: <strong>{user.role_name}</strong>
+                </span>
+              ) : (
+                <span className="block mt-2 text-[11px] text-muted-foreground">
+                  Anda belum melakukan autentikasi ke sistem.
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="flex w-full flex-col gap-2 mt-2">
+            <Button
+              className="w-full gap-2 rounded-xl text-xs font-semibold"
+              nativeButton={false}
+              render={<Link to="/lomba" search={{ lombaId: undefined }} />}
+            >
+              <ArrowLeft className="size-4" />
+              <span>Kembali ke Halaman Lomba</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider

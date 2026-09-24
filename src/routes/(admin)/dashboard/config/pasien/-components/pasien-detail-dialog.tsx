@@ -1,4 +1,4 @@
-import { User, Calendar, FileText, Tag, HeartPulse } from "lucide-react";
+import { User, Calendar, FileText, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,11 @@
 import { create } from "zustand";
+import {
+  contestService,
+  contestTeamService,
+  extractNumericCaseId,
+  trxResponseService,
+  userService,
+} from "@/services/api";
 
 export interface Mahasiswa {
   id: string;
@@ -37,108 +44,263 @@ export interface Contest {
   status: "Akan Datang" | "Sedang Berlangsung" | "Selesai";
 }
 
-export const INITIAL_MAHASISWA_LIST: Mahasiswa[] = [
-  { id: "mhs-01", nama: "Adinda Putri Maharani", nim: "21060120140001" },
-  { id: "mhs-02", nama: "Bella Safira Ramadhani", nim: "21060120140002" },
-  { id: "mhs-03", nama: "Citra Dewi Lestari", nim: "21060120140003" },
-  { id: "mhs-04", nama: "Dian Ayu Wardani", nim: "21060120140004" },
-  { id: "mhs-05", nama: "Erna Wulandari", nim: "21060120140005" },
-  { id: "mhs-06", nama: "Fatimah Nur Azizah", nim: "21060120140006" },
-  { id: "mhs-07", nama: "Gita Puspitasari", nim: "21060120140007" },
-  { id: "mhs-08", nama: "Hanna Novita Sari", nim: "21060120140008" },
-  { id: "mhs-09", nama: "Indah Permata Sari", nim: "21060120140009" },
-  { id: "mhs-10", nama: "Jesika Anggraini", nim: "21060120140010" },
-  { id: "mhs-11", nama: "Khairunnisa Salsabila", nim: "21060120140011" },
-  { id: "mhs-12", nama: "Lestari Widyaningrum", nim: "21060120140012" },
-];
+export const INITIAL_MAHASISWA_LIST: Mahasiswa[] = [];
 
-export const INITIAL_PENILAI_LIST: Penilai[] = [
-  {
-    id: "pnl-01",
-    nama: "Dr. Bdn. Hj. Siti Rahmawati, S.ST., M.Keb",
-    nip: "198005122005012003",
-    spesialisasi: "Asuhan Kebidanan Patologis & Kegawatdaruratan",
-    role: "Dosen Penguji Utama",
-  },
-  {
-    id: "pnl-02",
-    nama: "Bdn. Dewi Lestari, S.Tr.Keb., M.Tr.Keb",
-    nip: "198509182008122002",
-    spesialisasi: "Deteksi Dini Kanker Serviks & Prosedur IVA",
-    role: "Penguji Klinis Stase 3",
-  },
-  {
-    id: "pnl-03",
-    nama: "dr. Andika Pratama, Sp.OG (K)",
-    nip: "197803152003121004",
-    spesialisasi: "Obstetri & Ginekologi Onkologi",
-    role: "Dokter Penilai Ahli",
-  },
-  {
-    id: "pnl-04",
-    nama: "Bdn. Nurul Hidayah, S.ST., Bdn",
-    nip: "198811202010012008",
-    spesialisasi: "Konseling Pasien & Komunikasi Terapeutik",
-    role: "Instruktur Klinis",
-  },
-  {
-    id: "pnl-05",
-    nama: "Bdn. Rina Marlina, M.Keb",
-    nip: "198302142006042001",
-    spesialisasi: "Pemeriksaan Fisik & Faktor Risiko Maternal",
-    role: "Penguji Stase 2",
-  },
-];
+export const INITIAL_PENILAI_LIST: Penilai[] = [];
 
-export const INITIAL_CONTEST_LIST: Contest[] = [
-  {
-    id: "lomba-01",
-    nama: "Midwife OSCE Circuit Challenge 2026",
-    periode_id: 3,
-    periode_nama: "Periode 2026",
-    tanggal_mulai: "2026-03-01T08:00:00.000Z",
-    tanggal_selesai: "2026-03-15T17:00:00.000Z",
-    deskripsi: "Kompetisi sirkuit klinis kebidanan terintegrasi 5 stase (Larasati Journey) untuk evaluasi keterampilan Anamnesis, deteksi faktor risiko, prosedur IVA, interpretasi klinis, dan asuhan konseling.",
-    kasus_ids: ["KSS-001", "KSS-002", "KSS-003", "KSS-004", "KSS-005"],
-    allow_shared_kasus: false,
-    penilai_ids: ["pnl-01", "pnl-02", "pnl-03"],
-    status: "Sedang Berlangsung",
-    kelompok_list: [
-      {
-        id: "kel-01",
-        nama: "Kelompok A",
-        mahasiswa_ids: ["mhs-01", "mhs-02", "mhs-03"],
-        ketua_mhs_id: "mhs-01",
-        kasus_id: "KSS-001",
-      },
-      {
-        id: "kel-02",
-        nama: "Kelompok B",
-        mahasiswa_ids: ["mhs-04", "mhs-05", "mhs-06"],
-        ketua_mhs_id: "mhs-04",
-        kasus_id: "KSS-002",
-      },
-    ],
-  },
-];
+export const INITIAL_CONTEST_LIST: Contest[] = [];
 
 interface ContestState {
   contests: Contest[];
   mahasiswaList: Mahasiswa[];
   penilaiList: Penilai[];
-  addContest: (contest: Omit<Contest, "id">) => string;
+  isLoadingUsers: boolean;
+  fetchUsers: () => Promise<void>;
+  getContestDetail: (id: string | number) => Promise<Contest | null>;
+  addContest: (contest: Omit<Contest, "id"> & { id?: string }) => string;
   updateContest: (id: string, updated: Partial<Contest>) => void;
   deleteContest: (id: string) => void;
   getContestById: (id: string) => Contest | undefined;
 }
 
+let userFetchPromise: Promise<void> | null = null;
+let contestDetailPromises: Record<string, Promise<Contest | null> | undefined> = {};
+
 export const useContestStore = create<ContestState>((set, get) => ({
   contests: INITIAL_CONTEST_LIST,
   mahasiswaList: INITIAL_MAHASISWA_LIST,
   penilaiList: INITIAL_PENILAI_LIST,
+  isLoadingUsers: false,
+
+  fetchUsers: async () => {
+    if (userFetchPromise) return userFetchPromise;
+    set({ isLoadingUsers: true });
+
+    userFetchPromise = (async () => {
+      try {
+        const res = await userService.getAll();
+        const rawList: any[] = Array.isArray(res.data)
+          ? res.data
+          : res.data && typeof res.data === "object" && "data" in res.data && Array.isArray((res.data as any).data)
+            ? (res.data as any).data
+            : [];
+
+        // 1. Map Mahasiswa / Peserta (user_role_id === 5 atau role_name Peserta)
+        const pesertaUsers = rawList.filter(
+          (u) => Number(u.user_role_id) === 5 || u.role_name?.toLowerCase().includes("peserta"),
+        );
+        const effectivePeserta =
+          pesertaUsers.length > 0
+            ? pesertaUsers
+            : rawList.filter((u) => Number(u.user_role_id) !== 4 && Number(u.user_role_id) !== 1);
+
+        const mappedMhs: Mahasiswa[] = effectivePeserta.map((u) => ({
+          id: String(u.user_id),
+          nama: u.user_fullname || u.user_name || `Mahasiswa ${u.user_id}`,
+          nim: u.user_name || String(u.user_id),
+        }));
+
+        // 2. Map Penilai / Juri (user_role_id === 4 atau role_name Juri/Penilai)
+        const juriUsers = rawList.filter(
+          (u) =>
+            Number(u.user_role_id) === 4 ||
+            u.role_name?.toLowerCase().includes("juri") ||
+            u.role_name?.toLowerCase().includes("penilai"),
+        );
+        const effectiveJuri =
+          juriUsers.length > 0 ? juriUsers : rawList.filter((u) => Number(u.user_role_id) !== 5);
+
+        const mappedPenilai: Penilai[] = effectiveJuri.map((u) => ({
+          id: String(u.user_id),
+          nama: u.user_fullname || u.user_name || `Penilai ${u.user_id}`,
+          nip: u.user_name || String(u.user_id),
+          spesialisasi: u.role_name || "Penguji OSCE",
+          role: u.role_name || "Juri",
+        }));
+
+        set({
+          mahasiswaList: mappedMhs,
+          penilaiList: mappedPenilai,
+        });
+      } catch (err) {
+        console.warn("[ContestStore] Gagal memuat data pengguna:", err);
+      } finally {
+        set({ isLoadingUsers: false });
+        userFetchPromise = null;
+      }
+    })();
+
+    return userFetchPromise;
+  },
+
+  getContestDetail: async (id: string | number) => {
+    const cleanId = extractNumericCaseId(id);
+    if (!cleanId) return null;
+
+    const pendingPromise = contestDetailPromises[cleanId];
+    if (pendingPromise) {
+      return pendingPromise;
+    }
+
+    contestDetailPromises[cleanId] = (async () => {
+      try {
+        // 1. Fetch info dasar lomba dari /v1/data_contest/:id
+        const contestRes = await contestService.getDetail(cleanId);
+        if (!contestRes.status || !contestRes.data) {
+          return null;
+        }
+        const data = contestRes.data as any;
+
+        // 2. Fetch kelompok/tim lomba dari /v1/data_contest_team?contest_id=cleanId
+        let mappedKelompok: KelompokLomba[] = [];
+
+        // 2b. Ambil relasi kasus kelompok dari /v1/trx_response?contest_id=cleanId
+        const teamCaseMap = new Map<string, string>();
+        try {
+          const trxRes = await trxResponseService.getAll(cleanId);
+          const trxList = Array.isArray(trxRes.data)
+            ? trxRes.data
+            : (trxRes.data as any)?.data || [];
+          for (const item of trxList) {
+            const teamId = String(item.response_contestteam_id || (item as any).contestteam_id || "");
+            const caseId = String(item.response_case_id || (item as any).case_id || "");
+            if (teamId && caseId) {
+              teamCaseMap.set(teamId, caseId.startsWith("KSS-") ? caseId : `KSS-${caseId}`);
+            }
+          }
+        } catch (trxErr) {
+          console.warn("[ContestStore] Gagal mengambil trx_response:", trxErr);
+        }
+
+        try {
+          const teamsRes = await contestTeamService.getAll(cleanId);
+          const teamItems = Array.isArray(teamsRes.data)
+            ? teamsRes.data
+            : (teamsRes.data as any)?.data || [];
+
+          if (teamItems.length > 0) {
+            const detailedTeams = await Promise.all(
+              teamItems.map(async (t: any) => {
+                const teamIdStr = String(t.contestteam_id);
+                const assignedCaseId =
+                  teamCaseMap.get(teamIdStr) ||
+                  (t.contestteam_contestcase_id ? String(t.contestteam_contestcase_id) : undefined);
+
+                try {
+                  const teamDetailRes = await contestTeamService.getDetail(t.contestteam_id);
+                  const tDetail = teamDetailRes.data as any;
+                  const members = Array.isArray(tDetail?.member) ? tDetail.member : [];
+                  const leaderMember = members.find(
+                    (m: any) =>
+                      Number(m.contestteammember_is_leader) === 1 ||
+                      m.is_leader === "1" ||
+                      m.is_leader === 1,
+                  );
+                  return {
+                    id: teamIdStr,
+                    nama: t.contestteam_name || `Kelompok ${t.contestteam_id}`,
+                    mahasiswa_ids: members.map((m: any) => String(m.user_id || m.contestteammember_user_id)),
+                    ketua_mhs_id: leaderMember
+                      ? String(leaderMember.user_id || leaderMember.contestteammember_user_id)
+                      : undefined,
+                    kasus_id: assignedCaseId,
+                  };
+                } catch {
+                  return {
+                    id: teamIdStr,
+                    nama: t.contestteam_name || `Kelompok ${t.contestteam_id}`,
+                    mahasiswa_ids: [],
+                    kasus_id: assignedCaseId,
+                  };
+                }
+              }),
+            );
+            mappedKelompok = detailedTeams;
+          }
+        } catch (teamErr) {
+          console.warn("[ContestStore] Gagal mengambil tim lomba:", teamErr);
+        }
+
+        // 3. Ekstraksi kasus_ids
+        const rawCases = Array.isArray(data.case)
+          ? data.case
+          : Array.isArray(data.cases)
+            ? data.cases
+            : [];
+        let mappedKasusIds: string[] = rawCases.map((c: any) => String(c.case_id || c.id || c));
+        // Tambahkan kasus dari trx_response kelompok jika belum ada
+        for (const cId of teamCaseMap.values()) {
+          if (!mappedKasusIds.includes(cId)) {
+            mappedKasusIds.push(cId);
+          }
+        }
+        if (mappedKasusIds.length === 0 && mappedKelompok.length > 0) {
+          const teamCases = mappedKelompok.map((k) => k.kasus_id).filter(Boolean) as string[];
+          mappedKasusIds = Array.from(new Set(teamCases));
+        }
+        if (mappedKasusIds.length === 0) {
+          const cached = get().contests.find((c) => c.id === id || extractNumericCaseId(c.id) === cleanId);
+          if (cached?.kasus_ids?.length) {
+            mappedKasusIds = cached.kasus_ids;
+          }
+        }
+
+        // 4. Ekstraksi penilai_ids
+        const rawScorers = Array.isArray(data.scorer) ? data.scorer : [];
+        const stateUsers = get().penilaiList;
+        const penilaiIds: string[] = rawScorers.map((s: any) => {
+          if (s.user_id) return String(s.user_id);
+          if (s.contestscorer_user_id) return String(s.contestscorer_user_id);
+          const matched = stateUsers.find(
+            (p) => p.nama.toLowerCase() === s.user_fullname?.toLowerCase(),
+          );
+          if (matched) return matched.id;
+          return String(s.contestscorer_id);
+        });
+
+        const assembledContest: Contest = {
+          id: String(data.contest_id || cleanId),
+          nama: data.contest_name || "",
+          periode_id: Number(data.contest_periode_id) || 1,
+          periode_nama: `Periode ${data.contest_periode_id || 1}`,
+          tanggal_mulai: data.contest_datestart || data.contest_datestart_text || new Date().toISOString(),
+          tanggal_selesai: data.contest_dateend || data.contest_dateend_text || new Date().toISOString(),
+          deskripsi: data.contest_desc || "",
+          kasus_ids: mappedKasusIds,
+          kelompok_list:
+            mappedKelompok.length > 0
+              ? mappedKelompok
+              : [{ id: `kel-${Date.now()}-1`, nama: "Kelompok 1", mahasiswa_ids: [] }],
+          allow_shared_kasus: false,
+          penilai_ids: penilaiIds,
+          status: "Sedang Berlangsung",
+        };
+
+        set((state) => {
+          const exists = state.contests.some((c) => c.id === assembledContest.id);
+          return {
+            contests: exists
+              ? state.contests.map((c) => (c.id === assembledContest.id ? assembledContest : c))
+              : [assembledContest, ...state.contests],
+          };
+        });
+
+        return assembledContest;
+      } catch (err) {
+        console.warn(`[ContestStore] Gagal mengambil detail lomba ${cleanId}:`, err);
+        return get().contests.find((c) => c.id === id || extractNumericCaseId(c.id) === cleanId) || null;
+      } finally {
+        setTimeout(() => {
+          delete contestDetailPromises[cleanId];
+        }, 3000);
+      }
+    })();
+
+    return contestDetailPromises[cleanId];
+  },
 
   addContest: (contest) => {
-    const newId = `lomba-${String(Date.now()).slice(-4)}`;
+    const newId = contest.id || `lomba-${String(Date.now()).slice(-4)}`;
     const newContest: Contest = {
       ...contest,
       id: newId,

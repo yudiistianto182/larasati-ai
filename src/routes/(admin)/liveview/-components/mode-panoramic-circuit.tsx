@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Flag, Maximize2, Sparkles, Trophy } from "lucide-react";
+import { Maximize2, Sparkles, Trophy } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -21,16 +21,6 @@ export function ModePanoramicCircuit({
   onSelectGroup,
   onSelectWaypoint,
 }: ModePanoramicCircuitProps) {
-  // Count how many avatars are on each position to calculate smart non-overlapping offsets
-  const getAvatarOffset = (pos: number, groupIndexAtPos: number) => {
-    if (groupIndexAtPos === 0) return { x: -24, y: -74 };
-    if (groupIndexAtPos === 1) return { x: -52, y: -62 };
-    if (groupIndexAtPos === 2) return { x: 4, y: -62 };
-    return { x: -24, y: -108 };
-  };
-
-  const posCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-
   return (
     <div
       onClick={isMinimized ? onMaximize : undefined}

@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { dataTableFeatures } from "@/lib/data-table-features";
 
-import { fallbackPasien, type Pasien } from "./data";
+import { type Pasien } from "./data";
 import { getPasienColumns } from "./pasien-columns";
 import { PasienDeleteDialog } from "./pasien-delete-dialog";
 import { PasienDetailDialog } from "./pasien-detail-dialog";
@@ -36,7 +36,7 @@ import { PasienTable } from "./pasien-table";
 
 export function PasienComponent() {
   // Pasien list state
-  const [pasienList, setPasienList] = React.useState<Pasien[]>(fallbackPasien);
+  const [pasienList, setPasienList] = React.useState<Pasien[]>([]);
 
   // Dialog states
   const [isAddOpen, setIsAddOpen] = React.useState(false);
@@ -238,7 +238,12 @@ export function PasienComponent() {
               />
             </InputGroup>
 
-            <Select value={genderFilter} onValueChange={handleGenderFilterChange}>
+            <Select
+              value={genderFilter}
+              onValueChange={(val) => {
+                if (val) handleGenderFilterChange(val);
+              }}
+            >
               <SelectTrigger size="sm" className="h-7 w-36 text-xs">
                 <Filter className="size-3.5 mr-1 text-muted-foreground" />
                 <SelectValue placeholder="Semua Gender" />

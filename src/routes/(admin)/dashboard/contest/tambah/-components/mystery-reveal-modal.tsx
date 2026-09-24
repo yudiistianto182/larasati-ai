@@ -1,15 +1,12 @@
 import * as React from "react";
 import {
   Check,
-  CheckCircle2,
   Crown,
-  Eye,
   HelpCircle,
   Layers,
   Play,
   RotateCcw,
   Sparkles,
-  Users,
   X,
   Zap,
 } from "lucide-react";

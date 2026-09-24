@@ -1,16 +1,8 @@
 import * as React from "react";
 import {
-  Award,
-  CheckCircle2,
-  Clock,
-  Eye,
   Flag,
-  Medal,
   Sparkles,
-  TrendingUp,
   Trophy,
-  Users,
-  Zap,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";

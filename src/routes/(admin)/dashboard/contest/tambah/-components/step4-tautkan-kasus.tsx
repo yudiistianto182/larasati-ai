@@ -1,10 +1,8 @@
 import * as React from "react";
 import {
   AlertCircle,
-  CheckCircle2,
   Crown,
   Dices,
-  Eye,
   FileCheck,
   HelpCircle,
   Layers,
@@ -14,7 +12,6 @@ import {
   Share2,
   Sparkles,
   Trash2,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { KelompokLomba } from "@/stores/contest-store";
 import { useContestStore } from "@/stores/contest-store";
 import { useKasusStore } from "@/stores/kasus-store";
+import { extractNumericCaseId } from "@/services/api";
 import { GroupKasusPickerModal } from "./group-kasus-picker-modal";
 import { MysteryRevealModal } from "./mystery-reveal-modal";
 
@@ -53,7 +51,10 @@ export function Step4TautkanKasus({
 
   // Filter only valid cases selected in Step 2
   const availableKasus = React.useMemo(() => {
-    const matched = kasusList.filter((k) => selectedKasusIds.includes(k.id));
+    const matched = kasusList.filter((k) => {
+      const kNum = extractNumericCaseId(k.id);
+      return selectedKasusIds.some((sId) => sId === k.id || extractNumericCaseId(sId) === kNum);
+    });
     return matched.length > 0 ? matched : kasusList;
   }, [kasusList, selectedKasusIds]);
 
@@ -65,7 +66,10 @@ export function Step4TautkanKasus({
   // Case lookup map
   const kasusMap = React.useMemo(() => {
     const map = new Map<string, (typeof kasusList)[0]>();
-    kasusList.forEach((k) => map.set(k.id, k));
+    kasusList.forEach((k) => {
+      map.set(k.id, k);
+      map.set(extractNumericCaseId(k.id), k);
+    });
     return map;
   }, [kasusList]);
 

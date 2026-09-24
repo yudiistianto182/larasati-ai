@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import type { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
@@ -11,8 +10,8 @@ import {
   Pencil,
   Play,
   Trash2,
+  Trophy,
   Tv,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,12 +24,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { Contest } from "@/stores/contest-store";
-
-interface ContestColumnsOptions {
-  onEdit: (contest: Contest) => void;
-  onDelete: (contest: Contest) => void;
-}
+import type { DataTableFeatures } from "@/lib/data-table-features";
+import type { DataContestItem } from "@/types/api";
 
 function formatPrettyDate(dateString?: string) {
   if (!dateString) return "-";
@@ -43,10 +38,19 @@ function formatPrettyDate(dateString?: string) {
   }
 }
 
+function deriveStatus(c: DataContestItem): "Akan Datang" | "Sedang Berlangsung" | "Selesai" {
+  const now = new Date();
+  const start = new Date(c.contest_datestart);
+  const end = new Date(c.contest_dateend);
+  if (now < start) return "Akan Datang";
+  if (now > end) return "Selesai";
+  return "Sedang Berlangsung";
+}
+
 export function getContestColumns(
-  onEdit: (contest: Contest) => void,
-  onDelete: (contest: Contest) => void,
-): ColumnDef<Contest>[] {
+  onEdit: (contest: DataContestItem) => void,
+  onDelete: (contest: DataContestItem) => void,
+): ColumnDef<DataTableFeatures, DataContestItem>[] {
   return [
     {
       id: "no",
@@ -59,18 +63,18 @@ export function getContestColumns(
       enableSorting: false,
     },
     {
-      accessorKey: "nama",
+      accessorKey: "contest_name",
       header: "Nama Lomba",
       cell: ({ row }) => {
         const contest = row.original;
         return (
           <div className="flex flex-col gap-0.5 max-w-sm">
             <span className="font-semibold text-foreground text-xs sm:text-sm leading-snug">
-              {contest.nama}
+              {contest.contest_name}
             </span>
-            {contest.deskripsi && (
-              <span className="text-[11px] text-muted-foreground line-clamp-1 truncate" title={contest.deskripsi}>
-                {contest.deskripsi}
+            {contest.contest_desc && (
+              <span className="text-[11px] text-muted-foreground line-clamp-1 truncate" title={contest.contest_desc}>
+                {contest.contest_desc}
               </span>
             )}
           </div>
@@ -78,11 +82,11 @@ export function getContestColumns(
       },
     },
     {
-      accessorKey: "periode_id",
+      accessorKey: "contest_periode_id",
       header: "Periode",
       cell: ({ row }) => {
         const contest = row.original;
-        const label = contest.periode_nama || (contest.periode_id ? `Periode ${contest.periode_id}` : "-");
+        const label = contest.contest_periode_id ? `Periode ${contest.contest_periode_id}` : "-";
         return (
           <Badge variant="outline" className="font-medium text-xs">
             {label}
@@ -91,12 +95,12 @@ export function getContestColumns(
       },
     },
     {
-      accessorKey: "tanggal_mulai",
+      accessorKey: "contest_datestart",
       header: "Jadwal Pelaksanaan",
       cell: ({ row }) => {
         const contest = row.original;
-        const startPretty = formatPrettyDate(contest.tanggal_mulai);
-        const endPretty = formatPrettyDate(contest.tanggal_selesai);
+        const startPretty = contest.contest_datestart_text ?? formatPrettyDate(contest.contest_datestart);
+        const endPretty = contest.contest_dateend_text ?? formatPrettyDate(contest.contest_dateend);
 
         return (
           <div className="flex items-center gap-1.5 text-xs text-foreground font-medium">
@@ -109,32 +113,10 @@ export function getContestColumns(
       },
     },
     {
-      accessorKey: "kelompok_list",
-      header: "Kelompok & Peserta",
-      cell: ({ row }) => {
-        const contest = row.original;
-        const totalKelompok = contest.kelompok_list?.length || 0;
-        const totalMahasiswa =
-          contest.kelompok_list?.reduce((acc, k) => acc + (k.mahasiswa_ids?.length || 0), 0) || 0;
-
-        return (
-          <div className="flex items-center gap-1.5">
-            <Badge variant="secondary" className="gap-1 text-[11px] font-semibold">
-              <Users className="size-3 text-muted-foreground" />
-              <span>{totalKelompok} Kelompok</span>
-            </Badge>
-            <span className="text-[11px] text-muted-foreground font-mono">
-              ({totalMahasiswa} Mhs)
-            </span>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "status",
+      id: "status",
       header: "Status",
       cell: ({ row }) => {
-        const status = row.original.status;
+        const status = deriveStatus(row.original);
         if (status === "Sedang Berlangsung") {
           return (
             <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[11px] font-semibold gap-1">
@@ -158,6 +140,7 @@ export function getContestColumns(
           </Badge>
         );
       },
+      enableSorting: false,
     },
     {
       id: "actions",
@@ -187,7 +170,7 @@ export function getContestColumns(
                     render={
                       <Link
                         to="/dashboard/contest/rekap"
-                        search={{ contestId: contest.id }}
+                        search={{ contestId: String(contest.contest_id) }}
                         className="flex items-center w-full"
                       />
                     }
@@ -212,11 +195,27 @@ export function getContestColumns(
                   </DropdownMenuItem>
 
                   <DropdownMenuItem
+                    className="gap-2 cursor-pointer font-medium"
+                    render={
+                      <Link
+                        to="/liveview"
+                        search={{ mode: "podium", contestId: String(contest.contest_id), simulate: true }}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center w-full"
+                      />
+                    }
+                  >
+                    <Trophy className="size-3.5 mr-2 text-primary" />
+                    <span>Simulasi Podium</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
                     className="gap-2 cursor-pointer text-primary focus:text-primary font-medium"
                     render={
                       <Link
                         to="/lomba"
-                        search={{ lombaId: contest.id }}
+                        search={{ lombaId: String(contest.contest_id) }}
                         target="_blank"
                         rel="noreferrer"
                         className="flex items-center w-full"

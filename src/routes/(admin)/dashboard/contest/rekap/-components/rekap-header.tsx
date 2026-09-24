@@ -1,13 +1,8 @@
-import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
-  Download,
-  FileSpreadsheet,
   Printer,
-  Sparkles,
   Trophy,
   Tv,
   Users,

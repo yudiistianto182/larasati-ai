@@ -2,8 +2,6 @@ import * as React from "react";
 import {
   Activity,
   Bot,
-  CheckSquare,
-  ChevronRight,
   ClipboardList,
   HeartHandshake,
   Image as ImageIcon,

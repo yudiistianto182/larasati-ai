@@ -1,4 +1,3 @@
-import * as React from "react";
 import {
   Dices,
   Pause,
@@ -6,10 +5,8 @@ import {
   RotateCcw,
   Sparkles,
   Trophy,
-  Users,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GroupRaceState } from "./liveview-types";

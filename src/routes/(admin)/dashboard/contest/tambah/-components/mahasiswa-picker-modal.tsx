@@ -6,7 +6,6 @@ import {
   GraduationCap,
   Search,
   User,
-  Users,
   X,
 } from "lucide-react";
 
@@ -30,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { type KelompokLomba, type Mahasiswa, useContestStore } from "@/stores/contest-store";
+import { type KelompokLomba, useContestStore } from "@/stores/contest-store";
 
 interface MahasiswaPickerModalProps {
   open: boolean;
@@ -49,19 +48,22 @@ export function MahasiswaPickerModal({
   initialSelectedIds,
   onConfirm,
 }: MahasiswaPickerModalProps) {
-  const { mahasiswaList } = useContestStore();
+  const { mahasiswaList, fetchUsers, isLoadingUsers } = useContestStore();
   const [selectedIds, setSelectedIds] = React.useState<string[]>(initialSelectedIds);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [filterMode, setFilterMode] = React.useState<"all" | "unassigned" | "selected">("all");
 
-  // Sync state on open
+  // Sync state on open & fetch if empty
   React.useEffect(() => {
     if (open) {
       setSelectedIds(initialSelectedIds);
       setSearchQuery("");
       setFilterMode("all");
+      if (mahasiswaList.length === 0) {
+        fetchUsers();
+      }
     }
-  }, [open, initialSelectedIds]);
+  }, [open, initialSelectedIds, mahasiswaList.length, fetchUsers]);
 
   const activeKelompok = kelompokList.find((k) => k.id === activeKelompokId);
 
@@ -102,7 +104,6 @@ export function MahasiswaPickerModal({
         mhs.nim.toLowerCase().includes(searchQuery.toLowerCase());
 
       const assigned = studentAssignmentMap.get(mhs.id);
-      const isAssignedToOther = assigned && assigned.kelompokId !== activeKelompokId;
 
       if (filterMode === "unassigned") {
         return matchSearch && (!assigned || assigned.kelompokId === activeKelompokId);
@@ -181,7 +182,13 @@ export function MahasiswaPickerModal({
             >
               <SelectTrigger className="h-8 w-44 text-xs">
                 <Filter className="size-3 text-muted-foreground mr-1" />
-                <SelectValue placeholder="Filter Mahasiswa" />
+                <SelectValue placeholder="Filter Mahasiswa">
+                  {(val) => {
+                    if (val === "unassigned") return "Belum Berkelompok";
+                    if (val === "selected") return `Hanya Terpilih (${selectedIds.length})`;
+                    return `Semua Mahasiswa (${mahasiswaList.length})`;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="text-xs">
                 <SelectGroup>

@@ -14,13 +14,13 @@ import {
   ListOrdered,
   Plus,
   RotateCcw,
-  Sparkles,
   Undo2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import {
   playCtaClickSound,
@@ -36,48 +36,6 @@ export interface StepItem {
 
 const MAX_TOTAL_SLOTS = 10;
 
-const FALLBACK_STEPS: StepItem[] = [
-  {
-    id: "step-1",
-    text: "Bidan mencuci tangan 6 langkah dan menggunakan APD lengkap secara aseptik.",
-    correctOrder: 1,
-  },
-  {
-    id: "step-2",
-    text: "Mempersiapkan alat, lampu sorot, dan memposisikan pasien litotomi dengan nyaman.",
-    correctOrder: 2,
-  },
-  {
-    id: "step-3",
-    text: "Melakukan vulva hygiene dan membersihkan porsio serviks dari cairan keputihan.",
-    correctOrder: 3,
-  },
-  {
-    id: "step-4",
-    text: "Memasang spekulum cocor bebek secara perlahan hingga serviks dan SSK terlihat jelas.",
-    correctOrder: 4,
-  },
-  {
-    id: "step-5",
-    text: "Mengaplikasikan lidi kapas berasam asetat 3–5% secara merata pada seluruh permukaan porsio.",
-    correctOrder: 5,
-  },
-  {
-    id: "step-6",
-    text: "Mengamati perubahan epitel asetowhite selama 1–2 menit, lalu membersihkan dan melepas spekulum.",
-    correctOrder: 6,
-  },
-  {
-    id: "step-d1",
-    text: "Mengoleskan larutan asam asetat sebelum memasang spekulum cocor bebek.",
-    correctOrder: 99,
-  },
-  {
-    id: "step-d2",
-    text: "Melakukan tindakan pemeriksaan langsung tanpa informed consent persetujuan pasien.",
-    correctOrder: 99,
-  },
-];
 
 // ============================================================================
 // SORTABLE ITEM IN RIGHT COLUMN (PAPAN URUTAN TERPILIH)
@@ -136,61 +94,54 @@ function SortableSelectedStepRow({
           {String(stepNumber).padStart(2, "0")}
         </div>
 
-        <div className="flex flex-col min-w-0">
-          <span className="font-semibold text-xs sm:text-sm text-[#fff8db] leading-snug">
-            {item.text}
-          </span>
-          <span className="text-[10px] text-[#d4af37]/75 mt-0.5">
-            Langkah Ke-{stepNumber} &bull; Tarik kartu atau gunakan tombol panah untuk mengatur urutan
-          </span>
-        </div>
+        {/* Step Content */}
+        <p className="text-xs sm:text-sm font-serif text-[#fff8db] leading-relaxed line-clamp-2">
+          {item.text}
+        </p>
       </div>
 
-      {/* Action Controls: Move Up, Move Down, Return to Left Tray */}
-      <div
-        className="flex items-center gap-1 shrink-0"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
+      {/* Up/Down Controls & Remove Button */}
+      <div className="flex items-center gap-1 shrink-0">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-xs"
           disabled={isFirst}
-          onClick={() => {
-            playReorderTickSound("up");
+          onClick={(e) => {
+            e.stopPropagation();
             onMoveUp();
           }}
-          className="size-7.5 rounded-lg bg-[#291c10] border-[#8c6d23]/50 text-[#f3e5ab] hover:border-[#d4af37] hover:text-[#fff8db] disabled:opacity-25 cursor-pointer"
-          title="Geser langkah ke atas"
+          className="size-7 rounded-lg text-[#d4af37]/70 hover:text-[#fff8db] hover:bg-[#d4af37]/20 disabled:opacity-20"
+          title="Geser Naik"
         >
-          <ArrowUp className="size-3.5 text-[#d4af37]" />
+          <ArrowUp className="size-3.5" />
         </Button>
 
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-xs"
           disabled={isLast}
-          onClick={() => {
-            playReorderTickSound("down");
+          onClick={(e) => {
+            e.stopPropagation();
             onMoveDown();
           }}
-          className="size-7.5 rounded-lg bg-[#291c10] border-[#8c6d23]/50 text-[#f3e5ab] hover:border-[#d4af37] hover:text-[#fff8db] disabled:opacity-25 cursor-pointer"
-          title="Geser langkah ke bawah"
+          className="size-7 rounded-lg text-[#d4af37]/70 hover:text-[#fff8db] hover:bg-[#d4af37]/20 disabled:opacity-20"
+          title="Geser Turun"
         >
-          <ArrowDown className="size-3.5 text-[#d4af37]" />
+          <ArrowDown className="size-3.5" />
         </Button>
 
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="icon-xs"
-          onClick={() => {
-            playCtaClickSound();
+          onClick={(e) => {
+            e.stopPropagation();
             onRemove();
           }}
-          className="size-7.5 rounded-lg bg-rose-950/40 border-rose-800/50 text-rose-300 hover:bg-rose-900/60 hover:text-white cursor-pointer ml-1"
-          title="Kembalikan kartu ke baki kiri"
+          className="size-7 rounded-lg text-rose-400/80 hover:text-rose-300 hover:bg-rose-500/20 ml-1"
+          title="Kembalikan ke Baki Kiri"
         >
           <Undo2 className="size-3.5" />
         </Button>
@@ -206,13 +157,83 @@ interface Step4ProsedurIvaSequenceProps {
   steps?: StepItem[];
   onChange?: (steps: StepItem[]) => void;
   kasus?: Kasus;
+  responseId?: number;
+  casequestId?: number;
+  duration?: number | string;
 }
 
 export function Step4ProsedurIvaSequence({
   steps: initialSteps,
   onChange,
   kasus,
+  responseId,
+  casequestId,
+  duration,
 }: Step4ProsedurIvaSequenceProps) {
+  const durationRef = React.useRef(duration);
+  durationRef.current = duration;
+
+  const latestStepsRef = React.useRef<StepItem[]>([]);
+  const saveAnswerTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const saveAnswersToApi = React.useCallback(
+    (currentSteps: StepItem[]) => {
+      latestStepsRef.current = currentSteps;
+      const activeCasequestId = casequestId || kasus?.stase_data?.stase3?.casequest_id;
+      if (responseId && activeCasequestId) {
+        if (saveAnswerTimeoutRef.current) clearTimeout(saveAnswerTimeoutRef.current);
+        saveAnswerTimeoutRef.current = setTimeout(() => {
+          const formattedAnswers = currentSteps.map((s, idx) => ({
+            casequestos_id: String(s.id),
+            order: idx + 1,
+          }));
+          const currentDuration =
+            durationRef.current !== undefined
+              ? durationRef.current
+              : kasus?.stase_data?.stase3?.header?.durasi_detik ?? 0;
+
+          trxResponseAnswerService
+            .store({
+              response_id: responseId,
+              casequest_id: activeCasequestId,
+              answers: formattedAnswers,
+              duration: String(currentDuration),
+            })
+            .catch((err) => console.warn("[Pos 3 Store Error]", err));
+        }, 400);
+      }
+    },
+    [responseId, casequestId, kasus],
+  );
+
+  React.useEffect(() => {
+    return () => {
+      if (saveAnswerTimeoutRef.current) {
+        clearTimeout(saveAnswerTimeoutRef.current);
+        const activeCasequestId = casequestId || kasus?.stase_data?.stase3?.casequest_id;
+        if (responseId && activeCasequestId) {
+          const formattedAnswers = latestStepsRef.current.map((s, idx) => ({
+            casequestos_id: String(s.id),
+            order: idx + 1,
+          }));
+          const currentDuration =
+            durationRef.current !== undefined
+              ? durationRef.current
+              : kasus?.stase_data?.stase3?.header?.durasi_detik ?? 0;
+
+          trxResponseAnswerService
+            .store({
+              response_id: responseId,
+              casequest_id: activeCasequestId,
+              answers: formattedAnswers,
+              duration: String(currentDuration),
+            })
+            .catch((err) => console.warn("[Pos 3 Flush Error]", err));
+        }
+      }
+    };
+  }, [responseId, casequestId, kasus]);
+
   // Extract steps from active case or fallback
   const allCaseSteps: StepItem[] = React.useMemo(() => {
     const rawSteps = kasus?.stase_data?.stase3?.langkah_prosedur;
@@ -223,7 +244,7 @@ export function Step4ProsedurIvaSequence({
         correctOrder: s.order,
       }));
     }
-    return FALLBACK_STEPS;
+    return [];
   }, [kasus]);
 
   // Left column: available steps not yet chosen
@@ -254,6 +275,7 @@ export function Step4ProsedurIvaSequence({
     setAvailableSteps(nextAvailable);
     setSelectedSteps(nextSelected);
     onChange?.(nextSelected);
+    saveAnswersToApi(nextSelected);
   };
 
   // Transfer single step from Right -> Left
@@ -264,6 +286,7 @@ export function Step4ProsedurIvaSequence({
     setSelectedSteps(nextSelected);
     setAvailableSteps(nextAvailable);
     onChange?.(nextSelected);
+    saveAnswersToApi(nextSelected);
   };
 
   // Transfer all remaining steps to Right
@@ -273,6 +296,7 @@ export function Step4ProsedurIvaSequence({
     setSelectedSteps(nextSelected);
     setAvailableSteps([]);
     onChange?.(nextSelected);
+    saveAnswersToApi(nextSelected);
   };
 
   // Reset all steps back to Left tray
@@ -282,6 +306,7 @@ export function Step4ProsedurIvaSequence({
     setAvailableSteps(shuffled);
     setSelectedSteps([]);
     onChange?.([]);
+    saveAnswersToApi([]);
   };
 
   // Drag and Drop reordering on Right Column
@@ -294,6 +319,7 @@ export function Step4ProsedurIvaSequence({
     const reordered = arrayMove(selectedSteps, source.initialIndex, source.index);
     setSelectedSteps(reordered);
     onChange?.(reordered);
+    saveAnswersToApi(reordered);
   };
 
   const handleMoveUp = (index: number) => {
@@ -302,6 +328,7 @@ export function Step4ProsedurIvaSequence({
     const next = arrayMove(selectedSteps, index, index - 1);
     setSelectedSteps(next);
     onChange?.(next);
+    saveAnswersToApi(next);
   };
 
   const handleMoveDown = (index: number) => {
@@ -310,6 +337,7 @@ export function Step4ProsedurIvaSequence({
     const next = arrayMove(selectedSteps, index, index + 1);
     setSelectedSteps(next);
     onChange?.(next);
+    saveAnswersToApi(next);
   };
 
   // Calculate remaining empty placeholder slots up to 10
@@ -388,13 +416,15 @@ export function Step4ProsedurIvaSequence({
           {/* List of Available Cards */}
           <div className="flex flex-col gap-2.5 min-h-[260px]">
             {availableSteps.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-emerald-500/40 bg-emerald-950/20 gap-2 my-auto">
-                <CheckCircle2 className="size-7 text-emerald-400 animate-bounce" />
-                <span className="font-serif font-bold text-xs text-emerald-300">
-                  Semua Langkah Telah Dipilih
+              <div className="flex flex-col items-center justify-center p-6 text-center rounded-xl border border-dashed border-[#8c6d23]/40 bg-[#170f09]/60 gap-2 my-auto">
+                <CheckCircle2 className="size-7 text-[#d4af37]/80" />
+                <span className="font-serif font-bold text-xs text-[#fff8db]">
+                  {allCaseSteps.length === 0 ? "Belum Ada Langkah Prosedur" : "Semua Langkah Telah Dipilih"}
                 </span>
                 <p className="text-[11px] text-[#e6d59c]/70 max-w-xs">
-                  Seluruh kartu telah masuk ke panel kanan. Sekarang silakan atur urutan kronologisnya dengan benar.
+                  {allCaseSteps.length === 0
+                    ? "Kasus ini belum memiliki konfigurasi langkah prosedur dari sistem ujian."
+                    : "Seluruh kartu telah masuk ke panel kanan. Sekarang silakan atur urutan kronologisnya dengan benar."}
                 </p>
               </div>
             ) : (

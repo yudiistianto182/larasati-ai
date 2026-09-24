@@ -1,11 +1,8 @@
 import * as React from "react";
 import {
-  Check,
   Crown,
-  GraduationCap,
   Plus,
   Trash2,
-  UserCheck,
   UserPlus,
   Users,
   X,
@@ -14,7 +11,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { type KelompokLomba, useContestStore } from "@/stores/contest-store";
 import { MahasiswaPickerModal } from "./mahasiswa-picker-modal";
@@ -28,9 +24,15 @@ export function Step3KelompokMahasiswa({
   kelompokList,
   onChange,
 }: Step3KelompokMahasiswaProps) {
-  const { mahasiswaList } = useContestStore();
+  const { mahasiswaList, fetchUsers, isLoadingUsers } = useContestStore();
   const [activePickerKelompokId, setActivePickerKelompokId] = React.useState<string | null>(null);
   const [selectingKetuaForKelompokId, setSelectingKetuaForKelompokId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (mahasiswaList.length === 0) {
+      fetchUsers();
+    }
+  }, [mahasiswaList.length, fetchUsers]);
 
   // Map student ID to student object for quick lookup
   const studentMap = React.useMemo(() => {

@@ -2,7 +2,6 @@ import * as React from "react";
 import {
   Check,
   CheckCircle2,
-  GraduationCap,
   Search,
   ShieldCheck,
   UserCheck,
@@ -21,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
-import { type Penilai, useContestStore } from "@/stores/contest-store";
+import { useContestStore } from "@/stores/contest-store";
 
 interface PenilaiPickerModalProps {
   open: boolean;
@@ -36,17 +35,20 @@ export function PenilaiPickerModal({
   selectedIds: initialSelectedIds,
   onConfirmSelection,
 }: PenilaiPickerModalProps) {
-  const { penilaiList } = useContestStore();
+  const { penilaiList, fetchUsers, isLoadingUsers } = useContestStore();
   const [selectedIds, setSelectedIds] = React.useState<string[]>(initialSelectedIds);
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  // Sync state on open
+  // Sync state on open & fetch if empty
   React.useEffect(() => {
     if (open) {
       setSelectedIds(initialSelectedIds);
       setSearchQuery("");
+      if (penilaiList.length === 0) {
+        fetchUsers();
+      }
     }
-  }, [open, initialSelectedIds]);
+  }, [open, initialSelectedIds, penilaiList.length, fetchUsers]);
 
   const togglePenilai = (id: string) => {
     if (selectedIds.includes(id)) {

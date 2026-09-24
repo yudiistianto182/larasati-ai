@@ -1,18 +1,15 @@
 import * as React from "react";
 import {
-  Activity,
   Bot,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileCheck,
-  FileText,
   HeartHandshake,
   Image as ImageIcon,
   Layers,
   ListChecks,
   ShieldAlert,
-  User,
   Users,
   X,
 } from "lucide-react";
@@ -267,15 +264,15 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
                       {(staseData.stase2.faktor_risiko ?? []).map((item, i) => (
                         <div key={item.id} className="rounded-lg bg-background p-2.5 border flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground">#{i + 1} {item.nama_risiko}</span>
-                            {item.is_kunci_jawaban && (
+                            <span className="font-medium text-foreground">#{i + 1} {item.nama_jawaban}</span>
+                            {item.syarat_id && item.syarat_id !== "tanpa_syarat" && (
                               <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[9px]">
-                                Kunci
+                                Bersyarat
                               </Badge>
                             )}
                           </div>
                           <Badge variant="secondary" className="text-[10px] font-bold">
-                            +{item.skor_bobot} Poin
+                            +{item.skor} Poin
                           </Badge>
                         </div>
                       ))}
@@ -307,11 +304,11 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
                       {(staseData.stase3.langkah_prosedur ?? []).map((st) => (
                         <div key={st.id} className="rounded-lg bg-background p-2.5 border flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="font-mono text-[10px]">#{st.no_urut}</Badge>
-                            <span className="text-foreground">{st.deskripsi_langkah}</span>
+                            <Badge variant="secondary" className="font-mono text-[10px]">#{st.order}</Badge>
+                            <span className="text-foreground">{st.nama_langkah}</span>
                           </div>
                           <Badge variant="outline" className="text-[10px] font-bold text-primary shrink-0">
-                            +{st.skor_bobot} Poin
+                            +{st.skor} Poin
                           </Badge>
                         </div>
                       ))}
@@ -353,12 +350,12 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
                               {opt.id.toUpperCase()}
                             </Badge>
                             <span className={cn("text-xs", opt.is_correct && "font-bold text-emerald-800 dark:text-emerald-300")}>
-                              {opt.teks_pilihan}
+                              {opt.label}
                             </span>
                           </div>
                           {opt.is_correct && (
                             <Badge className="bg-emerald-600 text-white text-[10px] gap-1">
-                              <CheckCircle2 className="size-3" /> Kunci Jawaban (+{opt.skor_bobot} Poin)
+                              <CheckCircle2 className="size-3" /> Kunci Jawaban (+{opt.skor} Poin)
                             </Badge>
                           )}
                         </div>

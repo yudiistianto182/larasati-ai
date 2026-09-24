@@ -7,7 +7,6 @@ import {
 } from "@tanstack/react-table";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
-  Calendar,
   CheckCircle2,
   Clock,
   Plus,
@@ -45,19 +44,61 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { dataTableFeatures } from "@/lib/data-table-features";
-import { type Contest, useContestStore } from "@/stores/contest-store";
-import { useKasusStore } from "@/stores/kasus-store";
+import { contestService, periodeService } from "@/services/api";
+import type { DataContestItem } from "@/types/api";
 import { getContestColumns } from "./contest-columns";
 import { ContestTable } from "./contest-table";
 
 export function Contest() {
   const navigate = useNavigate();
-  const { contests, deleteContest } = useContestStore();
-  const { kasusList } = useKasusStore();
 
-  const [deletingContest, setDeletingContest] = React.useState<Contest | null>(null);
+  // API data state
+  const [apiContests, setApiContests] = React.useState<DataContestItem[]>([]);
+  const [deletingContest, setDeletingContest] = React.useState<DataContestItem | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedPeriode, setSelectedPeriode] = React.useState<string>("all");
+  const [periodes, setPeriodes] = React.useState<{ periode_id: number; periode_name: string }[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const hasFetchedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        const [contestRes, periodeRes] = await Promise.all([
+          contestService.getAll(),
+          periodeService.getAll(),
+        ]);
+
+        if (Array.isArray(contestRes.data)) {
+          setApiContests(contestRes.data);
+        }
+
+        const periodeList = Array.isArray(periodeRes.data)
+          ? periodeRes.data
+          : (periodeRes.data && typeof periodeRes.data === "object" && "data" in periodeRes.data && Array.isArray((periodeRes.data as any).data))
+            ? (periodeRes.data as any).data
+            : [];
+
+        if (periodeList.length > 0) {
+          setPeriodes(
+            periodeList.map((p: any) => ({
+              periode_id: p.periode_id,
+              periode_name: p.periode_name,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn("[Contest] Gagal memuat data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   // TanStack table states
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -70,22 +111,27 @@ export function Contest() {
   });
 
   const handleEdit = React.useCallback(
-    (contest: Contest) => {
+    (contest: DataContestItem) => {
       navigate({
         to: "/dashboard/contest/tambah",
-        search: { contestId: contest.id },
+        search: { contestId: String(contest.contest_id) },
       });
     },
     [navigate],
   );
 
-  const handleDeleteTrigger = React.useCallback((contest: Contest) => {
+  const handleDeleteTrigger = React.useCallback((contest: DataContestItem) => {
     setDeletingContest(contest);
   }, []);
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingContest) {
-      deleteContest(deletingContest.id);
+      try {
+        await contestService.delete(deletingContest.contest_id);
+      } catch (err) {
+        console.warn("[Contest] Gagal hapus:", err);
+      }
+      setApiContests((prev) => prev.filter((c) => c.contest_id !== deletingContest.contest_id));
       setDeletingContest(null);
     }
   };
@@ -97,15 +143,25 @@ export function Contest() {
 
   // Filtered data by search & periode
   const filteredData = React.useMemo(() => {
-    return contests.filter((c) => {
+    return apiContests.filter((c) => {
       const matchSearch =
-        c.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.deskripsi.toLowerCase().includes(searchQuery.toLowerCase());
+        c.contest_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        c.contest_desc.toLowerCase().includes(searchQuery.toLowerCase());
       const matchPeriode =
-        selectedPeriode === "all" || String(c.periode_id) === selectedPeriode;
+        selectedPeriode === "all" || String(c.contest_periode_id) === selectedPeriode;
       return matchSearch && matchPeriode;
     });
-  }, [contests, searchQuery, selectedPeriode]);
+  }, [apiContests, searchQuery, selectedPeriode]);
+
+  // Derive status from dates
+  const deriveStatus = (c: DataContestItem): "Akan Datang" | "Sedang Berlangsung" | "Selesai" => {
+    const now = new Date();
+    const start = new Date(c.contest_datestart);
+    const end = new Date(c.contest_dateend);
+    if (now < start) return "Akan Datang";
+    if (now > end) return "Selesai";
+    return "Sedang Berlangsung";
+  };
 
   const table = useTable({
     features: dataTableFeatures,
@@ -116,21 +172,17 @@ export function Contest() {
       columnFilters,
       pagination,
     },
-    getRowId: (row) => row.id,
+    getRowId: (row) => String(row.contest_id),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
   });
 
   // Calculate Metrics
-  const totalLomba = contests.length;
-  const activeLomba = contests.filter((c) => c.status === "Sedang Berlangsung").length;
-  const totalPeserta = contests.reduce(
-    (acc, c) =>
-      acc + (c.kelompok_list?.reduce((kAcc, k) => kAcc + (k.mahasiswa_ids?.length || 0), 0) || 0),
-    0,
-  );
-  const totalKasusUsed = contests.reduce((acc, c) => acc + (c.kasus_ids?.length || 0), 0);
+  const totalLomba = apiContests.length;
+  const activeLomba = apiContests.filter((c) => deriveStatus(c) === "Sedang Berlangsung").length;
+  const totalPeserta = 0; // Tidak tersedia di list API
+  const totalKasusUsed = 0; // Tidak tersedia di list API
 
   return (
     <div className="flex flex-col gap-5">
@@ -257,15 +309,23 @@ export function Contest() {
 
             {/* Periode Filter */}
             <Select value={selectedPeriode} onValueChange={(val) => val && setSelectedPeriode(val)}>
-              <SelectTrigger className="h-7 w-32 text-xs">
-                <SelectValue placeholder="Pilih Periode" />
+              <SelectTrigger className="h-7 w-36 text-xs">
+                <SelectValue placeholder="Pilih Periode">
+                  {(val) => {
+                    if (!val || val === "all") return "Semua Periode";
+                    const found = periodes.find((p) => String(p.periode_id) === String(val));
+                    return found ? found.periode_name : `Periode ${val}`;
+                  }}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="text-xs">
                 <SelectGroup>
                   <SelectItem value="all">Semua Periode</SelectItem>
-                  <SelectItem value="1">Periode 2024</SelectItem>
-                  <SelectItem value="2">Periode 2025</SelectItem>
-                  <SelectItem value="3">Periode 2026</SelectItem>
+                  {periodes.map((p) => (
+                    <SelectItem key={p.periode_id} value={String(p.periode_id)}>
+                      {p.periode_name}
+                    </SelectItem>
+                  ))}
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -275,7 +335,7 @@ export function Contest() {
               nativeButton={false}
               size="sm"
               className="h-7 text-xs gap-1.5"
-              render={<Link to="/dashboard/contest/tambah" />}
+              render={<Link to="/dashboard/contest/tambah" search={{ contestId: undefined }} />}
             >
               <Plus className="size-3.5" />
               <span>Tambah Lomba</span>
@@ -284,7 +344,7 @@ export function Contest() {
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4 p-4">
-          <ContestTable table={table} />
+          <ContestTable table={table} isLoading={isLoading} />
         </CardContent>
       </Card>
 
@@ -301,7 +361,7 @@ export function Contest() {
             </DialogTitle>
             <DialogDescription className="text-xs leading-relaxed">
               Apakah Anda yakin ingin menghapus agenda lomba{" "}
-              <strong>&ldquo;{deletingContest?.nama}&rdquo;</strong>? Seluruh data pembagian kelompok dan penautan kasus dalam lomba ini akan dihapus.
+              <strong>&ldquo;{deletingContest?.contest_name}&rdquo;</strong>? Seluruh data pembagian kelompok dan penautan kasus dalam lomba ini akan dihapus.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DateRangePicker } from "@/components/date-range-picker";
-import { fallbackContestPeriodes, type ContestRow } from "../../-components/data";
+import { type ContestRow } from "../../-components/data";
+import { contestService, periodeService } from "@/services/api";
 
 interface ContestInfoPanelProps {
   contest: ContestRow;
@@ -35,6 +36,34 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
     from: new Date(contest.contest_datestart),
     to: new Date(contest.contest_dateend),
   });
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  // Load full detail from API (for scorer list)
+  const [scorerList, setScorerList] = React.useState<{ contestscorer_id: number; user_fullname: string }[]>(
+    contest.scorer || [],
+  );
+  const hasFetchedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasFetchedRef.current || !contest.contest_id) return;
+    hasFetchedRef.current = true;
+
+    contestService.getDetail(contest.contest_id).then((res) => {
+      if (res.status && res.data?.scorer) {
+        setScorerList(res.data.scorer);
+      }
+    }).catch(() => {});
+  }, [contest.contest_id]);
+
+  const [periodes, setPeriodes] = React.useState<{ periode_id: number; periode_name: string }[]>([]);
+
+  React.useEffect(() => {
+    periodeService.getAll().then((res) => {
+      if (res.status && res.data) {
+        setPeriodes(res.data.map((p) => ({ periode_id: Number(p.periode_id), periode_name: p.periode_name })));
+      }
+    }).catch(() => {});
+  }, []);
 
   // Track parent changes
   React.useEffect(() => {
@@ -47,12 +76,27 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
     });
   }, [contest]);
 
-  const activePeriod = fallbackContestPeriodes.find((p) => p.periode_id === contest.contest_periode_id);
+  const activePeriod = periodes.find((p) => p.periode_id === contest.contest_periode_id);
   const periodLabel = activePeriod ? activePeriod.periode_name : `Periode ${contest.contest_periode_id}`;
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !desc.trim() || !dates?.from || !dates?.to) return;
+
+    setIsSaving(true);
+    try {
+      await contestService.update(contest.contest_id, {
+        name: name.trim(),
+        desc: desc.trim(),
+        periode_id: periodeId,
+        datestart: format(dates.from, "yyyy-MM-dd"),
+        dateend: format(dates.to, "yyyy-MM-dd"),
+      });
+    } catch {
+      // Gagal update API, tetap update lokal agar tidak stuck
+    } finally {
+      setIsSaving(false);
+    }
 
     const updated: ContestRow = {
       ...contest,
@@ -68,8 +112,8 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
   };
 
   const periodSelectItems = React.useMemo(
-    () => fallbackContestPeriodes.map((p) => ({ value: String(p.periode_id), label: p.periode_name })),
-    []
+    () => periodes.map((p) => ({ value: String(p.periode_id), label: p.periode_name })),
+    [periodes],
   );
 
   return (
@@ -117,6 +161,20 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
           >
             <Edit className="size-3.5" /> Update Informasi
           </Button>
+
+          {/* Daftar Juri */}
+          {scorerList.length > 0 && (
+            <div className="flex flex-col gap-1.5 border-t pt-3">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Daftar Juri</span>
+              <div className="flex flex-col gap-1">
+                {scorerList.map((s) => (
+                  <span key={s.contestscorer_id} className="text-sm text-foreground">
+                    {s.user_fullname}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -153,14 +211,16 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
               <Select
                 items={periodSelectItems}
                 value={String(periodeId)}
-                onValueChange={(val) => setPeriodeId(Number(val))}
+                onValueChange={(val) => {
+                  if (val) setPeriodeId(Number(val));
+                }}
               >
                 <SelectTrigger id="edit-info-periode" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent side="bottom">
                   <SelectGroup>
-                    {fallbackContestPeriodes.map((p) => (
+                    {periodes.map((p) => (
                       <SelectItem key={p.periode_id} value={String(p.periode_id)}>
                         {p.periode_name}
                       </SelectItem>
@@ -181,9 +241,9 @@ export function ContestInfoPanel({ contest, onUpdate }: ContestInfoPanelProps) {
               </Button>
               <Button
                 type="submit"
-                disabled={!name.trim() || !desc.trim() || !dates?.from || !dates?.to}
+                disabled={isSaving || !name.trim() || !desc.trim() || !dates?.from || !dates?.to}
               >
-                Simpan
+                {isSaving ? "Menyimpan..." : "Simpan"}
               </Button>
             </DialogFooter>
           </form>

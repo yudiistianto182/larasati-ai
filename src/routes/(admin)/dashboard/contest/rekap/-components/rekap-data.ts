@@ -1,3 +1,5 @@
+import type { TrxResponseAnswerDetail } from "@/types/api";
+
 export interface MahasiswaMember {
   id: string;
   nama: string;
@@ -100,288 +102,7 @@ export interface KelompokRekapData {
   stase5: Stase5AsuhanAiAnswer;
 }
 
-export const REKAP_KELOMPOK_LIST: KelompokRekapData[] = [
-  {
-    id: "kel-01",
-    nama: "Kelompok A",
-    kasusId: "KSS-001",
-    kasusNama: "Ny. Ani (45 Tahun) — Perdarahan Pasca Koitus & Multiparitas",
-    waktuPengerjaan: "07 Menit 45 Detik",
-    rank: 1,
-    totalAkumulasi: 490,
-    maxTotalAkumulasi: 500,
-    rataRataSkor: 98.0,
-    totalSkor: 490,
-    predikat: "Sangat Kompeten",
-    status: "Lulus",
-    anggota: [
-      { id: "mhs-01", nama: "Adinda Putri Maharani", nim: "21060120140001", peran: "Ketua Tim" },
-      { id: "mhs-02", nama: "Bella Safira Ramadhani", nim: "21060120140002", peran: "Anggota 1" },
-      { id: "mhs-03", nama: "Citra Dewi Lestari", nim: "21060120140003", peran: "Anggota 2" },
-    ],
-    stase1: {
-      transcripts: [
-        {
-          sender: "bidan",
-          message: "Selamat pagi Bu Ani, perkenalkan saya Bidan Adinda. Ada keluhan apa yang dirasakan belakangan ini?",
-          timestamp: "00:15",
-          isKeyQuestion: false,
-        },
-        {
-          sender: "pasien",
-          message: "Selamat pagi Bu Bidan. Saya sering mengalami keputihan yang berbau dan kadang terasa gatal sejak 2 bulan ini.",
-          timestamp: "00:30",
-        },
-        {
-          sender: "bidan",
-          message: "Baik Bu Ani, apakah pernah mengalami perdarahan atau bercak darah, terutama setelah berhubungan seksual dengan suami?",
-          timestamp: "00:52",
-          isKeyQuestion: true,
-        },
-        {
-          sender: "pasien",
-          message: "Iya betul sekali Bu Bidan, beberapa kali keluar flek merah segar setelah senggama. Saya jadi agak takut...",
-          timestamp: "01:10",
-        },
-        {
-          sender: "bidan",
-          message: "Bisa diceritakan riwayat kehamilan Ibu sebelumnya, sudah melahirkan berapa kali dan kapan menstruasi terakhir?",
-          timestamp: "01:35",
-          isKeyQuestion: true,
-        },
-        {
-          sender: "pasien",
-          message: "Saya sudah melahirkan 4 kali normal dan tidak pernah keguguran (G5P4A0). HPHT sekitar 2 minggu lalu dan siklus masih teratur.",
-          timestamp: "01:55",
-        },
-        {
-          sender: "bidan",
-          message: "Apakah Ibu saat ini memakai alat kontrasepsi dan pernah melakukan pemeriksaan IVA atau Pap smear sebelumnya?",
-          timestamp: "02:18",
-          isKeyQuestion: true,
-        },
-        {
-          sender: "pasien",
-          message: "Saya pakai IUD/spiral sudah 8 tahunan Bu. Saya belum pernah periksa IVA ataupun vaksinasi kanker serviks.",
-          timestamp: "02:40",
-        },
-      ],
-      keywordsFound: [
-        { keyword: "Keluhan Keputihan Patologis & Berbau", kategori: "Keluhan Utama", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Perdarahan Kontak / Pasca Senggama", kategori: "Tanda Bahaya", skor: 25, maxSkor: 25, isMatched: true },
-        { keyword: "Status Paritas & Riwayat Obstetri G5P4A0", kategori: "Riwayat Reproduksi", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Penggunaan Kontrasepsi IUD > 8 Tahun", kategori: "Riwayat KB", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Riwayat Skrining IVA & Vaksin HPV", kategori: "Riwayat Pencegahan", skor: 10, maxSkor: 15, isMatched: true },
-      ],
-      totalSkor: 95,
-      maxSkor: 100,
-      evaluatorNote: "Anamnesis sangat runtut, menggali seluruh faktor risiko kritis dengan komunikasi yang sopan dan terarah.",
-    },
-    stase2: {
-      selectedCards: [
-        { nama: "Perdarahan Kontak Pasca Koitus", isCorrect: true, skor: 25 },
-        { nama: "Multiparitas Tinggi (G5P4A0)", isCorrect: true, skor: 25 },
-        { nama: "Usia Menikah / Kontak Seksual Pertama < 20 Tahun", isCorrect: true, skor: 25 },
-        { nama: "Belum Pernah Skrining IVA / Pap Smear & Tidak Vaksinasi HPV", isCorrect: true, skor: 25 },
-      ],
-      missedCards: [],
-      distractorSelected: [],
-      totalSkor: 100,
-      maxSkor: 100,
-      evaluatorNote: "Semua kartu faktor risiko patologi serviks ditempelkan dengan tepat tanpa ada kartu distraktor.",
-    },
-    stase3: {
-      arrangedSteps: [
-        { order: 1, expectedOrder: 1, namaLangkah: "Informed consent, penjelasan prosedur, dan cuci tangan 6 langkah", isExactPosition: true, skor: 15 },
-        { order: 2, expectedOrder: 2, namaLangkah: "Pasang spekulum cocor bebek (Graves) hingga porsio serviks terlihat jelas", isExactPosition: true, skor: 20 },
-        { order: 3, expectedOrder: 3, namaLangkah: "Bersihkan lendir, darah, atau fluor albus dengan kapas lidi steril", isExactPosition: true, skor: 15 },
-        { order: 4, expectedOrder: 4, namaLangkah: "Identifikasi Sambungan Skuamo-Kolumnar (SSK) secara menyeluruh", isExactPosition: true, skor: 15 },
-        { order: 5, expectedOrder: 5, namaLangkah: "Oleskan asam asetat 3-5% secara merata pada porsio dan tunggu 1 menit", isExactPosition: true, skor: 20 },
-        { order: 6, expectedOrder: 6, namaLangkah: "Lepaskan spekulum secara hati-hati dan dekontaminasi alat dalam larutan klorin 0.5%", isExactPosition: true, skor: 15 },
-      ],
-      totalSkor: 100,
-      maxSkor: 100,
-      evaluatorNote: "Urutan SOP Prosedur IVA 100% sempurna sesuai standar Kementerian Kesehatan RI.",
-    },
-    stase4: {
-      selectedOption: "C",
-      optionLabel: "Opsi C — IVA Positif dengan Lesi Asetowhite Luas (>75% kuadran SSK)",
-      isCorrect: true,
-      totalSkor: 100,
-      skor: 100,
-      maxSkor: 100,
-      diagnosisSummary: "Teridentifikasi plak asetowhite tebal, opak, berbatas tegas di area transformasi / SSK serviks pasca aplikasi asam asetat 3-5%.",
-      evaluatorNote: "Ketepatan diagnosis visual sangat akurat. Menunjukkan pemahaman mendalam tentang kriteria IVA positif.",
-    },
-    stase5: {
-      transcripts: [
-        {
-          sender: "bidan",
-          message: "Ibu Ani, alhamdulillah pemeriksaannya sudah selesai. Saya sampaikan hasil pemeriksaannya dengan jelas ya Bu.",
-          timestamp: "00:15",
-        },
-        {
-          sender: "pasien",
-          message: "Bagaimana hasilnya Bu Bidan? Apakah saya terkena kanker ganas?",
-          timestamp: "00:25",
-        },
-        {
-          sender: "bidan",
-          message: "Ibu tidak perlu panik ya. Hasil IVA menunjukkan ada lesi putih atau bercak yang dinamakan lesi pra-kanker. Ini BUKAN kanker ganas, melainkan tanda awal yang justru bisa disembuhkan secara tuntas bila ditangani sejak dini.",
-          timestamp: "00:50",
-        },
-        {
-          sender: "pasien",
-          message: "Alhamdulillah kalau masih bisa diobati... Lalu tindakan apa yang harus saya jalani selanjutnya Bu Bidan?",
-          timestamp: "01:10",
-        },
-        {
-          sender: "bidan",
-          message: "Kami akan membuatkan surat rujukan ke Dokter Spesialis Kandungan (SpOG) di RSUD untuk pemeriksaan lanjutan dan penanganan krioterapi. Nanti Ibu didampingi oleh suami ya saat berkonsultasi.",
-          timestamp: "01:38",
-        },
-      ],
-      counselingCriteria: [
-        { kriteria: "Komunikasi Empatik & Menenangkan", deskripsi: "Meredakan kecemasan dan memberikan rasa aman pada pasien", skor: 25, maxSkor: 25, isFulfilled: true },
-        { kriteria: "Edukasi Lesi Pra-Kanker vs Kanker", deskripsi: "Menjelaskan bahwa IVA positif adalah lesi yang dapat disembuhkan", skor: 30, maxSkor: 30, isFulfilled: true },
-        { kriteria: "Penjelasan Rencana Krioterapi / Tindakan", deskripsi: "Menjelaskan opsi penanganan terapi medis yang tersedia", skor: 20, maxSkor: 25, isFulfilled: true },
-        { kriteria: "Prosedur Rujukan SpOG & Dukungan Keluarga", deskripsi: "Menyiapkan surat rujukan dan melibatkan pendampingan suami", skor: 20, maxSkor: 20, isFulfilled: true },
-      ],
-      totalSkor: 95,
-      maxSkor: 100,
-      evaluatorNote: "Penyampaian asuhan sangat menyejukkan, artikulasi jelas, penjelasan klinis akurat dan mudah dipahami pasien.",
-    },
-  },
-  {
-    id: "kel-02",
-    nama: "Kelompok B",
-    kasusId: "KSS-002",
-    kasusNama: "Ny. B (38 Tahun) — Lesi Asetowhite Tidak Luas & Skrining Rutin",
-    waktuPengerjaan: "08 Menit 30 Detik",
-    rank: 2,
-    totalAkumulasi: 430,
-    maxTotalAkumulasi: 500,
-    rataRataSkor: 86.0,
-    totalSkor: 430,
-    predikat: "Kompeten",
-    status: "Lulus",
-    anggota: [
-      { id: "mhs-04", nama: "Dian Ayu Wardani", nim: "21060120140004", peran: "Ketua Tim" },
-      { id: "mhs-05", nama: "Erna Wulandari", nim: "21060120140005", peran: "Anggota 1" },
-      { id: "mhs-06", nama: "Fatimah Nur Azizah", nim: "21060120140006", peran: "Anggota 2" },
-    ],
-    stase1: {
-      transcripts: [
-        {
-          sender: "bidan",
-          message: "Halo Ibu, saya Bidan Dian. Ada keluhan apa yang membuat Ibu datang ke klinik kami?",
-          timestamp: "00:20",
-          isKeyQuestion: false,
-        },
-        {
-          sender: "pasien",
-          message: "Halo Bu Bidan. Saya merasa sering keputihan dan ingin periksa leher rahim karena tetangga saya ada yang kena tumor.",
-          timestamp: "00:38",
-        },
-        {
-          sender: "bidan",
-          message: "Apakah saat berhubungan dengan suami ada rasa sakit atau keluar darah Bu?",
-          timestamp: "01:02",
-          isKeyQuestion: true,
-        },
-        {
-          sender: "pasien",
-          message: "Kadang ada sedikit flek kecokelatan kalau berhubungan pas capek Bu.",
-          timestamp: "01:20",
-        },
-        {
-          sender: "bidan",
-          message: "Ibu anak ke berapa dan riwayat kehamilannya bagaimana?",
-          timestamp: "01:45",
-          isKeyQuestion: true,
-        },
-        {
-          sender: "pasien",
-          message: "Saya sudah punya 3 anak, semuanya lahir normal.",
-          timestamp: "02:00",
-        },
-      ],
-      keywordsFound: [
-        { keyword: "Keluhan Keputihan Patologis & Berbau", kategori: "Keluhan Utama", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Perdarahan Kontak / Pasca Senggama", kategori: "Tanda Bahaya", skor: 25, maxSkor: 25, isMatched: true },
-        { keyword: "Status Paritas & Riwayat Obstetri G5P4A0", kategori: "Riwayat Reproduksi", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Penggunaan Kontrasepsi IUD > 8 Tahun", kategori: "Riwayat KB", skor: 20, maxSkor: 20, isMatched: true },
-        { keyword: "Riwayat Skrining IVA & Vaksin HPV", kategori: "Riwayat Pencegahan", skor: 0, maxSkor: 15, isMatched: false },
-      ],
-      totalSkor: 85,
-      maxSkor: 100,
-      evaluatorNote: "Wawancara cukup baik, namun lupa menanyakan riwayat skrining sebelumnya dan status vaksinasi HPV.",
-    },
-    stase2: {
-      selectedCards: [
-        { nama: "Perdarahan Kontak Pasca Koitus", isCorrect: true, skor: 25 },
-        { nama: "Multiparitas Tinggi (G5P4A0)", isCorrect: true, skor: 25 },
-        { nama: "Usia Menikah / Kontak Seksual Pertama < 20 Tahun", isCorrect: true, skor: 25 },
-      ],
-      missedCards: ["Belum Pernah Skrining IVA / Pap Smear & Tidak Vaksinasi HPV"],
-      distractorSelected: [],
-      totalSkor: 75,
-      maxSkor: 100,
-      evaluatorNote: "Tiga faktor risiko utama teridentifikasi, namun satu faktor risiko skrining terlewat di papan magnet.",
-    },
-    stase3: {
-      arrangedSteps: [
-        { order: 1, expectedOrder: 1, namaLangkah: "Informed consent, penjelasan prosedur, dan cuci tangan 6 langkah", isExactPosition: true, skor: 15 },
-        { order: 2, expectedOrder: 2, namaLangkah: "Pasang spekulum cocor bebek (Graves) hingga porsio serviks terlihat jelas", isExactPosition: true, skor: 20 },
-        { order: 3, expectedOrder: 4, namaLangkah: "Identifikasi Sambungan Skuamo-Kolumnar (SSK) secara menyeluruh", isExactPosition: false, skor: 10 },
-        { order: 4, expectedOrder: 3, namaLangkah: "Bersihkan lendir, darah, atau fluor albus dengan kapas lidi steril", isExactPosition: false, skor: 10 },
-        { order: 5, expectedOrder: 5, namaLangkah: "Oleskan asam asetat 3-5% secara merata pada porsio dan tunggu 1 menit", isExactPosition: true, skor: 20 },
-        { order: 6, expectedOrder: 6, namaLangkah: "Lepaskan spekulum secara hati-hati dan dekontaminasi alat dalam larutan klorin 0.5%", isExactPosition: true, skor: 15 },
-      ],
-      totalSkor: 85,
-      maxSkor: 100,
-      evaluatorNote: "Langkah 3 dan 4 tertukar urutannya (seharusnya membersihkan lendir terlebih dahulu sebelum identifikasi SSK).",
-    },
-    stase4: {
-      selectedOption: "C",
-      optionLabel: "Opsi C — IVA Positif dengan Lesi Asetowhite Luas (>75% kuadran SSK)",
-      isCorrect: true,
-      totalSkor: 100,
-      skor: 100,
-      maxSkor: 100,
-      diagnosisSummary: "Memilih jawaban Opsi C dengan benar pada visualisasi serviks asam asetat.",
-      evaluatorNote: "Interpretasi gambar serviks tepat sasaran.",
-    },
-    stase5: {
-      transcripts: [
-        {
-          sender: "bidan",
-          message: "Ibu, hasil pemeriksaannya ada lesi putih ya, namanya IVA positif. Ibu harus dirujuk ke Rumah Sakit.",
-          timestamp: "00:20",
-        },
-        {
-          sender: "pasien",
-          message: "Aduh Bu Bidan, apakah itu parah? Saya takut sekali kalau harus operasi...",
-          timestamp: "00:35",
-        },
-        {
-          sender: "bidan",
-          message: "Jangan khawatir Bu, ini masih bisa ditangani oleh dokter spesialis kandungan. Nanti kami buatkan surat rujukan.",
-          timestamp: "01:00",
-        },
-      ],
-      counselingCriteria: [
-        { kriteria: "Komunikasi Empatik & Menenangkan", deskripsi: "Meredakan kecemasan dan memberikan rasa aman pada pasien", skor: 20, maxSkor: 25, isFulfilled: true },
-        { kriteria: "Edukasi Lesi Pra-Kanker vs Kanker", deskripsi: "Menjelaskan bahwa IVA positif adalah lesi yang dapat disembuhkan", skor: 25, maxSkor: 30, isFulfilled: true },
-        { kriteria: "Penjelasan Rencana Krioterapi / Tindakan", deskripsi: "Menjelaskan opsi penanganan terapi medis yang tersedia", skor: 15, maxSkor: 25, isFulfilled: false },
-        { kriteria: "Prosedur Rujukan SpOG & Dukungan Keluarga", deskripsi: "Menyiapkan surat rujukan dan melibatkan pendampingan suami", skor: 25, maxSkor: 20, isFulfilled: true },
-      ],
-      totalSkor: 85,
-      maxSkor: 100,
-      evaluatorNote: "Penyampaian rujukan baik, namun penjelasan edukasi mengenai tindakan krioterapi masih kurang mendalam.",
-    },
-  },
-];
+export const REKAP_KELOMPOK_LIST: KelompokRekapData[] = [];
 
 export const KUNCI_JAWABAN_STANDAR = {
   stase1: {
@@ -506,7 +227,7 @@ export const KUNCI_JAWABAN_STANDAR = {
     jawabanBenar: "Opsi C — IVA Positif dengan Lesi Asetowhite Luas (>75% kuadran SSK)",
     bobotBenar: 100,
     pembahasan:
-      "Tampak gambaran epitel asetowhite tebal (dense acetowhite epithelium) dengan batas tegas menutupi zona transformasi dan meluas melebihi 75% permukaan serviks. Gambaran ini mengindikasikan lesi pra-kanker derajat tinggi (CIN 2/3) yang membutuhkan penanganan krioterapi atau rujukan spesialis onkologi.",
+      "Tampak gambaran epitel asetowhite tebal (dense acetowhite epithelium) dengan batas tegas menutupi zona transformasi dan meluas melebihi 75% permukaan serviks. Gambaran ini mengindikasikan lesi pra-kanker derajat tinggi (CIN 2/3) yang membutuhkan rujukan spesialis obstetri & ginekologi.",
   },
   stase5: {
     title: "Pos 5: Asuhan Kebidanan & Konseling Empatik",
@@ -525,9 +246,9 @@ export const KUNCI_JAWABAN_STANDAR = {
         deskripsi: "Menegaskan bahwa ini adalah lesi pra-kanker yang dapat disembuhkan 100% dengan terapi tepat.",
       },
       {
-        nama: "Penjelasan Rencana Krioterapi / Tata Laksana Lanjut",
+        nama: "Penjelasan Rencana Tata Laksana & Rujukan SpOG",
         bobot: 25,
-        deskripsi: "Menjelaskan metode pengobatan krioterapi (pembekuan sel abnormal) atau prosedur rujukan.",
+        deskripsi: "Menjelaskan metode penanganan lanjutan dan alur rujukan medis terpadu.",
       },
       {
         nama: "Prosedur Surat Rujukan SpOG & Pelibatan Pasangan (Suami)",
@@ -537,3 +258,145 @@ export const KUNCI_JAWABAN_STANDAR = {
     ],
   },
 };
+
+/**
+ * Mapper dari response detail API trx_response_answer ke model UI KelompokRekapData
+ */
+export function mapTrxResponseAnswerToKelompokRekap(
+  detail: TrxResponseAnswerDetail,
+  rank: number = 1,
+): KelompokRekapData {
+  // Map Pos 1 (Method 1 - Anamnesis)
+  const pos1 = detail.pos?.find((p) => p.casequest_order === 1 || p.casequest_method_id === 1);
+  const pos1Chats = Array.isArray(pos1?.answers?.chats) ? pos1.answers.chats : [];
+  const pos1Triggers = Array.isArray(pos1?.answers?.triggers) ? pos1.answers.triggers : [];
+  const pos1Score = pos1?.total_score ?? 0;
+
+  // Map Pos 2 (Method 2 - MC Faktor Risiko)
+  const pos2 = detail.pos?.find((p) => p.casequest_order === 2 || p.casequest_method_id === 2);
+  const pos2Answers = Array.isArray(pos2?.answers) ? pos2.answers : [];
+  const pos2Score = pos2?.total_score ?? 0;
+
+  // Map Pos 3 (Method 3 - OS Prosedur IVA)
+  const pos3 = detail.pos?.find((p) => p.casequest_order === 3 || p.casequest_method_id === 3);
+  const pos3Answers = Array.isArray(pos3?.answers) ? pos3.answers : [];
+  const pos3Score = pos3?.total_score ?? 0;
+
+  // Map Pos 4 (Method 4 - Visual MCQ)
+  const pos4 = detail.pos?.find((p) => p.casequest_order === 4 || p.casequest_method_id === 4);
+  const pos4Answers = Array.isArray(pos4?.answers) ? pos4.answers : [];
+  const pos4Score = pos4?.total_score ?? 0;
+
+  // Map Pos 5 (Method 1 kedua / order 5 - Asuhan Kebidanan)
+  const pos5 = detail.pos?.find(
+    (p) => p.casequest_order === 5 || (p.casequest_method_id === 1 && p !== pos1),
+  );
+  const pos5Chats = Array.isArray(pos5?.answers?.chats) ? pos5.answers.chats : [];
+  const pos5Triggers = Array.isArray(pos5?.answers?.triggers) ? pos5.answers.triggers : [];
+  const pos5Score = pos5?.total_score ?? 0;
+
+  const totalCalc =
+    detail.calculated_total_score ??
+    Math.round(parseFloat(detail.response_total_score || "0"));
+
+  return {
+    id: String(detail.response_id),
+    nama: detail.contestteam_name || "Tim Peserta",
+    kasusId: String(detail.response_case_id),
+    kasusNama: detail.case_name || "Kasus Sirkuit",
+    waktuPengerjaan: "07:45",
+    rank,
+    totalAkumulasi: totalCalc,
+    maxTotalAkumulasi: 500,
+    rataRataSkor: totalCalc / 5,
+    totalSkor: totalCalc,
+    predikat:
+      totalCalc >= 400
+        ? "Sangat Kompeten"
+        : totalCalc >= 300
+          ? "Kompeten"
+          : "Perlu Bimbingan",
+    status: totalCalc >= 300 ? "Lulus" : "Remedial",
+    anggota: [
+      {
+        id: "m-1",
+        nama: detail.contestteam_name || "Peserta Lomba",
+        nim: "TIM-API",
+        peran: "Ketua & Anggota Tim",
+      },
+    ],
+    stase1: {
+      transcripts: pos1Chats.map((c: any) => ({
+        sender: c.responseia_sender === 1 ? "pasien" : "bidan",
+        message: c.responseia_text,
+        timestamp: c.chat_time || "10:00",
+        isKeyQuestion: c.responseia_sender === 2,
+      })),
+      keywordsFound: pos1Triggers.map((t: any) => ({
+        keyword: t.casequestiatrigger_key,
+        kategori: t.casequestiatrigger_name,
+        skor: parseFloat(t.responseiatrigger_score) || 10,
+        maxSkor: 10,
+        isMatched: true,
+      })),
+      totalSkor: pos1Score,
+      maxSkor: 100,
+      evaluatorNote: "Catatan: Fitur catatan evaluator dari juri belum disediakan API backend.",
+    },
+    stase2: {
+      selectedCards: pos2Answers.map((a: any) => ({
+        nama: a.casequestmc_name || `Faktor Risiko #${a.casequestmc_id}`,
+        isCorrect: (a.score ?? 0) > 0,
+        skor: a.score ?? 0,
+      })),
+      missedCards: [],
+      distractorSelected: [],
+      totalSkor: pos2Score,
+      maxSkor: 100,
+      evaluatorNote: "Pilihan faktor risiko tersimpan di basis data.",
+    },
+    stase3: {
+      arrangedSteps: pos3Answers.map((a: any) => ({
+        order: a.responseos_order ?? a.user_order ?? 1,
+        expectedOrder: a.correct_order ?? 1,
+        namaLangkah:
+          a.casequestos_name || `Langkah SOP #${a.responseos_casequestos_id}`,
+        isExactPosition:
+          a.is_correct ?? a.responseos_order === a.correct_order,
+        skor: parseFloat(String(a.responseos_score ?? a.score ?? 0)) || 0,
+      })),
+      totalSkor: pos3Score,
+      maxSkor: 100,
+      evaluatorNote: "Urutan langkah SOP berhasil diverifikasi sistem.",
+    },
+    stase4: {
+      selectedOption:
+        pos4Answers[0]?.casequestcioption_name || "Opsi Terpilih",
+      optionLabel:
+        pos4Answers[0]?.casequestcioption_name || "Hasil Diagnosis",
+      isCorrect: (pos4Answers[0]?.score ?? 0) > 0,
+      totalSkor: pos4Score,
+      skor: pos4Score,
+      maxSkor: 100,
+      diagnosisSummary: "Interpretasi visual porsio serviks.",
+      evaluatorNote: "Pilihan interpretasi visual tersimpan.",
+    },
+    stase5: {
+      transcripts: pos5Chats.map((c: any) => ({
+        sender: c.responseia_sender === 1 ? "pasien" : "bidan",
+        message: c.responseia_text,
+        timestamp: c.chat_time || "10:05",
+      })),
+      counselingCriteria: pos5Triggers.map((t: any) => ({
+        kriteria: t.casequestiatrigger_name,
+        deskripsi: t.casequestiatrigger_key,
+        skor: parseFloat(t.responseiatrigger_score) || 20,
+        maxSkor: 25,
+        isFulfilled: true,
+      })),
+      totalSkor: pos5Score,
+      maxSkor: 100,
+      evaluatorNote: "Konseling interaktif selesai.",
+    },
+  };
+}

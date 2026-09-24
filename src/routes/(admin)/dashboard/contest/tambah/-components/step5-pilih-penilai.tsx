@@ -20,8 +20,14 @@ export function Step5PilihPenilai({
   selectedPenilaiIds,
   onChange,
 }: Step5PilihPenilaiProps) {
-  const { penilaiList } = useContestStore();
+  const { penilaiList, fetchUsers, isLoadingUsers } = useContestStore();
   const [isPickerModalOpen, setIsPickerModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (penilaiList.length === 0) {
+      fetchUsers();
+    }
+  }, [penilaiList.length, fetchUsers]);
 
   const selectedPenilaiList = React.useMemo(() => {
     return penilaiList.filter((p) => selectedPenilaiIds.includes(p.id));
