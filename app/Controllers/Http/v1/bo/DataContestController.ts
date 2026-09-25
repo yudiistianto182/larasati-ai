@@ -10,7 +10,7 @@ const DataContest = new DataContestRepository()
 const TrxResponseCtrl = new TrxResponseController()
 
 export default class DataContestController {
-    public async index({request, response}) {
+    public async index({ request, response }) {
         let data: Array<string> = [];
         let result: object = {};
         let where: object = { contest_is_deleted: 0 };
@@ -18,10 +18,10 @@ export default class DataContestController {
         if (request.only(['dropdown']).dropdown) {
             data = await General.dropdownData('data_contest', 'contest_id', 'contest_name', where);
         } else {
-            data = await DataContest.getAll({request});
+            data = await DataContest.getAll({ request });
             if (typeof request.only(['limit']).limit !== 'undefined' && typeof request.only(['page']).page !== 'undefined') {
                 for (let index = 0; index < data.rows.length; index++) {
-                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * ( data.currentPage - 1 )) + index + 1;
+                    data.rows[index].numb = (parseInt(request.only(['limit']).limit) * (data.currentPage - 1)) + index + 1;
                     data.rows[index].contest_datestart_text = date.format(new Date(data.rows[index].contest_datestart), 'YYYY-MM-DD');
                     data.rows[index].contest_dateend_text = date.format(new Date(data.rows[index].contest_dateend), 'YYYY-MM-DD');
                 }
@@ -29,28 +29,28 @@ export default class DataContestController {
                 for (let index = 0; index < data.length; index++) {
                     data[index].contest_datestart_text = date.format(new Date(data[index].contest_datestart), 'YYYY-MM-DD');
                     data[index].contest_dateend_text = date.format(new Date(data[index].contest_dateend), 'YYYY-MM-DD');
-                }   
+                }
             }
         }
 
         if (typeof data.length != 'undefined' || data.data[0]) {
             result = {
-                status : true,
-                message : 'Success',
-                data : data
+                status: true,
+                message: 'Success',
+                data: data
             }
             response.send(result);
         } else {
             result = {
-                status : false,
-                message : 'Data not found !',
-                data : data
+                status: false,
+                message: 'Data not found !',
+                data: data
             }
             response.status(404).send(result);
         }
     }
 
-    public async detail ({request, params, response}) {
+    public async detail({ request, params, response }) {
         let result: object = {};
 
         let where = { contest_id: params.id };
@@ -131,6 +131,25 @@ export default class DataContestController {
                     'b.case_introduction'
                 ]);
 
+            // Ambil juga kasus lomba yang terdaftar di trx_response contest ini (jika belum tercatat di data_contest_case)
+            const trxCases = await Database.query()
+                .from('trx_response as tr')
+                .join('data_case as b', 'b.case_id', 'tr.response_case_id')
+                .where('tr.response_contest_id', params.id)
+                .where('b.case_is_deleted', 0)
+                .select([
+                    'b.case_id',
+                    'b.case_name',
+                    'b.case_desc',
+                    'b.case_introduction'
+                ]);
+
+            for (const tc of trxCases) {
+                if (!contestCases.some((c: any) => c.case_id === tc.case_id)) {
+                    contestCases.push(tc);
+                }
+            }
+
             let totalPosInContest = 0;
             for (const c of contestCases) {
                 const questCountResult = await Database.query()
@@ -149,10 +168,18 @@ export default class DataContestController {
             }
             data.case = contestCases;
 
-            // Peserta lomba (data_contest_team)
+            // Peserta lomba: ambil dari data_contest_team yang terdaftar di contest ini atau memiliki response di trx_response
             const teams = await Database.query()
                 .from('data_contest_team')
-                .where('contestteam_contest_id', params.id)
+                .where((query) => {
+                    query.where('contestteam_contest_id', params.id)
+                        .orWhereIn('contestteam_id',
+                            Database.query()
+                                .from('trx_response')
+                                .where('response_contest_id', params.id)
+                                .select('response_contestteam_id')
+                        )
+                })
                 .orderBy('contestteam_id', 'asc');
 
             const teamsData: any[] = [];
@@ -176,10 +203,11 @@ export default class DataContestController {
 
                 const leader = members.find((m: any) => Number(m.contestteammember_is_leader) === 1) || members[0] || null;
 
-                // Responses tim dalam contest ini
+                // Responses tim dalam contest ini (kasus yang didapat dari tabel trx_response)
                 const responses = await Database.query()
                     .from('trx_response as a')
                     .leftJoin('data_case as b', 'b.case_id', 'a.response_case_id')
+                    .leftJoin('data_patient as p', 'p.patient_id', 'a.response_patient_id')
                     .where('a.response_contest_id', params.id)
                     .where('a.response_contestteam_id', team.contestteam_id)
                     .select([
@@ -190,7 +218,12 @@ export default class DataContestController {
                         'a.response_patient_id',
                         'a.response_total_score',
                         'a.response_is_submited',
-                        'b.case_name'
+                        'b.case_name',
+                        'b.case_desc',
+                        'b.case_introduction',
+                        'p.patient_name',
+                        'p.patient_gender',
+                        'p.patient_birthdate'
                     ]);
 
                 let teamScore = 0;
@@ -200,6 +233,38 @@ export default class DataContestController {
 
                 if (responses && responses.length > 0) {
                     for (const resp of responses) {
+                        // Fallback data pasien jika response_patient_id kosong tapi kasus memiliki data pasien
+                        if (!resp.patient_name && resp.response_case_id) {
+                            const cp = await Database.query()
+                                .from('data_case_patient as cp')
+                                .join('data_patient as p', 'p.patient_id', 'cp.casepatient_patient_id')
+                                .where('cp.casepatient_case_id', resp.response_case_id)
+                                .select(['p.patient_id', 'p.patient_name', 'p.patient_gender', 'p.patient_birthdate'])
+                                .first();
+                            if (cp) {
+                                resp.patient_name = cp.patient_name;
+                                resp.patient_gender = cp.patient_gender;
+                                resp.patient_birthdate = cp.patient_birthdate;
+                                if (!resp.response_patient_id) {
+                                    resp.response_patient_id = cp.patient_id;
+                                }
+                            }
+                        }
+
+                        resp.case = resp.response_case_id ? {
+                            case_id: resp.response_case_id,
+                            case_name: resp.case_name || null,
+                            case_desc: resp.case_desc || null,
+                            case_introduction: resp.case_introduction || null
+                        } : null;
+
+                        resp.patient = resp.patient_name ? {
+                            patient_id: resp.response_patient_id || null,
+                            patient_name: resp.patient_name,
+                            patient_gender: resp.patient_gender || null,
+                            patient_birthdate: resp.patient_birthdate || null
+                        } : null;
+
                         const posInfo = await TrxResponseCtrl.getPosStatusAndScores(resp.response_id, resp.response_case_id);
                         const durationRow = await Database.query()
                             .from('trx_response_answer')
@@ -249,6 +314,41 @@ export default class DataContestController {
 
                 const finalPosTotal = teamPosTotal > 0 ? teamPosTotal : totalPosInContest;
 
+                const firstResp = responses && responses.length > 0 ? responses[0] : null;
+                const assignedCase = firstResp?.case || (firstResp?.response_case_id ? {
+                    case_id: firstResp.response_case_id,
+                    case_name: firstResp.case_name || null,
+                    case_desc: firstResp.case_desc || null,
+                    case_introduction: firstResp.case_introduction || null
+                } : null);
+
+                const assignedCases = (responses || []).map((r: any) => ({
+                    response_id: r.response_id,
+                    case_id: r.response_case_id,
+                    case_name: r.case_name || null,
+                    case_desc: r.case_desc || null,
+                    case_introduction: r.case_introduction || null,
+                    patient_id: r.response_patient_id || null,
+                    patient_name: r.patient_name || null,
+                    patient_gender: r.patient_gender || null,
+                    score: r.response_total_score,
+                    total_score: r.response_total_score,
+                    is_submited: r.response_is_submited,
+                    status_pengerjaan: Number(r.response_is_submited) === 1 ? 'SELESAI' : 'SEDANG_MENGERJAKAN',
+                    duration: r.duration,
+                    duration_text: r.duration_text,
+                    duration_clock: r.duration_clock,
+                    pos_progress: r.pos_progress,
+                    pos_progress_text: r.pos_progress_text
+                }));
+
+                const assignedPatient = firstResp?.patient || (firstResp?.patient_name ? {
+                    patient_id: firstResp.response_patient_id || null,
+                    patient_name: firstResp.patient_name || null,
+                    patient_gender: firstResp.patient_gender || null,
+                    patient_birthdate: firstResp.patient_birthdate || null
+                } : null);
+
                 teamsData.push({
                     contestteam_id: team.contestteam_id,
                     contestteam_name: team.contestteam_name,
@@ -261,6 +361,17 @@ export default class DataContestController {
                     leader_name: leader ? (leader.user_fullname || leader.user_name) : '-',
                     total_members: members.length,
                     members: members,
+
+                    // Informasi tim dan kasus yang didapat dari tabel trx_response
+                    response_id: firstResp ? firstResp.response_id : null,
+                    case_id: firstResp ? firstResp.response_case_id : null,
+                    case_name: firstResp ? (firstResp.case_name || null) : null,
+                    case: assignedCase,
+                    cases: assignedCases,
+                    patient_id: firstResp ? (firstResp.response_patient_id || null) : null,
+                    patient_name: firstResp ? (firstResp.patient_name || null) : null,
+                    patient: assignedPatient,
+
                     status_pengerjaan: statusPengerjaan,
                     status_pengerjaan_text: statusPengerjaanText,
                     is_submitted: isSubmitted,
@@ -312,6 +423,13 @@ export default class DataContestController {
                 leader_name: item.leader_name,
                 leader: item.leader,
                 total_members: item.total_members,
+                response_id: item.response_id,
+                case_id: item.case_id,
+                case_name: item.case_name,
+                case: item.case,
+                cases: item.cases,
+                patient_name: item.patient_name,
+                patient: item.patient,
                 score: item.total_score,
                 total_score: item.total_score,
                 status_pengerjaan: item.status_pengerjaan,
@@ -325,6 +443,21 @@ export default class DataContestController {
                 pos_progress: item.pos_progress,
                 pos_progress_text: item.pos_progress_text
             }));
+
+            // Pasangkan daftar tim ke masing-masing kasus berdasarkan kasus yang didapat di trx_response
+            for (const c of contestCases) {
+                c.teams = teamsData
+                    .filter((t) => (t.cases || []).some((cs: any) => cs.case_id === c.case_id))
+                    .map((t) => ({
+                        contestteam_id: t.contestteam_id,
+                        contestteam_name: t.contestteam_name,
+                        leader_name: t.leader_name,
+                        status_pengerjaan: t.status_pengerjaan,
+                        score: t.total_score,
+                        duration_text: t.total_duration_text
+                    }));
+                c.total_teams = c.teams.length;
+            }
 
             // Summary / Statistik Lomba
             const totalPeserta = teamsData.length;
@@ -358,22 +491,49 @@ export default class DataContestController {
                 total_pos: totalPosInContest
             };
 
+            // Daftar transaksi response tim dan kasus dalam contest ini dari tabel trx_response
+            const contestResponses = teamsData.flatMap((t) =>
+                (t.responses || []).map((r: any) => ({
+                    response_id: r.response_id,
+                    contestteam_id: t.contestteam_id,
+                    contestteam_name: t.contestteam_name,
+                    case_id: r.response_case_id,
+                    case_name: r.case_name || null,
+                    case: r.case || null,
+                    patient_id: r.response_patient_id || null,
+                    patient_name: r.patient_name || null,
+                    patient: r.patient || null,
+                    score: r.response_total_score,
+                    total_score: r.response_total_score,
+                    is_submited: r.response_is_submited,
+                    status_pengerjaan: Number(r.response_is_submited) === 1 ? 'SELESAI' : 'SEDANG_MENGERJAKAN',
+                    duration: r.duration,
+                    duration_text: r.duration_text,
+                    duration_clock: r.duration_clock,
+                    pos_progress: r.pos_progress,
+                    pos_progress_text: r.pos_progress_text
+                }))
+            );
+
             data.peserta = teamsData;
+            data.tim = teamsData;
+            data.teams = teamsData;
             data.ranking = ranking;
             data.leaderboard = ranking;
+            data.trx_response = contestResponses;
             data.summary = summary;
             data.statistik = summary;
 
             result = {
-                'status' 	: true,
-                'message'   : 'Success',
-                'data'		: data
+                'status': true,
+                'message': 'Success',
+                'data': data
             }
             response.send(result);
         } else {
             result = {
-                'status' 	: false,
-                'message'   : 'Data not found !'
+                'status': false,
+                'message': 'Data not found !'
             }
             response.status(404).send(result);
         }
@@ -400,7 +560,7 @@ export default class DataContestController {
         return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
     }
 
-    public async store ({request, response}) {
+    public async store({ request, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -436,7 +596,7 @@ export default class DataContestController {
                 })
             )
         });
-        
+
         try {
             await request.validate({ schema: validationSchema });
 
@@ -451,9 +611,9 @@ export default class DataContestController {
                     contest_desc: post.desc
                 }
                 let contest_id = await trx
-                                    .insertQuery()
-                                    .table('data_contest')
-                                    .insert(data_insert);
+                    .insertQuery()
+                    .table('data_contest')
+                    .insert(data_insert);
 
                 for (let index = 0; index < post.scorer.length; index++) {
                     let data_insert_scorer = {
@@ -464,7 +624,7 @@ export default class DataContestController {
                         .insertQuery()
                         .table('data_contest_scorer')
                         .insert(data_insert_scorer);
-                }  
+                }
 
                 for (let index = 0; index < post.case.length; index++) {
                     let data_insert_case = {
@@ -475,8 +635,8 @@ export default class DataContestController {
                         .insertQuery()
                         .table('data_contest_case')
                         .insert(data_insert_case);
-                }  
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -485,8 +645,8 @@ export default class DataContestController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -500,7 +660,7 @@ export default class DataContestController {
         }
     }
 
-    public async update ({request, params, response}) {
+    public async update({ request, params, response }) {
         let result: object = {};
 
         const validationSchema = schema.create({
@@ -542,7 +702,7 @@ export default class DataContestController {
             await request.validate({ schema: validationSchema });
 
             let post = request.body();
-                   
+
             const trx = await Database.transaction();
             try {
                 let where_update = { contest_id: params.id }
@@ -579,7 +739,7 @@ export default class DataContestController {
                         .insertQuery()
                         .table('data_contest_scorer')
                         .insert(data_insert_case);
-                }  
+                }
 
                 for (let index = 0; index < post.case.length; index++) {
                     let data_insert_case = {
@@ -590,8 +750,8 @@ export default class DataContestController {
                         .insertQuery()
                         .table('data_contest_case')
                         .insert(data_insert_case);
-                }  
-        
+                }
+
                 result = {
                     status: true,
                     message: 'Success !'
@@ -600,8 +760,8 @@ export default class DataContestController {
                 await trx.commit();
             } catch (error) {
                 result = {
-                    status : false,
-                    message : error.sqlMessage
+                    status: false,
+                    message: error.sqlMessage
                 }
                 response.badRequest(result);
                 await trx.rollback();
@@ -612,12 +772,12 @@ export default class DataContestController {
                 message: error.messages.errors[0].field + ' ' + error.messages.errors[0].message
             }
             response.badRequest(result);
-        } 
+        }
     }
 
-    public async destroy ({request, params, response}) {
+    public async destroy({ request, params, response }) {
         let result: object = {};
-                 
+
         const trx = await Database.transaction();
         try {
             let where_update = { contest_id: params.id };
@@ -626,7 +786,7 @@ export default class DataContestController {
                 .from('data_contest')
                 .where(where_update)
                 .update(data_update);
-    
+
             result = {
                 status: true,
                 message: 'Success !'
@@ -635,11 +795,11 @@ export default class DataContestController {
             await trx.commit();
         } catch (error: any) {
             result = {
-                status : false,
-                message : error.sqlMessage || error.message
+                status: false,
+                message: error.sqlMessage || error.message
             }
             response.badRequest(result);
             await trx.rollback();
-        } 
+        }
     }
 }

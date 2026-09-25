@@ -19,9 +19,27 @@
 */
 
 import Route from '@ioc:Adonis/Core/Route'
+import Application from '@ioc:Adonis/Core/Application'
+import fs from 'fs'
+import path from 'path'
 
 Route.get('/', async () => {
   return { hello: 'update on 2025-09-18 15.000' }
+})
+
+// Route untuk mengakses file / image di folder storage/
+Route.get('/storage/*', async ({ params, response }) => {
+  const parts = params['*'] || []
+  const filePath = path.join(Application.makePath('storage'), ...parts)
+
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    return response.status(404).send({
+      status: false,
+      message: 'File not found !'
+    })
+  }
+
+  return response.download(filePath)
 })
 
 Route.post('/v1/auth/login', 'v1/AuthController.login');
