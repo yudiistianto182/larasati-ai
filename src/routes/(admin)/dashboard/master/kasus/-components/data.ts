@@ -35,6 +35,8 @@ export interface InterpretasiImageItem {
   url: string;
   nama: string;
   keterangan: string;
+  file?: File;
+  raw_image?: string;
 }
 
 // Stase 4: Interpretasi MCQ option with image upload

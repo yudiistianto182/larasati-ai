@@ -374,8 +374,19 @@ export function TambahContestPage() {
         }
       }
 
-      // 3. Tautkan Kasus & Pasien ke masing-masing Kelompok via POST /v1/trx_response
+      // 3. Tautkan Kasus & Pasien ke masing-masing Kelompok via POST / PUT /v1/trx_response
       try {
+        // Ambil data_contest detail terbaru untuk response_id dari data.peserta
+        let contestPesertaList: any[] = [];
+        try {
+          const detailRes = await contestService.getDetail(cleanContestId);
+          if (detailRes?.data && Array.isArray((detailRes.data as any).peserta)) {
+            contestPesertaList = (detailRes.data as any).peserta;
+          }
+        } catch (detailErr) {
+          console.warn("[TambahContestPage] Gagal fetch detail contest peserta:", detailErr);
+        }
+
         const allTeamsRes = await contestTeamService.getAll(cleanContestId);
         const serverTeams = Array.isArray(allTeamsRes.data)
           ? allTeamsRes.data
@@ -408,9 +419,22 @@ export function TambahContestPage() {
             patientId = Number(extractNumericCaseId(targetKasus.pasien_ids[0])) || 1;
           }
 
+          // Dapatkan response_id dari:
+          // 1. kel.response_id
+          // 2. detail /v1/data_contest/{id} -> peserta[{ contestteam_id, response_id }]
+          // 3. /v1/trx_response -> response_id
+          const pesertaItem = contestPesertaList.find(
+            (p: any) => String(p.contestteam_id) === String(serverTeamId),
+          );
           const existingTrx = existingTrxList.find(
             (r: any) => String(r.response_contestteam_id || r.contestteam_id) === String(serverTeamId),
           );
+
+          const targetResponseId =
+            kel.response_id ||
+            pesertaItem?.response_id ||
+            existingTrx?.response_id ||
+            existingTrx?.id;
 
           const trxPayload = {
             contest_id: String(cleanContestId),
@@ -419,10 +443,14 @@ export function TambahContestPage() {
             patient_id: String(patientId),
           };
 
-          if (existingTrx) {
+          if (targetResponseId) {
             try {
-              await trxResponseService.update(numericCaseId, trxPayload);
-            } catch {
+              await trxResponseService.update(targetResponseId, trxPayload);
+            } catch (putErr) {
+              console.warn(
+                `[TambahContestPage] PUT /v1/trx_response/${targetResponseId} gagal, mencoba POST fallback:`,
+                putErr,
+              );
               await trxResponseService.store(trxPayload);
             }
           } else {

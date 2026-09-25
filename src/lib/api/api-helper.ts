@@ -136,3 +136,24 @@ export function buildApiUrl(
 
   return url.toString();
 }
+
+/**
+ * Membentuk URL lengkap gambar storage API:
+ * Format: api_url/storage/{casequestci_image} -> https://larasati.online/api/storage/{casequestci_image}
+ */
+export function buildStorageUrl(imagePath?: string | null): string {
+  if (!imagePath || !imagePath.trim()) return "";
+  const trimmed = imagePath.trim();
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:")
+  ) {
+    return trimmed;
+  }
+
+  const apiBase = getApiBaseUrl().replace(/\/+$/, "");
+  const cleanPath = trimmed.replace(/^\/?(api\/)?(storage\/)?/, "");
+  return `${apiBase}/storage/${cleanPath}`;
+}

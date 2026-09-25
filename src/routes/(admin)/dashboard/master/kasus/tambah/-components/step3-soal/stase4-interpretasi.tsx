@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { buildStorageUrl } from "@/lib/api/api-helper";
 import type {
   InterpretasiImageItem,
   InterpretasiOption,
@@ -73,23 +74,33 @@ export function Stase4Interpretasi({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file, fIdx) => {
+    const fileList = Array.from(files);
+    let loadedCount = 0;
+    const newItems: InterpretasiImageItem[] = [];
+
+    fileList.forEach((file, fIdx) => {
       const reader = new FileReader();
       reader.onload = (uploadEvent) => {
         const result = uploadEvent.target?.result as string;
         if (result) {
           const fileNameClean = file.name.replace(/\.[^/.]+$/, "");
-          const newItem: InterpretasiImageItem = {
-            id: `img-${Date.now()}-${fIdx}`,
+          newItems.push({
+            id: `img-${Date.now()}-${fIdx}-${Math.random().toString(36).slice(2, 6)}`,
             url: result,
             nama: fileNameClean || `Foto ${normalizedImages.length + fIdx + 1}`,
             keterangan: "",
-          };
-          onImagesChange([...normalizedImages, newItem]);
+            file: file,
+          });
+        }
+        loadedCount++;
+        if (loadedCount === fileList.length) {
+          onImagesChange([...normalizedImages, ...newItems]);
         }
       };
       reader.readAsDataURL(file);
     });
+
+    e.target.value = "";
   };
 
   const handleUpdateImage = (
@@ -197,7 +208,7 @@ export function Stase4Interpretasi({
                 {/* Thumbnail Preview */}
                 <div className="relative aspect-4/3 w-full sm:w-28 shrink-0 overflow-hidden rounded-lg border border-border bg-black/5">
                   <img
-                    src={imgItem.url}
+                    src={buildStorageUrl(imgItem.url)}
                     alt={imgItem.nama}
                     className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
                   />

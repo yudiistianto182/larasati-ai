@@ -27,6 +27,7 @@ export interface KelompokLomba {
   mahasiswa_ids: string[];
   ketua_mhs_id?: string;
   kasus_id?: string;
+  response_id?: number | string;
 }
 
 export interface Contest {
@@ -151,10 +152,27 @@ export const useContestStore = create<ContestState>((set, get) => ({
         }
         const data = contestRes.data as any;
 
-        // 2. Fetch kelompok/tim lomba dari /v1/data_contest_team?contest_id=cleanId
+        // 2a. Ekstraksi relasi peserta (response_id, case_id) dari GET /v1/data_contest/{id}
+        const pesertaList = Array.isArray(data?.peserta) ? data.peserta : [];
+        const pesertaMap = new Map<
+          string,
+          { response_id: number | string; case_id?: number | string; case_name?: string }
+        >();
+        for (const p of pesertaList) {
+          const tId = String(p.contestteam_id || "");
+          if (tId) {
+            pesertaMap.set(tId, {
+              response_id: p.response_id,
+              case_id: p.case_id,
+              case_name: p.case_name,
+            });
+          }
+        }
+
+        // 2b. Fetch kelompok/tim lomba dari /v1/data_contest_team?contest_id=cleanId
         let mappedKelompok: KelompokLomba[] = [];
 
-        // 2b. Ambil relasi kasus kelompok dari /v1/trx_response?contest_id=cleanId
+        // Ambil relasi kasus kelompok cadangan dari /v1/trx_response?contest_id=cleanId
         const teamCaseMap = new Map<string, string>();
         try {
           const trxRes = await trxResponseService.getAll(cleanId);
@@ -182,9 +200,11 @@ export const useContestStore = create<ContestState>((set, get) => ({
             const detailedTeams = await Promise.all(
               teamItems.map(async (t: any) => {
                 const teamIdStr = String(t.contestteam_id);
-                const assignedCaseId =
-                  teamCaseMap.get(teamIdStr) ||
-                  (t.contestteam_contestcase_id ? String(t.contestteam_contestcase_id) : undefined);
+                const pInfo = pesertaMap.get(teamIdStr);
+                const assignedCaseId = pInfo?.case_id
+                  ? (String(pInfo.case_id).startsWith("KSS-") ? String(pInfo.case_id) : `KSS-${pInfo.case_id}`)
+                  : (teamCaseMap.get(teamIdStr) || (t.contestteam_contestcase_id ? String(t.contestteam_contestcase_id) : undefined));
+                const assignedResponseId = pInfo?.response_id;
 
                 try {
                   const teamDetailRes = await contestTeamService.getDetail(t.contestteam_id);
@@ -204,6 +224,7 @@ export const useContestStore = create<ContestState>((set, get) => ({
                       ? String(leaderMember.user_id || leaderMember.contestteammember_user_id)
                       : undefined,
                     kasus_id: assignedCaseId,
+                    response_id: assignedResponseId,
                   };
                 } catch {
                   return {
@@ -211,6 +232,7 @@ export const useContestStore = create<ContestState>((set, get) => ({
                     nama: t.contestteam_name || `Kelompok ${t.contestteam_id}`,
                     mahasiswa_ids: [],
                     kasus_id: assignedCaseId,
+                    response_id: assignedResponseId,
                   };
                 }
               }),
@@ -221,6 +243,17 @@ export const useContestStore = create<ContestState>((set, get) => ({
           console.warn("[ContestStore] Gagal mengambil tim lomba:", teamErr);
         }
 
+        // Fallback jika mappedKelompok kosong namun pesertaList ada
+        if (mappedKelompok.length === 0 && pesertaList.length > 0) {
+          mappedKelompok = pesertaList.map((p: any) => ({
+            id: String(p.contestteam_id),
+            nama: p.contestteam_name || `Kelompok ${p.contestteam_id}`,
+            mahasiswa_ids: [],
+            kasus_id: p.case_id ? (String(p.case_id).startsWith("KSS-") ? String(p.case_id) : `KSS-${p.case_id}`) : undefined,
+            response_id: p.response_id,
+          }));
+        }
+
         // 3. Ekstraksi kasus_ids
         const rawCases = Array.isArray(data.case)
           ? data.case
@@ -228,6 +261,15 @@ export const useContestStore = create<ContestState>((set, get) => ({
             ? data.cases
             : [];
         let mappedKasusIds: string[] = rawCases.map((c: any) => String(c.case_id || c.id || c));
+        // Tambahkan kasus dari peserta jika belum ada
+        for (const p of pesertaList) {
+          if (p.case_id) {
+            const cid = String(p.case_id).startsWith("KSS-") ? String(p.case_id) : `KSS-${p.case_id}`;
+            if (!mappedKasusIds.includes(cid)) {
+              mappedKasusIds.push(cid);
+            }
+          }
+        }
         // Tambahkan kasus dari trx_response kelompok jika belum ada
         for (const cId of teamCaseMap.values()) {
           if (!mappedKasusIds.includes(cId)) {

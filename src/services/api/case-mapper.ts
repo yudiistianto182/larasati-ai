@@ -6,6 +6,7 @@
  */
 
 import type { DataCaseDetail } from "@/types/api";
+import { buildStorageUrl } from "@/lib/api/api-helper";
 import {
   createDefaultStaseSoalData,
   type AiKeywordTrigger,
@@ -17,6 +18,27 @@ import {
   type ProsedurStepItem,
   type StaseSoalData,
 } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
+
+/**
+ * Konversi DataURL (base64) ke object File untuk FormData upload
+ */
+export function dataUrlToFile(dataUrl: string, filename = "image.png"): File | null {
+  try {
+    const arr = dataUrl.split(",");
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/png";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  } catch (e) {
+    console.error("Failed to convert dataUrl to File:", e);
+    return null;
+  }
+}
 
 /**
  * Membersihkan ID kasus ke format numerik murni untuk backend API.
@@ -65,14 +87,14 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
 
   const atribut: KasusAttribute[] = Array.isArray(detail.attribute) && detail.attribute.length > 0
     ? detail.attribute.map((a, idx) => ({
-        id: a.caseattribute_id ? `attr-${a.caseattribute_id}` : `attr-idx-${idx}`,
-        key: a.caseattribute_name || "",
-        value: a.caseattribute_value || "",
-      }))
+      id: a.caseattribute_id ? `attr-${a.caseattribute_id}` : `attr-idx-${idx}`,
+      key: a.caseattribute_name || "",
+      value: a.caseattribute_value || "",
+    }))
     : [
-        { id: `attr-${Date.now()}-1`, key: "Diagnosis Utama", value: "" },
-        { id: `attr-${Date.now()}-2`, key: "Tingkat Kegawatan", value: "" },
-      ];
+      { id: `attr-${Date.now()}-1`, key: "Diagnosis Utama", value: "" },
+      { id: `attr-${Date.now()}-2`, key: "Tingkat Kegawatan", value: "" },
+    ];
 
   // 2. Pasien Terkait
   const pasienIds: string[] = Array.isArray(detail.patient)
@@ -119,12 +141,12 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
         init_message: quest1.casequestia_initmsg || baseDefaults.stase1.init_message || "Selamat siang Bidan.",
         triggers: Array.isArray(quest1.trigger) && quest1.trigger.length > 0
           ? quest1.trigger.map((t, idx): AiKeywordTrigger => ({
-              id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-1-${idx}`,
-              konteks: t.casequestiatrigger_name || "",
-              keyword: t.casequestiatrigger_key || "",
-              skor: parseFloat(String(t.casequestiatrigger_score || 0)) || 10,
-              jawaban_cadangan: t.casequestiatrigger_response || "",
-            }))
+            id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-1-${idx}`,
+            konteks: t.casequestiatrigger_name || "",
+            keyword: t.casequestiatrigger_key || "",
+            skor: parseFloat(String(t.casequestiatrigger_score || 0)) || 10,
+            jawaban_cadangan: t.casequestiatrigger_response || "",
+          }))
           : baseDefaults.stase1.triggers,
       };
     }
@@ -146,11 +168,11 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
         },
         faktor_risiko: Array.isArray(quest2.mc) && quest2.mc.length > 0
           ? quest2.mc.map((m, idx): FaktorRisikoItem => ({
-              id: m.casequestmc_id ? String(m.casequestmc_id) : `mc-${idx}`,
-              nama_jawaban: m.casequestmc_name || "",
-              syarat_id: m.casequestmc_required_id ? String(m.casequestmc_required_id) : "tanpa_syarat",
-              skor: parseFloat(String(m.casequestmc_score || 0)) || 15,
-            }))
+            id: m.casequestmc_id ? String(m.casequestmc_id) : `mc-${idx}`,
+            nama_jawaban: m.casequestmc_name || "",
+            syarat_id: m.casequestmc_required_id ? String(m.casequestmc_required_id) : "tanpa_syarat",
+            skor: parseFloat(String(m.casequestmc_score || 0)) || 15,
+          }))
           : baseDefaults.stase2.faktor_risiko,
       };
     }
@@ -172,11 +194,11 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
         },
         langkah_prosedur: Array.isArray(quest3.os) && quest3.os.length > 0
           ? quest3.os.map((o, idx): ProsedurStepItem => ({
-              id: o.casequestos_id ? String(o.casequestos_id) : `os-${idx}`,
-              nama_langkah: o.casequestos_name || "",
-              order: o.casequestos_order || idx + 1,
-              skor: parseFloat(String(o.casequestos_score || 0)) || 10,
-            }))
+            id: o.casequestos_id ? String(o.casequestos_id) : `os-${idx}`,
+            nama_langkah: o.casequestos_name || "",
+            order: o.casequestos_order || idx + 1,
+            skor: parseFloat(String(o.casequestos_score || 0)) || 10,
+          }))
           : baseDefaults.stase3.langkah_prosedur,
       };
     }
@@ -189,23 +211,24 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
         : 300;
       const mappedImages: InterpretasiImageItem[] = Array.isArray(quest4.ci) && quest4.ci.length > 0
         ? quest4.ci.map((c, idx) => ({
-            id: c.casequestci_id ? String(c.casequestci_id) : `ci-${idx}`,
-            nama: c.casequestci_name || "",
-            keterangan: c.casequestci_desc || "",
-            url: c.casequestci_image || "",
-          }))
+          id: c.casequestci_id ? String(c.casequestci_id) : `ci-${idx}`,
+          nama: c.casequestci_name || "",
+          keterangan: c.casequestci_desc || "",
+          url: buildStorageUrl(c.casequestci_image),
+          raw_image: c.casequestci_image || "",
+        }))
         : (baseDefaults.stase4.images as InterpretasiImageItem[]);
 
       const mappedOptions: InterpretasiOption[] = Array.isArray(quest4.ci_option) && quest4.ci_option.length > 0
         ? quest4.ci_option.map((o, idx) => {
-            const scoreNum = parseFloat(String(o.casequestcioption_score || 0));
-            return {
-              id: o.casequestcioption_id ? String(o.casequestcioption_id) : `opt-${idx}`,
-              label: o.casequestcioption_name || "",
-              is_correct: scoreNum > 0,
-              skor: scoreNum,
-            };
-          })
+          const scoreNum = parseFloat(String(o.casequestcioption_score || 0));
+          return {
+            id: o.casequestcioption_id ? String(o.casequestcioption_id) : `opt-${idx}`,
+            label: o.casequestcioption_name || "",
+            is_correct: scoreNum > 0,
+            skor: scoreNum,
+          };
+        })
         : baseDefaults.stase4.pilihan_jawaban;
 
       staseData.stase4 = {
@@ -242,12 +265,12 @@ export function mapApiDetailToKasus(detail: DataCaseDetail): Kasus {
         init_message: quest5.casequestia_initmsg || baseDefaults.stase5.init_message || "Terima kasih atas penjelasannya Bu Bidan.",
         triggers: Array.isArray(quest5.trigger) && quest5.trigger.length > 0
           ? quest5.trigger.map((t, idx): AiKeywordTrigger => ({
-              id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-5-${idx}`,
-              konteks: t.casequestiatrigger_name || "",
-              keyword: t.casequestiatrigger_key || "",
-              skor: parseFloat(String(t.casequestiatrigger_score || 0)) || 10,
-              jawaban_cadangan: t.casequestiatrigger_response || "",
-            }))
+            id: t.casequestiatrigger_id ? String(t.casequestiatrigger_id) : `trg-5-${idx}`,
+            konteks: t.casequestiatrigger_name || "",
+            keyword: t.casequestiatrigger_key || "",
+            skor: parseFloat(String(t.casequestiatrigger_score || 0)) || 10,
+            jawaban_cadangan: t.casequestiatrigger_response || "",
+          }))
           : baseDefaults.stase5.triggers,
       };
     }
@@ -372,6 +395,21 @@ export function buildCaseFormData(
     const imgDesc = isObj ? (img as InterpretasiImageItem).keterangan || "-" : "-";
     fd.append(`quest[3][ci][${iIdx}][name]`, imgName);
     fd.append(`quest[3][ci][${iIdx}][desc]`, imgDesc);
+
+    // Lampirkan file foto ke quest[3][ci][iIdx][image]
+    if (isObj && (img as InterpretasiImageItem).file instanceof File) {
+      fd.append(`quest[3][ci][${iIdx}][image]`, (img as InterpretasiImageItem).file!);
+    } else if (isObj && (img as InterpretasiImageItem).url?.startsWith("data:")) {
+      const file = dataUrlToFile((img as InterpretasiImageItem).url, `${imgName || `image-${iIdx + 1}`}.png`);
+      if (file) {
+        fd.append(`quest[3][ci][${iIdx}][image]`, file);
+      }
+    } else if (typeof img === "string" && img.startsWith("data:")) {
+      const file = dataUrlToFile(img, `image-${iIdx + 1}.png`);
+      if (file) {
+        fd.append(`quest[3][ci][${iIdx}][image]`, file);
+      }
+    }
   });
   stase.stase4.pilihan_jawaban.forEach((opt, oIdx) => {
     const letters = ["A", "B", "C", "D", "E", "F"];

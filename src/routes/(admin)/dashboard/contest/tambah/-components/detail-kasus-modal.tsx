@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { buildStorageUrl } from "@/lib/api/api-helper";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 
 interface DetailKasusModalProps {
@@ -331,6 +332,50 @@ export function DetailKasusModal({ open, onOpenChange, kasus }: DetailKasusModal
                     <span className="font-semibold text-muted-foreground">Petunjuk Soal:</span>
                     <p className="text-foreground leading-relaxed">{staseData.stase4.header?.petunjuk_soal || "-"}</p>
                   </div>
+
+                  {/* Foto Pemeriksaan Visual */}
+                  {Array.isArray(staseData.stase4.images) && staseData.stase4.images.length > 0 && (
+                    <div className="flex flex-col gap-1.5 pt-1">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <ImageIcon className="size-3.5 text-primary" />
+                        Foto Klinis ({staseData.stase4.images.length}):
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {staseData.stase4.images.map((img, iIdx) => {
+                          const isObj = typeof img === "object" && img !== null;
+                          const rawUrl = isObj ? (img as any).url : img;
+                          const imgUrl = buildStorageUrl(rawUrl);
+                          const title = isObj ? (img as any).nama || `Foto #${iIdx + 1}` : `Foto #${iIdx + 1}`;
+                          const desc = isObj ? (img as any).keterangan : "";
+
+                          return (
+                            <div key={iIdx} className="overflow-hidden rounded-lg border bg-muted/20 flex flex-col">
+                              <div className="relative aspect-4/3 w-full bg-black/5 overflow-hidden">
+                                {imgUrl ? (
+                                  <img
+                                    src={imgUrl}
+                                    alt={title}
+                                    className="size-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLElement).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="flex size-full items-center justify-center text-muted-foreground">
+                                    <ImageIcon className="size-5" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-1.5">
+                                <div className="text-[11px] font-semibold truncate">{title}</div>
+                                {desc && <div className="text-[10px] text-muted-foreground line-clamp-1">{desc}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5 pt-1">
                     <span className="font-semibold text-foreground">

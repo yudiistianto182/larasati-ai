@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { buildStorageUrl } from "@/lib/api/api-helper";
 import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
 import type { Kasus } from "@/routes/(admin)/dashboard/master/kasus/-components/data";
 import { playCtaClickSound } from "./lomba-sound-effects";
@@ -61,7 +62,7 @@ export function Step5InterpretasiMcq({
             id: `img-${idx + 1}`,
             title: `Foto Serviks Pasca Asam Asetat #${idx + 1}`,
             description: kasus.stase_data.stase4.header.petunjuk_soal || "Foto inspeksi visual serviks",
-            url: img,
+            url: buildStorageUrl(img),
             isPrimary: idx === 0,
           };
         }
@@ -69,7 +70,7 @@ export function Step5InterpretasiMcq({
           id: img.id,
           title: img.nama || `Foto Serviks #${idx + 1}`,
           description: img.keterangan || kasus.stase_data.stase4.header.petunjuk_soal || "",
-          url: img.url,
+          url: buildStorageUrl(img.url),
           isPrimary: idx === 0,
         };
       });
