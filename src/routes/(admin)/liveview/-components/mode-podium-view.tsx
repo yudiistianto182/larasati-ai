@@ -23,7 +23,12 @@ export function ModePodiumView({
   const finishedGroups = React.useMemo(() => {
     return groups
       .filter((g) => g.pos >= 5)
-      .sort((a, b) => b.totalScore - a.totalScore);
+      .sort((a, b) => {
+        if (b.totalScore !== a.totalScore) {
+          return b.totalScore - a.totalScore;
+        }
+        return (a.timeElapsedSeconds ?? 0) - (b.timeElapsedSeconds ?? 0);
+      });
   }, [groups]);
 
   const firstPlace = finishedGroups[0] || null;
@@ -136,9 +141,6 @@ export function ModePodiumView({
                         ⏱️ {secondPlace.timeElapsedFormatted}
                       </Badge>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Rata-rata: {(secondPlace.totalScore / 5).toFixed(1)} / 100
-                    </span>
                   </div>
                 </div>
               ) : (

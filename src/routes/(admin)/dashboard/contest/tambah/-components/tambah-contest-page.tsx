@@ -128,13 +128,29 @@ export function TambahContestPage() {
     ],
   );
   const [deletedTeamIds, setDeletedTeamIds] = React.useState<string[]>([]);
+  const [deletedResponseIds, setDeletedResponseIds] = React.useState<(number | string)[]>([]);
+  const teamResponseMapRef = React.useRef<Map<string, number | string>>(new Map());
+
+  const handleDeleteKelompok = React.useCallback((kel: KelompokLomba) => {
+    if (kel.id && !kel.id.startsWith("kel-") && !isNaN(Number(kel.id))) {
+      setDeletedTeamIds((prev) => (prev.includes(kel.id) ? prev : [...prev, kel.id]));
+    }
+    const respId = kel.response_id || teamResponseMapRef.current.get(String(kel.id));
+    if (respId) {
+      setDeletedResponseIds((prev) => (prev.includes(respId) ? prev : [...prev, respId]));
+    }
+  }, []);
 
   const handleKelompokListChange = (newList: KelompokLomba[]) => {
     const currentIds = new Set(newList.map((k) => k.id));
     const removed = kelompokList.filter((k) => !currentIds.has(k.id));
     for (const r of removed) {
       if (r.id && !r.id.startsWith("kel-") && !isNaN(Number(r.id))) {
-        setDeletedTeamIds((prev) => [...prev, r.id]);
+        setDeletedTeamIds((prev) => (prev.includes(r.id) ? prev : [...prev, r.id]));
+      }
+      const respId = r.response_id || teamResponseMapRef.current.get(String(r.id));
+      if (respId) {
+        setDeletedResponseIds((prev) => (prev.includes(respId) ? prev : [...prev, respId]));
       }
     }
     setKelompokList(newList);
@@ -186,6 +202,13 @@ export function TambahContestPage() {
               ? detail.kelompok_list
               : [{ id: `kel-${Date.now()}-1`, nama: "Kelompok 1", mahasiswa_ids: [] }],
           );
+          if (detail.kelompok_list && detail.kelompok_list.length > 0) {
+            for (const k of detail.kelompok_list) {
+              if (k.id && k.response_id) {
+                teamResponseMapRef.current.set(String(k.id), k.response_id);
+              }
+            }
+          }
           setAllowSharedKasus(detail.allow_shared_kasus ?? false);
           setSelectedPenilaiIds(detail.penilai_ids || []);
           setMaxStepReached(5);
@@ -332,7 +355,40 @@ export function TambahContestPage() {
         throw new Error("ID lomba tidak valid untuk mendaftarkan kelompok.");
       }
 
-      // 2a. Hapus Tim yang dihapus dari server jika sedang edit
+      const cleanContestId = extractNumericCaseId(currentContestId);
+
+      // 2a. Hapus Data Trx Response dari server jika kelompok dihapus saat edit
+      // Endpoint: DELETE /v1/trx_response/{response_id}
+      const responseIdsToDelete = new Set(deletedResponseIds);
+      if (isEditing && deletedTeamIds.length > 0) {
+        try {
+          const checkTrxRes = await trxResponseService.getAll(cleanContestId);
+          const checkTrxList = Array.isArray(checkTrxRes.data)
+            ? checkTrxRes.data
+            : (checkTrxRes.data as any)?.data || [];
+          for (const item of checkTrxList) {
+            const tId = String(item.response_contestteam_id || (item as any).contestteam_id || "");
+            const rId = item.response_id || (item as any).id;
+            if (tId && rId && deletedTeamIds.includes(tId)) {
+              responseIdsToDelete.add(rId);
+            }
+          }
+        } catch (trxErr) {
+          console.warn("[tambah-contest-page] Gagal mencari trx_response untuk tim terhapus:", trxErr);
+        }
+      }
+
+      if (responseIdsToDelete.size > 0) {
+        for (const respId of responseIdsToDelete) {
+          try {
+            await trxResponseService.delete(respId);
+          } catch (delRespErr) {
+            console.warn("[tambah-contest-page] Gagal hapus trx_response server:", respId, delRespErr);
+          }
+        }
+      }
+
+      // 2b. Hapus Tim yang dihapus dari server jika sedang edit
       if (isEditing && deletedTeamIds.length > 0) {
         for (const delId of deletedTeamIds) {
           try {
@@ -342,9 +398,6 @@ export function TambahContestPage() {
           }
         }
       }
-
-      // 2b. Simpan Tim / Kelompok Mahasiswa ke endpoint /v1/data_contest_team
-      const cleanContestId = extractNumericCaseId(currentContestId);
       for (const kel of kelompokList) {
         if (kel.mahasiswa_ids.length > 0) {
           const teamPayload = {
@@ -630,6 +683,7 @@ export function TambahContestPage() {
               <Step3KelompokMahasiswa
                 kelompokList={kelompokList}
                 onChange={handleKelompokListChange}
+                onDeleteKelompok={handleDeleteKelompok}
               />
             )}
 

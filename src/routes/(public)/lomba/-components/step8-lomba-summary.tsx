@@ -11,6 +11,7 @@ interface Step8LombaSummaryProps {
   groupName?: string;
   kasus?: Kasus;
   hasAudioRecorder?: boolean;
+  onBackToHome?: () => void;
 }
 
 // Canvas Fireworks & Confetti Component
@@ -243,6 +244,7 @@ function CelebratoryCanvas() {
 
 export function Step8LombaSummary({
   groupName = "Kelompok Peserta",
+  onBackToHome,
 }: Step8LombaSummaryProps) {
   return (
     <div className="relative w-full max-w-2xl mx-auto flex flex-col items-center justify-center select-none animate-in fade-in zoom-in-95 duration-500 text-[#fef08a] my-auto">
@@ -264,21 +266,15 @@ export function Step8LombaSummary({
           <Badge className="bg-gradient-to-r from-[#8c6d23] to-[#d4af37] text-[#14100c] font-black text-xs px-3.5 py-1 uppercase tracking-widest shadow-md">
             Larasati Journey Selesai
           </Badge>
-          <Badge
-            variant="outline"
-            className="border-[#fde047]/60 text-[#fde047] bg-[#140e08] text-xs font-mono px-3 py-1"
-          >
-            5 dari 5 Pos Terverifikasi
-          </Badge>
         </div>
 
         {/* Title & Celebration Statement */}
         <h1 className="font-serif font-black text-2xl sm:text-3xl lg:text-4xl uppercase tracking-wide bg-gradient-to-r from-[#fffbeb] via-[#fde047] to-[#ca8a04] bg-clip-text text-transparent drop-shadow-md leading-tight max-w-xl mx-auto mt-1">
-          Selamat! Anda Telah Menyelesaikan Larasati Journey
+          Selamat! Telah Menyelesaikan Larasati Journey
         </h1>
 
         <p className="text-xs sm:text-sm text-[#e6cf9b] max-w-lg mx-auto mt-4 leading-relaxed">
-          Seluruh rangkaian 5 pos simulasi OSCE kebidanan telah berhasil dituntaskan dengan baik oleh{" "}
+          Seluruh rangkaian 5 pos telah berhasil dituntaskan dengan baik oleh{" "}
           <strong className="text-[#fde047] font-serif underline decoration-[#d4af37] decoration-2 underline-offset-4">
             {groupName}
           </strong>
@@ -293,11 +289,12 @@ export function Step8LombaSummary({
             onClick={() => {
               playCtaClickSound();
               playTransitionChime();
+              onBackToHome?.();
             }}
             className="w-full h-12 px-8 rounded-2xl bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] font-serif font-extrabold text-xs sm:text-sm tracking-wider uppercase shadow-[0_0_25px_rgba(212,175,55,0.45)] hover:brightness-115 border border-[#fff8db]/70 gap-2 cursor-pointer active:scale-98 transition-all"
-            render={<Link to="/dashboard/contest" />}
+            render={<Link to="/" />}
           >
-            <span>Kembali ke Dashboard Lomba</span>
+            <span>Kembali ke Beranda</span>
           </Button>
         </div>
       </div>

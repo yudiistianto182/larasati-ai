@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
           text = body;
         }
       } else if (body && typeof body === "object") {
-        text = body.text || "";
+        text = (body as Record<string, any>).text || "";
       }
     } catch {
       // ignore

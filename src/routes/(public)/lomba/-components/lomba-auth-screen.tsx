@@ -59,7 +59,8 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
   const [password, setPassword] = React.useState<string>("peserta1");
   const [errorMsg, setErrorMsg] = React.useState<string>("");
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
-  const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
+  const [isPesertaOrJuri, setIsPesertaOrJuri] = React.useState<boolean>(true);
+  const [loggedInUser, setLoggedInUser] = React.useState<{ user_name?: string; role_name?: string } | null>(null);
 
   // ── Step 2: Pilih lomba setelah login berhasil ─────────────────────────
   const [loginStep, setLoginStep] = React.useState<"form" | "select-lomba">("form");
@@ -106,24 +107,32 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
       setAuthToken(res.data.token.token);
       if (res.data.user) {
         setAuthUser(res.data.user);
+        setLoggedInUser(res.data.user);
       }
 
-      // Periksa apakah user adalah Admin atau Root
+      // Periksa apakah user adalah Peserta atau Juri
       const userRole = res.data.user?.role_id;
       const roleName = (res.data.user?.role_name || "").toLowerCase();
-      const userIsAdmin = userRole === 1 || userRole === 2 || roleName.includes("admin") || roleName.includes("root");
-      setIsAdmin(userIsAdmin);
+      const isParticipantOrJudge =
+        userRole === 4 ||
+        userRole === 5 ||
+        roleName.includes("peserta") ||
+        roleName.includes("juri") ||
+        roleName.includes("penilai");
+
+      setIsPesertaOrJuri(isParticipantOrJudge);
+
+      // User selain role peserta dan juri HANYA muncul tombol ke dashboard
+      if (!isParticipantOrJudge) {
+        setAvailableTeams([]);
+        setLoginStep("select-lomba");
+        return;
+      }
 
       // Filter hanya team di mana user adalah leader
       const leaderTeams = (res.data.contest_team || []).filter((t) => t.is_leader === true);
 
       if (leaderTeams.length === 0) {
-        if (userIsAdmin) {
-          // Jika admin tidak memiliki kelompok lomba, berikan akses langsung ke Dashboard
-          setAvailableTeams([]);
-          setLoginStep("select-lomba");
-          return;
-        }
         throw new Error("Akun ini tidak terdaftar sebagai ketua tim di lomba manapun.");
       }
 
@@ -196,8 +205,34 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
               (r) => String(r.response_contestteam_id) === String(selectedTeam.contestteam_id),
             )
           : null;
-        if (matched?.response_id) {
-          resolvedResponseId = Number(matched.response_id);
+        if (matched) {
+          if (matched.response_id) {
+            resolvedResponseId = Number(matched.response_id);
+          }
+
+          // Validasi: pastikan user tidak bisa masuk sirkuit jika semua pos sudah selesai dilakukan
+          const completedCount =
+            matched.pos_completed_count ??
+            matched.pos?.filter((p) => p.is_completed).length ??
+            matched.pos_completed?.length ??
+            0;
+          const totalCount =
+            matched.pos_total_count ??
+            matched.pos?.length ??
+            (Array.isArray(caseRes.data.quest) && caseRes.data.quest.length > 0
+              ? caseRes.data.quest.length
+              : 5);
+
+          const isAllCompleted =
+            matched.response_is_submited === 1 ||
+            (totalCount > 0 && completedCount >= totalCount);
+
+          if (isAllCompleted) {
+            const msg = `Tim "${selectedTeam.contestteam_name}" telah menyelesaikan seluruh pos (${completedCount}/${totalCount}) pada sirkuit ini. Akses masuk sirkuit telah ditutup.`;
+            setErrorMsg(msg);
+            triggerErrorAlert("Sirkuit Telah Selesai", msg);
+            return;
+          }
         }
       } catch (err) {
         console.warn("[Auth Screen] Gagal memuat existing trx_response:", err);
@@ -429,7 +464,7 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
             </form>
           )}
 
-          {/* ── STEP 2: PILIH LOMBA ───────────────────────────────────────── */}
+          {/* ── STEP 2: PILIH LOMBA ATAU AKSES DASHBOARD ────────────────── */}
           {loginStep === "select-lomba" && (
             <div className="my-6 flex flex-col gap-5">
               {/* Error Message */}
@@ -439,155 +474,176 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
                 </div>
               )}
 
-              {/* Select Lomba */}
-              <div className="grid gap-2">
-                <Label htmlFor="select-lomba" className="font-serif text-xs font-semibold text-[#fff8db] flex items-center gap-1.5">
-                  <Crown className="size-3.5 text-[#d4af37]" />
-                  Pilih Lomba <span className="text-red-400">*</span>
-                </Label>
-                <Select
-                  value={selectedTeamId}
-                  onValueChange={(val) => val && setSelectedTeamId(val)}
-                >
-                  <SelectTrigger
-                    id="select-lomba"
-                    className="w-full h-11 bg-[#1d140b] border-[#8c6d23]/60 text-xs text-[#fff8db] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
-                  >
-                    <SelectValue placeholder="Pilih lomba...">
-                      {(() => {
-                        const selected = availableTeams.find((t) => String(t.contestteam_id) === selectedTeamId);
-                        return selected
-                          ? `${selected.contest.contest_name} (${selected.contestteam_name})`
-                          : undefined;
-                      })()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1a1209] border-[#8c6d23] text-[#fff8db]">
-                    <SelectGroup>
-                      {availableTeams.map((team) => {
-                        const now = new Date();
-                        const datestart = new Date(team.contest.contest_datestart);
-                        const dateend = new Date(team.contest.contest_dateend);
-                        const isOpen = now >= datestart && now <= dateend;
-
-                        return (
-                          <SelectItem
-                            key={team.contestteam_id}
-                            value={String(team.contestteam_id)}
-                            label={`${team.contest.contest_name} (${team.contestteam_name})`}
-                            className="text-xs focus:bg-[#d4af37]/20 focus:text-[#fff8db] cursor-pointer"
-                          >
-                            <div className="flex flex-col gap-0.5 py-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <Crown className="size-3 text-[#d4af37] shrink-0" />
-                                <span className="font-semibold truncate">{team.contest.contest_name}</span>
-                                {isOpen ? (
-                                  <span className="text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto shrink-0">
-                                    OPEN
-                                  </span>
-                                ) : (
-                                  <span className="text-[9px] font-bold uppercase bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full ml-auto shrink-0">
-                                    CLOSED
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[10px] text-[#e6d59c]/60 ml-4.5">{team.contestteam_name}</span>
-                            </div>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Preview Kasus dari Team yang dipilih */}
-              {(() => {
-                const team = availableTeams.find((t) => String(t.contestteam_id) === selectedTeamId);
-                if (!team) return null;
-                return (
-                  <div className="rounded-xl border border-[#8c6d23]/40 bg-[#1f150b]/60 p-3 flex flex-col gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 text-[#d4af37] font-semibold font-serif text-[11px] uppercase tracking-wider">
-                      <Sparkles className="size-3" />
-                      Skenario Kasus Terhubung
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-semibold text-[#fff8db] leading-snug">
-                        {team.case?.case_name || "Kasus belum ditautkan"}
+              {/* TAMPILAN KHUSUS: User selain role Peserta dan Juri hanya muncul tombol ke Dashboard */}
+              {!isPesertaOrJuri ? (
+                <div className="flex flex-col gap-4 text-center py-2 animate-in fade-in">
+                  <div className="p-4 rounded-xl border border-[#d4af37]/40 bg-[#1f150b]/80 text-[#f3e5ab] flex flex-col gap-2 text-left shadow-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-[#d4af37] font-serif font-bold flex items-center gap-1.5">
+                        <LayoutDashboard className="size-4 text-[#d4af37]" />
+                        Hak Akses Sistem
                       </span>
-                      {team.case?.case_desc && (
-                        <span className="text-[#e6d59c]/70 line-clamp-2 leading-relaxed">
-                          {team.case.case_desc}
-                        </span>
-                      )}
+                      <Badge className="bg-[#d4af37] text-slate-950 font-bold text-[10px] px-2 py-0">
+                        {loggedInUser?.role_name || "NON-PESERTA"}
+                      </Badge>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] text-[#e6d59c]/60">
-                      <CheckCircle2 className="size-3 text-emerald-400" />
-                      <span>
-                        {team.contest.contest_datestart_text} s/d {team.contest.contest_dateend_text}
-                      </span>
-                    </div>
+                    <p className="text-xs text-[#fff8db] font-semibold mt-1">
+                      Selamat Datang, <strong>{loggedInUser?.user_name || "Pengguna"}</strong>
+                    </p>
+                    <p className="text-[11px] text-[#e6d59c]/80 leading-relaxed">
+                      Akun ini terdaftar sebagai peran <strong>{loggedInUser?.role_name || "Staf/Admin"}</strong>. Silakan masuk ke Dashboard untuk mengelola konfigurasi lomba, master data, dan penilaian.
+                    </p>
                   </div>
-                );
-              })()}
 
-              {/* Kembali + Mulai */}
-              <div className="flex gap-3 mt-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setLoginStep("form");
-                    setErrorMsg("");
-                  }}
-                  className="h-11 flex-1 rounded-xl border-[#8c6d23]/60 text-[#e6d59c] bg-transparent hover:bg-[#d4af37]/10 text-xs font-serif"
-                >
-                  Kembali
-                </Button>
-                {availableTeams.length > 0 && (
                   <Button
-                    type="button"
-                    disabled={!selectedTeamId || isLoadingKasus}
-                    onClick={handleSelectLomba}
-                    className="h-11 flex-[2] rounded-xl bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] text-xs font-serif font-bold tracking-widest uppercase shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 transition-all cursor-pointer border border-[#fff8db]/60 gap-2 active:scale-98"
-                  >
-                    {isLoadingKasus ? (
-                      <span>Memuat Kasus...</span>
-                    ) : (
-                      <>
-                        <span>Masuk ke Arena Ujian</span>
-                        <ArrowRight className="size-4 stroke-[2.5]" />
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-
-              {/* Tombol Khusus Admin: Masuk ke Dashboard Admin */}
-              {isAdmin && (
-                <div className="flex flex-col gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 mt-2 animate-in fade-in">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-amber-300 font-serif font-semibold flex items-center gap-1.5">
-                      <LayoutDashboard className="size-3.5 text-[#d4af37]" />
-                      Akses Administrator Terdeteksi
-                    </span>
-                    <Badge className="bg-[#d4af37] text-slate-950 font-bold text-[10px] px-2 py-0">
-                      ADMIN
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-[#e6d59c]/80 leading-relaxed">
-                    Anda memiliki hak akses untuk mengelola master kasus, konfigurasi lomba, dan rekap penilaian.
-                  </p>
-                  <Button
-                    size="sm"
-                    className="h-10 w-full mt-1 rounded-lg bg-[#d4af37] hover:bg-[#c49d27] text-slate-950 font-bold text-xs gap-2 shadow-md"
+                    size="lg"
+                    className="h-12 w-full rounded-xl bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] text-xs font-serif font-bold tracking-widest uppercase shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 transition-all cursor-pointer border border-[#fff8db]/60 gap-2 active:scale-98"
                     nativeButton={false}
                     render={<Link to="/dashboard" />}
                   >
-                    <LayoutDashboard className="size-4" />
-                    <span>Masuk ke Dashboard Admin &rarr;</span>
+                    <LayoutDashboard className="size-4.5 stroke-[2.5]" />
+                    <span>Menuju Dashboard</span>
+                    <ArrowRight className="size-4 stroke-[2.5]" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setLoginStep("form");
+                      setErrorMsg("");
+                    }}
+                    className="h-9 text-xs text-[#e6d59c]/70 hover:text-[#fff8db] hover:bg-[#d4af37]/10"
+                  >
+                    &larr; Masuk dengan Akun Lain
                   </Button>
                 </div>
+              ) : (
+                <>
+                  {/* Select Lomba untuk Peserta / Juri */}
+                  <div className="grid gap-2">
+                    <Label htmlFor="select-lomba" className="font-serif text-xs font-semibold text-[#fff8db] flex items-center gap-1.5">
+                      <Crown className="size-3.5 text-[#d4af37]" />
+                      Pilih Lomba <span className="text-red-400">*</span>
+                    </Label>
+                    <Select
+                      value={selectedTeamId}
+                      onValueChange={(val) => val && setSelectedTeamId(val)}
+                    >
+                      <SelectTrigger
+                        id="select-lomba"
+                        className="w-full h-11 bg-[#1d140b] border-[#8c6d23]/60 text-xs text-[#fff8db] focus:border-[#d4af37] focus:ring-1 focus:ring-[#d4af37]"
+                      >
+                        <SelectValue placeholder="Pilih lomba...">
+                          {(() => {
+                            const selected = availableTeams.find((t) => String(t.contestteam_id) === selectedTeamId);
+                            return selected
+                              ? `${selected.contest.contest_name} (${selected.contestteam_name})`
+                              : undefined;
+                          })()}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1209] border-[#8c6d23] text-[#fff8db]">
+                        <SelectGroup>
+                          {availableTeams.map((team) => {
+                            const now = new Date();
+                            const datestart = new Date(team.contest.contest_datestart);
+                            const dateend = new Date(team.contest.contest_dateend);
+                            const isOpen = now >= datestart && now <= dateend;
+
+                            return (
+                              <SelectItem
+                                key={team.contestteam_id}
+                                value={String(team.contestteam_id)}
+                                label={`${team.contest.contest_name} (${team.contestteam_name})`}
+                                className="text-xs focus:bg-[#d4af37]/20 focus:text-[#fff8db] cursor-pointer"
+                              >
+                                <div className="flex flex-col gap-0.5 py-0.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <Crown className="size-3 text-[#d4af37] shrink-0" />
+                                    <span className="font-semibold truncate">{team.contest.contest_name}</span>
+                                    {isOpen ? (
+                                      <span className="text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full ml-auto shrink-0">
+                                        OPEN
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-bold uppercase bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full ml-auto shrink-0">
+                                        CLOSED
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-[#e6d59c]/60 ml-4.5">{team.contestteam_name}</span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Preview Kasus dari Team yang dipilih */}
+                  {(() => {
+                    const team = availableTeams.find((t) => String(t.contestteam_id) === selectedTeamId);
+                    if (!team) return null;
+                    return (
+                      <div className="rounded-xl border border-[#8c6d23]/40 bg-[#1f150b]/60 p-3 flex flex-col gap-2 text-xs">
+                        <div className="flex items-center gap-1.5 text-[#d4af37] font-semibold font-serif text-[11px] uppercase tracking-wider">
+                          <Sparkles className="size-3" />
+                          Skenario Kasus Terhubung
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-semibold text-[#fff8db] leading-snug">
+                            {team.case?.case_name || "Kasus belum ditautkan"}
+                          </span>
+                          {team.case?.case_desc && (
+                            <span className="text-[#e6d59c]/70 line-clamp-2 leading-relaxed">
+                              {team.case.case_desc}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] text-[#e6d59c]/60">
+                          <CheckCircle2 className="size-3 text-emerald-400" />
+                          <span>
+                            {team.contest.contest_datestart_text} s/d {team.contest.contest_dateend_text}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Tombol Navigasi Peserta / Juri */}
+                  <div className="flex gap-3 mt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setLoginStep("form");
+                        setErrorMsg("");
+                      }}
+                      className="h-11 flex-1 rounded-xl border-[#8c6d23]/60 text-[#e6d59c] bg-transparent hover:bg-[#d4af37]/10 text-xs font-serif"
+                    >
+                      Kembali
+                    </Button>
+                    {availableTeams.length > 0 && (
+                      <Button
+                        type="button"
+                        disabled={!selectedTeamId || isLoadingKasus}
+                        onClick={handleSelectLomba}
+                        className="h-11 flex-[2] rounded-xl bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] text-xs font-serif font-bold tracking-widest uppercase shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 transition-all cursor-pointer border border-[#fff8db]/60 gap-2 active:scale-98"
+                      >
+                        {isLoadingKasus ? (
+                          <span>Memuat Kasus...</span>
+                        ) : (
+                          <>
+                            <span>Masuk ke Arena Ujian</span>
+                            <ArrowRight className="size-4 stroke-[2.5]" />
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}

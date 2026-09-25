@@ -172,8 +172,9 @@ export const useContestStore = create<ContestState>((set, get) => ({
         // 2b. Fetch kelompok/tim lomba dari /v1/data_contest_team?contest_id=cleanId
         let mappedKelompok: KelompokLomba[] = [];
 
-        // Ambil relasi kasus kelompok cadangan dari /v1/trx_response?contest_id=cleanId
+        // Ambil relasi kasus & response_id kelompok cadangan dari /v1/trx_response?contest_id=cleanId
         const teamCaseMap = new Map<string, string>();
+        const teamResponseMap = new Map<string, number | string>();
         try {
           const trxRes = await trxResponseService.getAll(cleanId);
           const trxList = Array.isArray(trxRes.data)
@@ -184,6 +185,10 @@ export const useContestStore = create<ContestState>((set, get) => ({
             const caseId = String(item.response_case_id || (item as any).case_id || "");
             if (teamId && caseId) {
               teamCaseMap.set(teamId, caseId.startsWith("KSS-") ? caseId : `KSS-${caseId}`);
+            }
+            const rId = item.response_id || (item as any).id;
+            if (teamId && rId) {
+              teamResponseMap.set(teamId, rId);
             }
           }
         } catch (trxErr) {
@@ -204,7 +209,7 @@ export const useContestStore = create<ContestState>((set, get) => ({
                 const assignedCaseId = pInfo?.case_id
                   ? (String(pInfo.case_id).startsWith("KSS-") ? String(pInfo.case_id) : `KSS-${pInfo.case_id}`)
                   : (teamCaseMap.get(teamIdStr) || (t.contestteam_contestcase_id ? String(t.contestteam_contestcase_id) : undefined));
-                const assignedResponseId = pInfo?.response_id;
+                const assignedResponseId = pInfo?.response_id || teamResponseMap.get(teamIdStr);
 
                 try {
                   const teamDetailRes = await contestTeamService.getDetail(t.contestteam_id);
@@ -250,7 +255,7 @@ export const useContestStore = create<ContestState>((set, get) => ({
             nama: p.contestteam_name || `Kelompok ${p.contestteam_id}`,
             mahasiswa_ids: [],
             kasus_id: p.case_id ? (String(p.case_id).startsWith("KSS-") ? String(p.case_id) : `KSS-${p.case_id}`) : undefined,
-            response_id: p.response_id,
+            response_id: p.response_id || teamResponseMap.get(String(p.contestteam_id)),
           }));
         }
 

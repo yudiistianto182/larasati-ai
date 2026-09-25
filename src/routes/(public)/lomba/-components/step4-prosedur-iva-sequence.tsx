@@ -34,8 +34,6 @@ export interface StepItem {
   correctOrder: number;
 }
 
-const MAX_TOTAL_SLOTS = 10;
-
 
 // ============================================================================
 // SORTABLE ITEM IN RIGHT COLUMN (PAPAN URUTAN TERPILIH)
@@ -267,8 +265,23 @@ export function Step4ProsedurIvaSequence({
     }
   }, [allCaseSteps]);
 
+  // Menentukan total target slot di section kanan:
+  // Jika total langkah < 10, menyesuaikan jumlah langkah di baki.
+  // Jika total langkah >= 10, maksimal 10.
+  const targetTotalSlots = React.useMemo(() => {
+    const totalCount = allCaseSteps.length;
+    if (totalCount <= 0) return 10;
+    return Math.min(10, totalCount);
+  }, [allCaseSteps.length]);
+
+  // Sync onChange saat selectedSteps berubah
+  React.useEffect(() => {
+    onChange?.(selectedSteps);
+  }, [selectedSteps, onChange]);
+
   // Transfer single step from Left -> Right
   const handleSelectStep = (item: StepItem) => {
+    if (selectedSteps.length >= targetTotalSlots) return;
     playReorderTickSound("swap");
     const nextAvailable = availableSteps.filter((s) => s.id !== item.id);
     const nextSelected = [...selectedSteps, item];
@@ -289,12 +302,16 @@ export function Step4ProsedurIvaSequence({
     saveAnswersToApi(nextSelected);
   };
 
-  // Transfer all remaining steps to Right
+  // Transfer remaining steps to Right up to targetTotalSlots
   const handleSelectAll = () => {
     playTransitionChime();
-    const nextSelected = [...selectedSteps, ...availableSteps];
+    const slotsAvailable = targetTotalSlots - selectedSteps.length;
+    if (slotsAvailable <= 0) return;
+    const toAdd = availableSteps.slice(0, slotsAvailable);
+    const remainingAvailable = availableSteps.slice(slotsAvailable);
+    const nextSelected = [...selectedSteps, ...toAdd];
     setSelectedSteps(nextSelected);
-    setAvailableSteps([]);
+    setAvailableSteps(remainingAvailable);
     onChange?.(nextSelected);
     saveAnswersToApi(nextSelected);
   };
@@ -340,8 +357,8 @@ export function Step4ProsedurIvaSequence({
     saveAnswersToApi(next);
   };
 
-  // Calculate remaining empty placeholder slots up to 10
-  const remainingPlaceholderCount = Math.max(0, MAX_TOTAL_SLOTS - selectedSteps.length);
+  // Calculate remaining empty placeholder slots up to targetTotalSlots
+  const remainingPlaceholderCount = Math.max(0, targetTotalSlots - selectedSteps.length);
 
   return (
     <div className="flex flex-col gap-4 w-full select-none text-[#f3e5ab]">
@@ -465,7 +482,7 @@ export function Step4ProsedurIvaSequence({
               </span>
             </div>
             <Badge className="bg-gradient-to-r from-[#8c6d23] to-[#d4af37] text-[#14100c] font-black text-[10px] font-mono px-2 py-0.5 shadow-sm">
-              {selectedSteps.length} / {MAX_TOTAL_SLOTS} Slot Terisi
+              {selectedSteps.length} / {targetTotalSlots} Slot Terisi
             </Badge>
           </div>
 
@@ -549,7 +566,7 @@ export function Step4ProsedurIvaSequence({
           {/* Footer Guide Note */}
           <div className="border-t border-[#8c6d23]/30 pt-2.5 flex items-center justify-between text-[10px] text-[#d4af37]/75 font-mono">
             <span>💡 Suara tick aktif saat kartu bergeser posisi</span>
-            <span>Total Terisi: {selectedSteps.length} / {MAX_TOTAL_SLOTS} Slot</span>
+            <span>Total Terisi: {selectedSteps.length} / {targetTotalSlots} Slot</span>
           </div>
         </div>
 

@@ -34,6 +34,7 @@ import { Step8LombaSummary } from "./step8-lomba-summary";
 import { TimeoutDialog } from "./timeout-dialog";
 import { trxResponseService, trxResponseAnswerService } from "@/services/api";
 import { formatDurationLabel } from "@/services/api/case-mapper";
+import { triggerErrorAlert } from "@/stores/error-alert-store";
 import {
   playCelebratoryFanfare,
   playCtaClickSound,
@@ -75,6 +76,15 @@ export function LombaExamContainer() {
   const [secondsRemaining, setSecondsRemaining] = React.useState<number>(5 * 60);
   const [showOneMinAlert, setShowOneMinAlert] = React.useState<boolean>(false);
   const [isTimeoutModalOpen, setIsTimeoutModalOpen] = React.useState<boolean>(false);
+
+  // Status apakah peserta sudah memberikan jawaban di masing-masing step (step 2 - 7)
+  const [answeredSteps, setAnsweredSteps] = React.useState<Record<number, boolean>>({});
+
+  const setStepAnswered = React.useCallback((step: number, answered: boolean) => {
+    setAnsweredSteps((prev) => (prev[step] === answered ? prev : { ...prev, [step]: answered }));
+  }, []);
+
+  const isCurrentStepAnswered = Boolean(answeredSteps[currentStep]);
 
   // Stase Briefing Modal state (shows upon entering each stase)
   const [isBriefingModalOpen, setIsBriefingModalOpen] = React.useState<boolean>(false);
@@ -420,10 +430,28 @@ export function LombaExamContainer() {
             (r) => String(r.response_contestteam_id) === String(authResult.contestTeamId),
           )
         : null;
-      if (matched?.response_id) {
-        const foundId = Number(matched.response_id);
-        setAuthResult((prev) => (prev ? { ...prev, responseId: foundId } : null));
-        return foundId;
+      if (matched) {
+        // Cek jika seluruh pos sudah selesai dikerjakan
+        const completedCount =
+          matched.pos_completed_count ??
+          matched.pos?.filter((p) => p.is_completed).length ??
+          matched.pos_completed?.length ??
+          0;
+        const totalCount =
+          matched.pos_total_count ??
+          matched.pos?.length ??
+          5;
+
+        if (matched.response_is_submited === 1 || (totalCount > 0 && completedCount >= totalCount)) {
+          setCurrentStep(8);
+          return matched.response_id ? Number(matched.response_id) : 0;
+        }
+
+        if (matched.response_id) {
+          const foundId = Number(matched.response_id);
+          setAuthResult((prev) => (prev ? { ...prev, responseId: foundId } : null));
+          return foundId;
+        }
       }
     } catch (e) {
       console.warn("[handleEnsureResponseId] Gagal query GET trx_response:", e);
@@ -516,6 +544,14 @@ export function LombaExamContainer() {
 
   const handleDirectSelectStase = (posNumber: number) => {
     const targetStep = posNumber + 1;
+    // Jangan izinkan lompat ke stase depan jika pos saat ini belum dijawab sama sekali
+    if (targetStep > currentStep && !isCurrentStepAnswered) {
+      triggerErrorAlert(
+        "Pos Belum Dijawab",
+        "Silakan berikan jawaban pada pos saat ini terlebih dahulu sebelum berpindah pos.",
+      );
+      return;
+    }
     playTransitionChime();
     setCurrentStep(targetStep);
   };
@@ -638,6 +674,7 @@ export function LombaExamContainer() {
                   <Step2AnamnesisAi
                     isStarted={!isBriefingModalOpen && isTimerRunning}
                     onComplete={handleNextStep}
+                    onAnswerChanged={(ans) => setStepAnswered(2, ans)}
                     kasus={activeKasus}
                     simli={simli}
                     isAiEnabled={isAiEnabled}
@@ -649,6 +686,7 @@ export function LombaExamContainer() {
                 {currentStep === 3 && (
                   <Step3FaktorRisikoMagnet
                     kasus={activeKasus}
+                    onChange={(ids) => setStepAnswered(3, ids.length > 0)}
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase2?.casequest_id}
                     duration={
@@ -661,6 +699,7 @@ export function LombaExamContainer() {
                 {currentStep === 4 && (
                   <Step4ProsedurIvaSequence
                     kasus={activeKasus}
+                    onChange={(steps) => setStepAnswered(4, steps.length > 0)}
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase3?.casequest_id}
                     duration={
@@ -673,6 +712,7 @@ export function LombaExamContainer() {
                 {currentStep === 5 && (
                   <Step5InterpretasiMcq
                     kasus={activeKasus}
+                    onSelectOption={(optId) => setStepAnswered(5, Boolean(optId))}
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase4?.casequest_id}
                     duration={
@@ -685,6 +725,7 @@ export function LombaExamContainer() {
                 {currentStep === 6 && (
                   <Step6AsuhanAi
                     isStarted={!isBriefingModalOpen && isTimerRunning}
+                    onAnswerChanged={(ans) => setStepAnswered(6, ans)}
                     kasus={activeKasus}
                     simli={simli}
                     isAiEnabled={isAiEnabled}
@@ -697,6 +738,7 @@ export function LombaExamContainer() {
                   <Step7AudioRecorder
                     responseId={authResult?.responseId}
                     casequestId={activeKasus?.stase_data?.stase6?.casequest_id}
+                    onRecorded={(rec) => setStepAnswered(7, rec)}
                   />
                 )}
               </div>
@@ -713,6 +755,10 @@ export function LombaExamContainer() {
                 groupName={activeKelompokNama}
                 kasus={activeKasus}
                 hasAudioRecorder={hasAudioRecorder}
+                onBackToHome={() => {
+                  stopCelebratoryFanfare();
+                  window.location.href = "/";
+                }}
               />
             </div>
           )}
@@ -726,6 +772,7 @@ export function LombaExamContainer() {
           totalSteps={hasAudioRecorder ? 7 : 6}
           hasAudioRecorder={hasAudioRecorder}
           onNext={handleNextStep}
+          isNextDisabled={!isCurrentStepAnswered}
         />
       )}
 

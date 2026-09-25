@@ -238,6 +238,11 @@ export function Step3FaktorRisikoMagnet({
     setPinnedIds([]);
   }, [kasus]);
 
+  // Sync onChange setiap kali pinnedIds berubah
+  React.useEffect(() => {
+    onChange?.(pinnedIds);
+  }, [pinnedIds, onChange]);
+
   const saveAnswerTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const saveAnswersToApi = React.useCallback(
     (ids: string[]) => {
