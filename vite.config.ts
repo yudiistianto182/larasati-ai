@@ -118,6 +118,24 @@ function ttsDevMiddlewarePlugin(): Plugin {
       };
 
       server.middlewares.use("/service/tts", handleTts);
+
+      server.middlewares.use("/service/health", (_req, res) => {
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.statusCode = 200;
+        res.end(
+          JSON.stringify(
+            {
+              status: "ok",
+              service: "circuit-challenge-service",
+              timestamp: "2026-09-25T17:26:00+07:00",
+              epoch: 1790331960000,
+            },
+            null,
+            2,
+          ),
+        );
+      });
     },
   };
 }
