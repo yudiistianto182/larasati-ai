@@ -46,7 +46,7 @@ function ttsDevMiddlewarePlugin(): Plugin {
   return {
     name: "tts-dev-middleware",
     configureServer(server) {
-      server.middlewares.use("/api/tts", async (req, res) => {
+      const handleTts = async (req: any, res: any) => {
         try {
           const url = new URL(req.url || "", `http://${req.headers.host}`);
           let text = url.searchParams.get("text") || "";
@@ -115,7 +115,9 @@ function ttsDevMiddlewarePlugin(): Plugin {
           res.statusCode = 500;
           res.end("Internal Server Error");
         }
-      });
+      };
+
+      server.middlewares.use("/service/tts", handleTts);
     },
   };
 }

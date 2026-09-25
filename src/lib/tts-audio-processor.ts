@@ -55,8 +55,8 @@ export async function convertTextToSimliPcm16(text: string): Promise<Uint8Array 
   try {
     const cleanText = text.replace(/[*_#`~>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 1000);
 
-    // 1. Ambil audio vokal asli Bahasa Indonesia dari endpoint /api/tts
-    let response = await fetch("/api/tts", {
+    // 1. Ambil audio vokal asli Bahasa Indonesia dari endpoint /service/tts
+    let response = await fetch("/service/tts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: cleanText }),
@@ -64,7 +64,7 @@ export async function convertTextToSimliPcm16(text: string): Promise<Uint8Array 
 
     if (!response || !response.ok) {
       // Fallback ke GET jika POST bermasalah
-      response = await fetch(`/api/tts?text=${encodeURIComponent(cleanText)}`).catch(() => null);
+      response = await fetch(`/service/tts?text=${encodeURIComponent(cleanText)}`).catch(() => null);
     }
 
     let mp3ArrayBuffer: ArrayBuffer | null = null;
