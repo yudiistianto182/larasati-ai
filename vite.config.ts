@@ -173,7 +173,18 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart(),
-    nitro(),
+    nitro({
+      handlers: [
+        {
+          route: "/service/tts",
+          handler: "./src/server/routes/service/tts.ts",
+        },
+        {
+          route: "/service/health",
+          handler: "./src/server/routes/service/health.ts",
+        },
+      ],
+    }),
     viteReact(),
   ],
 });
