@@ -80,7 +80,7 @@ export function LombaPrologScreen({ onProceed }: LombaPrologScreenProps) {
 
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 lg:p-10 select-none overflow-x-hidden">
+    <div className="relative z-20 min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 lg:p-10 select-none overflow-x-hidden">
       {/* Dynamic Keyframe Animations for Majestic Floating & Breathing Zoom */}
       <style>{`
         @keyframes prologFloatUpDown {
@@ -111,17 +111,12 @@ export function LombaPrologScreen({ onProceed }: LombaPrologScreenProps) {
         }
       `}</style>
 
-      {/* Atmospheric Background Layer with Sacred Javanese Palatial Motif */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0704] via-[#140d07] to-[#080503]" />
-
+      {/* Atmospheric Ambient Spotlight Highlights */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
         {/* Radial ambient spotlights */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,_#d4af37_0%,_transparent_70%)] opacity-20 blur-3xl pointer-events-none" />
         <div className="absolute bottom-10 left-10 w-96 h-96 rounded-full bg-[radial-gradient(circle,_#8c6d23_0%,_transparent_70%)] opacity-15 blur-2xl pointer-events-none" />
         <div className="absolute top-10 right-10 w-96 h-96 rounded-full bg-[radial-gradient(circle,_#ca8a04_0%,_transparent_70%)] opacity-15 blur-2xl pointer-events-none" />
-
-        {/* Subtle patterned overlay grid */}
-        <div className="absolute inset-0 bg-[radial-gradient(#d4af37_1px,_transparent_1px)] [background-size:32px_32px] opacity-10" />
       </div>
 
       {/* Top Kemenkes Poltekkes Capsule Badge */}

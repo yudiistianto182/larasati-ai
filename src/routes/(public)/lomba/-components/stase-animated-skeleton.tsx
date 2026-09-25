@@ -102,28 +102,28 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
         /* --- POS 2: CARD DRAG RIGHT DIRECTLY FLUSH ONTO MAGNETIC BOARD --- */
         @keyframes dragCardRightToMagnetLight {
           0%, 12% {
-            transform: translate(0px, 0px) scale(1);
+            transform: translate(0px, 3px) scale(1);
             border-color: #cbd5e1;
             box-shadow: none;
             background-color: #ffffff;
             opacity: 1;
           }
           35% {
-            transform: translate(calc(100% + 12px), 0px) scale(1.05);
+            transform: translate(calc(100% + 35px), 3px) scale(1.05);
             border-color: #d97706;
             box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
             background-color: #fef3c7;
             opacity: 1;
           }
           48%, 88% {
-            transform: translate(calc(100% + 12px), 0px) scale(1);
+            transform: translate(calc(100% + 35px), 3px) scale(1);
             border-color: #10b981;
             box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
             background-color: #ecfdf5;
             opacity: 1;
           }
           96%, 100% {
-            transform: translate(0px, 0px) scale(1);
+            transform: translate(0px, 3px) scale(1);
             opacity: 0.2;
           }
         }
@@ -131,28 +131,28 @@ export function StaseAnimatedSkeleton({ staseNumber }: StaseAnimatedSkeletonProp
         /* --- POS 3: STEP CARD TRANSFERS FROM LEFT TRAY TO RIGHT SEQUENCE BOARD --- */
         @keyframes transferStepCardToRightLight {
           0%, 12% {
-            transform: translate(0px, 0px) scale(1);
+            transform: translate(0px, 3px) scale(1);
             border-color: #cbd5e1;
             box-shadow: none;
             background-color: #ffffff;
             opacity: 1;
           }
           35% {
-            transform: translate(calc(100% + 12px), 0px) scale(1.05);
+            transform: translate(calc(100% + 32px), 3px) scale(1.05);
             border-color: #d97706;
             box-shadow: 0 8px 20px rgba(217, 119, 6, 0.35);
             background-color: #fef3c7;
             opacity: 1;
           }
           48%, 88% {
-            transform: translate(calc(100% + 12px), 0px) scale(1);
+            transform: translate(calc(100% + 32px), 3px) scale(1);
             border-color: #10b981;
             box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
             background-color: #ecfdf5;
             opacity: 1;
           }
           96%, 100% {
-            transform: translate(0px, 0px) scale(1);
+            transform: translate(0px, 3px) scale(1);
             opacity: 0.2;
           }
         }
