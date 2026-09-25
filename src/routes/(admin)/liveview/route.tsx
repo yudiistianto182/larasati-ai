@@ -1,10 +1,18 @@
 import * as React from "react";
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { Flag, Trophy } from "lucide-react";
 
 import { contestService } from "@/services/api/contest-service";
+import { contestTeamService } from "@/services/api/contest-team-service";
 import { trxResponseService } from "@/services/api/trx-response-service";
 import { trxResponseAnswerService } from "@/services/api/trx-response-answer-service";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { TrxResponseItem } from "@/types/api/trx-response";
 import type { TrxResponseAnswerDetail } from "@/types/api/trx-response-answer";
 import { FloatingParticlesBackground } from "@/routes/(public)/lomba/-components/floating-particles-background";
@@ -19,7 +27,7 @@ import {
 import { LiveviewWinnerModal } from "./-components/liveview-winner-modal";
 import { ModePanoramicCircuit } from "./-components/mode-panoramic-circuit";
 import { ModePodiumView } from "./-components/mode-podium-view";
-import { WaypointDetailModal } from "./-components/waypoint-detail-modal";
+// import { WaypointDetailModal } from "./-components/waypoint-detail-modal";
 
 export const Route = createFileRoute("/(admin)/liveview")({
   component: LiveviewRouteComponent,
@@ -80,7 +88,7 @@ function mapTrxAnswerDetailToStaseData(
     liveActivity: pos1Chats.length > 0 ? "Dialog anamnesis selesai." : "Sedang melakukan anamnesis...",
     details: {
       type: "chat",
-      chatMessages: pos1Chats.map((c) => ({
+      chatMessages: pos1Chats.map((c: any) => ({
         sender: c.sender || (c.responseia_sender === 2 ? "Bidan" : "Pasien"),
         text: c.responseia_text,
       })),
@@ -195,7 +203,7 @@ function mapTrxAnswerDetailToStaseData(
     liveActivity: pos5Chats.length > 0 ? "Asuhan dan konseling selesai." : "Sedang memberikan konseling...",
     details: {
       type: "chat",
-      chatMessages: pos5Chats.map((c) => ({
+      chatMessages: pos5Chats.map((c: any) => ({
         sender: c.sender || (c.responseia_sender === 2 ? "Bidan" : "Pasien"),
         text: c.responseia_text,
       })),
@@ -206,6 +214,7 @@ function mapTrxAnswerDetailToStaseData(
 }
 
 function LiveviewRouteComponent() {
+  const navigate = useNavigate();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const search: any = useSearch({ strict: false });
   const isPodiumSimulation =
@@ -233,6 +242,23 @@ function LiveviewRouteComponent() {
       .catch((err) => console.warn("[Liveview Contests Error]", err));
   }, []);
 
+  const handleSelectContest = (id: string) => {
+    setSelectedContestId(id);
+    navigate({
+      search: (prev: Record<string, unknown>) => ({ ...prev, contestId: id }),
+      replace: true,
+    } as any).catch(() => {});
+  };
+
+  const contestSelectItems = React.useMemo(
+    () =>
+      apiContests.map((c) => ({
+        value: String(c.id),
+        label: c.nama,
+      })),
+    [apiContests],
+  );
+
   const currentContestName =
     apiContests.find((c) => String(c.id) === String(selectedContestId))?.nama || "Lomba Utama";
 
@@ -244,8 +270,8 @@ function LiveviewRouteComponent() {
   // Selected Group for Drill-down answer inspection (null = show full circuit board)
   const [selectedGroupId, setSelectedGroupId] = React.useState<string | null>(null);
 
-  // Selected Waypoint for Pos-centric inspection modal (null = closed)
-  const [inspectingWaypointPos, setInspectingWaypointPos] = React.useState<number | null>(null);
+  // Selected Waypoint for Pos-centric inspection modal (di-comment sementara)
+  // const [inspectingWaypointPos, setInspectingWaypointPos] = React.useState<number | null>(null);
 
   // Exact time progress mapping matching Rekap Penilaian
   const KEL_A_TIMES = ["00:00", "01:30", "02:45", "04:30", "05:40", "07:45"];
@@ -253,8 +279,18 @@ function LiveviewRouteComponent() {
 
   const [groups, setGroups] = React.useState<GroupRaceState[]>([]);
   const [winnerGroup, setWinnerGroup] = React.useState<GroupRaceState | null>(null);
+  // Track team IDs that have already been celebrated so the modal doesn't pop up repeatedly on interval poll
+  const celebratedTeamIdsRef = React.useRef<Set<string>>(new Set());
 
-  // 1-Second Real-time Polling from TrxResponse API + Real Answers Detail
+  // Reset data grup dan perayaan saat berpindah lomba
+  React.useEffect(() => {
+    celebratedTeamIdsRef.current.clear();
+    setWinnerGroup(null);
+    setSelectedGroupId(null);
+    setGroups([]);
+  }, [selectedContestId]);
+
+  // 1-Second Real-time Polling from TrxResponse API + Contest Teams + Real Answers Detail
   React.useEffect(() => {
     let isMounted = true;
 
@@ -263,25 +299,112 @@ function LiveviewRouteComponent() {
         const contestNumericId = selectedContestId
           ? parseInt(selectedContestId.replace(/\D/g, ""), 10) || undefined
           : undefined;
-        const res = await trxResponseService.getAll(contestNumericId);
 
-        if (isMounted && res.status && Array.isArray(res.data) && res.data.length > 0) {
-          // Ambil detail jawaban real secara paralel untuk setiap tim yang memiliki response_id
-          const detailsMap = new Map<number, TrxResponseAnswerDetail>();
-          await Promise.allSettled(
-            res.data.map(async (item) => {
-              if (item.response_id) {
-                try {
-                  const detailRes = await trxResponseAnswerService.getDetail(item.response_id);
-                  if (detailRes.status && detailRes.data) {
-                    detailsMap.set(item.response_id, detailRes.data);
-                  }
-                } catch {}
-              }
-            }),
-          );
+        // Ambil data respon dan tim terdaftar secara paralel
+        const [trxRes, teamsRes] = await Promise.allSettled([
+          trxResponseService.getAll(contestNumericId),
+          contestNumericId
+            ? contestTeamService.getAll(contestNumericId)
+            : Promise.resolve({ status: true, data: [] }),
+        ]);
 
-          const mappedGroups: GroupRaceState[] = res.data.map((item, idx) => {
+        const allTrx =
+          trxRes.status === "fulfilled" && trxRes.value?.status && Array.isArray(trxRes.value.data)
+            ? trxRes.value.data
+            : [];
+
+        // Filter ketat sesuai contest_id yang dipilih agar data antar lomba tidak tercampur
+        const filteredTrx = contestNumericId
+          ? allTrx.filter((item) => Number(item.response_contest_id) === Number(contestNumericId))
+          : allTrx;
+
+        const contestTeams =
+          teamsRes.status === "fulfilled" &&
+          (teamsRes.value as any)?.status &&
+          Array.isArray((teamsRes.value as any)?.data)
+            ? ((teamsRes.value as any).data as any[])
+            : [];
+
+        // Ambil detail jawaban real secara paralel untuk setiap tim yang memiliki response_id
+        const detailsMap = new Map<number, TrxResponseAnswerDetail>();
+        await Promise.allSettled(
+          filteredTrx.map(async (item) => {
+            if (item.response_id) {
+              try {
+                const detailRes = await trxResponseAnswerService.getDetail(item.response_id);
+                if (detailRes.status && detailRes.data) {
+                  detailsMap.set(item.response_id, detailRes.data);
+                }
+              } catch {}
+            }
+          }),
+        );
+
+        let mappedGroups: GroupRaceState[] = [];
+
+        if (contestTeams.length > 0) {
+          // Jika ada tim terdaftar di contest_team, jadikan acuan utama
+          mappedGroups = contestTeams.map((team, idx) => {
+            const metaIdx = ((idx % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
+            const meta = DEFAULT_GROUPS_META[metaIdx] || DEFAULT_GROUPS_META[1];
+
+            const matchingTrx = filteredTrx.find(
+              (t) => Number(t.response_contestteam_id) === Number(team.contestteam_id),
+            );
+
+            if (matchingTrx) {
+              const completedCount =
+                matchingTrx.pos_completed_count ??
+                matchingTrx.pos?.filter((p) => p.is_completed).length ??
+                0;
+              const totalScore =
+                matchingTrx.calculated_total_score ??
+                Math.round(parseFloat(matchingTrx.response_total_score || "0"));
+
+              const realDetail = matchingTrx.response_id ? detailsMap.get(matchingTrx.response_id) : undefined;
+              const staseData = realDetail
+                ? mapTrxAnswerDetailToStaseData(realDetail, completedCount)
+                : createBaseStaseData(matchingTrx, completedCount);
+
+              return {
+                id: String(matchingTrx.response_contestteam_id || team.contestteam_id),
+                groupNum: idx + 1,
+                name: team.contestteam_name || matchingTrx.contestteam_name || `Kelompok ${idx + 1}`,
+                pos: Math.min(5, completedCount),
+                color: meta.color,
+                borderClass: meta.borderClass,
+                badgeBg: meta.badgeBg,
+                totalScore,
+                timeElapsedFormatted: matchingTrx.pos_completed_orders?.length
+                  ? `${String(matchingTrx.pos_completed_orders.length * 2).padStart(2, "0")}:00`
+                  : "00:00",
+                currentStaseStatus: matchingTrx.response_is_submited
+                  ? "completed"
+                  : completedCount > 0
+                    ? "working"
+                    : "idle",
+                staseData,
+              };
+            }
+
+            // Tim belum mulai mengerjakan (berada di posisi 0 / Garis Start)
+            return {
+              id: String(team.contestteam_id),
+              groupNum: idx + 1,
+              name: team.contestteam_name || `Kelompok ${idx + 1}`,
+              pos: 0,
+              color: meta.color,
+              borderClass: meta.borderClass,
+              badgeBg: meta.badgeBg,
+              totalScore: 0,
+              timeElapsedFormatted: "00:00",
+              currentStaseStatus: "idle",
+              staseData: INITIAL_MOCK_STASES_FACTORY(0, idx + 1),
+            };
+          });
+        } else if (filteredTrx.length > 0) {
+          // Fallback jika tidak ada data dari contest_team, gunakan filteredTrx
+          mappedGroups = filteredTrx.map((item, idx) => {
             const metaIdx = ((idx % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
             const meta = DEFAULT_GROUPS_META[metaIdx] || DEFAULT_GROUPS_META[1];
             const completedCount =
@@ -317,17 +440,22 @@ function LiveviewRouteComponent() {
               staseData,
             };
           });
+        }
 
+        if (isMounted) {
           setGroups(mappedGroups);
 
-          // Cek pemenang jika ada tim yang mencapai pos 5
-          const finisher = mappedGroups.find((g) => g.pos >= 5);
-          if (finisher && !winnerGroup) {
-            setWinnerGroup(finisher);
+          // Cek pemenang baru: hanya tim yang mencapai pos 5 dan BELUM pernah diselamati (1x saja)
+          const newFinisher = mappedGroups.find(
+            (g) => g.pos >= 5 && !celebratedTeamIdsRef.current.has(g.id),
+          );
+          if (newFinisher) {
+            celebratedTeamIdsRef.current.add(newFinisher.id);
+            setWinnerGroup(newFinisher);
           }
         }
-      } catch {
-        // Fallback hening jika server belum merespon
+      } catch (err) {
+        console.warn("[Liveview Fetch Error]", err);
       }
     };
 
@@ -338,7 +466,7 @@ function LiveviewRouteComponent() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [selectedContestId, winnerGroup]);
+  }, [selectedContestId]);
 
   // Manual step adjustment (jika dibutuhkan admin)
   const handleStepGroup = (groupNum: number, delta: number) => {
@@ -356,7 +484,8 @@ function LiveviewRouteComponent() {
               ? KEL_A_TIMES[nextPos] || "07:45"
               : KEL_B_TIMES[nextPos] || "08:30";
 
-          if (nextPos === 5 && g.pos < 5 && !winnerGroup) {
+          if (nextPos === 5 && g.pos < 5 && !celebratedTeamIdsRef.current.has(g.id)) {
+            celebratedTeamIdsRef.current.add(g.id);
             setWinnerGroup({
               ...g,
               pos: 5,
@@ -380,7 +509,10 @@ function LiveviewRouteComponent() {
 
   const handleSimulateStep = () => {};
   const handleToggleAutoRace = () => {};
-  const handleResetRace = () => {};
+  const handleResetRace = () => {
+    celebratedTeamIdsRef.current.clear();
+    setWinnerGroup(null);
+  };
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
 
@@ -399,12 +531,12 @@ function LiveviewRouteComponent() {
         onClose={() => setWinnerGroup(null)}
       />
 
-      {/* Waypoint Station-Centric Inspection Modal */}
-      <WaypointDetailModal
+      {/* Waypoint Station-Centric Inspection Modal (di-comment sementara sesuai permintaan) */}
+      {/* <WaypointDetailModal
         waypointPos={inspectingWaypointPos}
         groups={groups}
         onClose={() => setInspectingWaypointPos(null)}
-      />
+      /> */}
 
       {/* Top Header Title & Navigation Switcher */}
       <header className="relative z-10 w-full pt-3 pb-2 px-6 flex items-center justify-between shrink-0 border-b border-[#8c6d23]/25 bg-[#140e08]/75 backdrop-blur-xs gap-4 flex-wrap">
@@ -456,7 +588,37 @@ function LiveviewRouteComponent() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Header Contest Selector */}
+          <div className="hidden md:flex items-center gap-1.5">
+            <Trophy className="size-3.5 text-[#d4af37] shrink-0" />
+            <Select
+              items={contestSelectItems}
+              value={String(selectedContestId)}
+              onValueChange={(val) => {
+                if (val) handleSelectContest(String(val));
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs bg-[#24170d] text-[#fff8db] border-[#8c6d23]/60 rounded-xl min-w-[180px] shadow-xs">
+                <SelectValue placeholder="Pilih Lomba">
+                  {currentContestName}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-[#1e130a] text-[#fef08a] border-[#8c6d23]">
+                {apiContests.map((c) => (
+                  <SelectItem
+                    key={c.id}
+                    value={String(c.id)}
+                    label={c.nama}
+                    className="text-xs focus:bg-[#342416] focus:text-white"
+                  >
+                    {c.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-[10px] font-extrabold text-emerald-300 shadow-xs">
             <span className="size-2 rounded-full bg-emerald-400 animate-ping" />
             <span>LIVE TRACKING AKTIF</span>
@@ -497,7 +659,7 @@ function LiveviewRouteComponent() {
                     isMinimized={true}
                     onMaximize={() => setSelectedGroupId(null)}
                     onSelectGroup={(id) => setSelectedGroupId(id)}
-                    onSelectWaypoint={(pos) => setInspectingWaypointPos(pos)}
+                    // onSelectWaypoint={(pos) => setInspectingWaypointPos(pos)}
                   />
                 </div>
               </>
@@ -508,7 +670,7 @@ function LiveviewRouteComponent() {
                   groups={groups}
                   isMinimized={false}
                   onSelectGroup={(id) => setSelectedGroupId(id)}
-                  onSelectWaypoint={(pos) => setInspectingWaypointPos(pos)}
+                  // onSelectWaypoint={(pos) => setInspectingWaypointPos(pos)}
                 />
               </div>
             )}
@@ -527,7 +689,7 @@ function LiveviewRouteComponent() {
       {/* Floating Bottom Control Pill Dock */}
       <FloatingControlsDock
         selectedContestId={selectedContestId}
-        onSelectContestId={setSelectedContestId}
+        onSelectContestId={handleSelectContest}
         contests={apiContests}
         isAutoRacing={false}
         onSimulateStep={handleSimulateStep}

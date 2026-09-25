@@ -10,7 +10,15 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: {
     watch: {
-      ignored: ["**/.source/**", "**/*.docx", "**/*.xlsx"],
+      ignored: [
+        "**/.source/**",
+        "**/.output/**",
+        "**/.vinxi/**",
+        "**/dist/**",
+        "**/*.docx",
+        "**/*.xlsx",
+        "**/*.mp3",
+      ],
     },
   },
   plugins: [

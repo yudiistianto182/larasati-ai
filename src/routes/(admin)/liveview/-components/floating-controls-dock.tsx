@@ -1,11 +1,7 @@
 import * as React from "react";
 import {
-  Dices,
   Maximize2,
   Minimize2,
-  Pause,
-  Play,
-  RotateCcw,
   Trophy,
 } from "lucide-react";
 
@@ -17,26 +13,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 interface FloatingControlsDockProps {
   selectedContestId: string;
   onSelectContestId: (id: string) => void;
   contests: Array<{ id: string; nama?: string; judul?: string; tanggal_mulai?: string }>;
-  isAutoRacing: boolean;
-  onSimulateStep: () => void;
-  onToggleAutoRace: () => void;
-  onResetRace: () => void;
+  isAutoRacing?: boolean;
+  onSimulateStep?: () => void;
+  onToggleAutoRace?: () => void;
+  onResetRace?: () => void;
 }
 
 export function FloatingControlsDock({
   selectedContestId,
   onSelectContestId,
   contests,
-  isAutoRacing,
-  onSimulateStep,
-  onToggleAutoRace,
-  onResetRace,
 }: FloatingControlsDockProps) {
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -50,15 +41,25 @@ export function FloatingControlsDock({
     }
   };
 
+  const selectItems = React.useMemo(
+    () =>
+      contests.map((c) => ({
+        value: String(c.id),
+        label: c.nama || c.judul || `Lomba #${c.id}`,
+      })),
+    [contests],
+  );
+
   return (
     <aside aria-label="Liveview Floating Controls" className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 p-2 rounded-2xl bg-[#18110b]/95 border-2 border-[#d4af37]/70 shadow-[0_10px_35px_rgba(0,0,0,0.8),0_0_25px_rgba(212,175,55,0.25)] backdrop-blur-md select-none text-[#fef08a] max-w-[95vw] overflow-x-auto">
       {/* 1. Contest Selector Dropdown */}
       <div className="flex items-center gap-1.5 px-2 border-r border-[#8c6d23]/40">
         <Trophy className="size-3.5 text-[#d4af37] shrink-0 hidden sm:inline" />
         <Select
+          items={selectItems}
           value={String(selectedContestId)}
           onValueChange={(val) => {
-            if (val) onSelectContestId(val);
+            if (val) onSelectContestId(String(val));
           }}
         >
           <SelectTrigger className="h-8 text-xs bg-[#24170d] text-[#fff8db] border-[#8c6d23]/60 rounded-xl min-w-[160px] sm:min-w-[220px] shadow-xs">

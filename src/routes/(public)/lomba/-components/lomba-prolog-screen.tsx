@@ -124,6 +124,17 @@ export function LombaPrologScreen({ onProceed }: LombaPrologScreenProps) {
         <div className="absolute inset-0 bg-[radial-gradient(#d4af37_1px,_transparent_1px)] [background-size:32px_32px] opacity-10" />
       </div>
 
+      {/* Top Kemenkes Poltekkes Capsule Badge */}
+      <div className="relative z-20 mb-3 flex items-center justify-center">
+        <div className="flex items-center justify-center bg-white px-5 py-1.5 rounded-full border-[3px] border-white shadow-[0_0_25px_rgba(255,255,255,0.5)]">
+          <img
+            src="/images/kemenkes.jpeg"
+            alt="Kemenkes Poltekkes Yogyakarta"
+            className="h-7 sm:h-8.5 w-auto object-contain"
+          />
+        </div>
+      </div>
+
       {/* Top Header Navigation Bar */}
       <header className="relative z-20 w-full max-w-6xl flex items-center justify-between py-3 mb-4">
         <div className="flex items-center gap-3">

@@ -231,7 +231,7 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-3 sm:p-6 lg:p-10 select-none overflow-hidden">
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center p-3 sm:p-6 lg:p-10 select-none overflow-hidden">
       {/* Dynamic Keyframes for Float & Breathing Animation */}
       <style>{`
         @keyframes floatLarasatiHero {
@@ -253,6 +253,17 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
           }
         }
       `}</style>
+
+      {/* Top Kemenkes Poltekkes Capsule Badge */}
+      <div className="relative z-20 mb-4 flex items-center justify-center">
+        <div className="flex items-center justify-center bg-white px-5 py-1.5 rounded-full border-[3px] border-white shadow-[0_0_25px_rgba(255,255,255,0.5)]">
+          <img
+            src="/images/kemenkes.jpeg"
+            alt="Kemenkes Poltekkes Yogyakarta"
+            className="h-7 sm:h-8.5 w-auto object-contain"
+          />
+        </div>
+      </div>
 
       {/* Main 2-Column Split Card Container */}
       <div className="relative z-10 grid w-full max-w-6xl grid-cols-1 lg:grid-cols-12 overflow-hidden rounded-3xl border-2 border-[#8c6d23]/50 bg-[#120d08]/95 shadow-[0_0_50px_rgba(0,0,0,0.85)] backdrop-blur-md">

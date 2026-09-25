@@ -43,9 +43,16 @@ export function GroupSidebarList({
         </Badge>
       </div>
 
-      {/* 4 Group Cards List (Scrollable if needed) */}
+      {/* Group Cards List (Scrollable if needed) */}
       <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin scrollbar-thumb-[#8c6d23]/50">
-        {sorted.map((grp, idx) => {
+        {sorted.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center text-[#d4af37]/60 h-40">
+            <Users className="size-8 mb-2 opacity-50 text-[#d4af37]" />
+            <p className="text-xs font-semibold">Belum ada tim terdaftar</p>
+            <p className="text-[10px] text-[#d4af37]/40 mt-1">Tim yang terdaftar pada lomba ini akan muncul di sini</p>
+          </div>
+        ) : (
+          sorted.map((grp, idx) => {
           const isSelected = selectedGroupId === grp.id;
           const currentWp = CIRCUIT_WAYPOINTS.find((w) => w.pos === grp.pos) || CIRCUIT_WAYPOINTS[0];
           const progressPct = Math.round((grp.pos / 5) * 100);
@@ -143,7 +150,7 @@ export function GroupSidebarList({
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </aside>
   );

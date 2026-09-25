@@ -19,7 +19,7 @@ export function ModePanoramicCircuit({
   isMinimized = false,
   onMaximize,
   onSelectGroup,
-  onSelectWaypoint,
+  onSelectWaypoint: _onSelectWaypoint,
 }: ModePanoramicCircuitProps) {
   return (
     <div
@@ -254,14 +254,17 @@ export function ModePanoramicCircuit({
                   onMaximize?.();
                 } else {
                   e.stopPropagation();
-                  onSelectWaypoint?.(wp.pos);
+                  // onSelectWaypoint?.(wp.pos); // di-comment sementara
                 }
               }}
               style={{
                 left: `${wp.leftPct}%`,
                 top: `${wp.topPct}%`,
               }}
-              className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group transition-all duration-300 z-20 hover:-translate-y-[55%] hover:scale-105"
+              className={cn(
+                "absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group transition-all duration-300 z-20",
+                isMinimized ? "cursor-pointer" : "cursor-default",
+              )}
             >
               {/* MINIMIZED VIEW: CLEAN NUMBERED CIRCLE WITH MULTI-COLOR BORDERS (REPRESENTING TEAMS) */}
               {isMinimized ? (

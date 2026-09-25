@@ -1,7 +1,6 @@
 import * as React from "react";
 import {
   Flag,
-  Sparkles,
   Trophy,
 } from "lucide-react";
 
@@ -41,7 +40,7 @@ export function ModePodiumView({
       <div className="relative z-10 flex flex-col items-center text-center gap-1.5 max-w-xl mx-auto">
         <div className="flex items-center gap-2">
           <Badge className="bg-gradient-to-r from-[#8c6d23] via-[#d4af37] to-[#8c6d23] text-[#14100c] font-black text-xs px-3 py-0.5 uppercase tracking-widest shadow-md">
-            🏆 Podium Kejuaraan Sirkuit
+            Podium Kejuaraan Sirkuit
           </Badge>
           <Badge
             variant="outline"
@@ -189,9 +188,6 @@ export function ModePodiumView({
                         ⏱️ {firstPlace.timeElapsedFormatted}
                       </Badge>
                     </div>
-                    <span className="text-[10px] text-[#fde047]/90 font-mono font-semibold">
-                      Rata-rata: {(firstPlace.totalScore / 5).toFixed(1)} / 100
-                    </span>
                   </div>
                 </div>
               ) : (
@@ -245,24 +241,6 @@ export function ModePodiumView({
           )}
         </div>
       )}
-
-      {/* 3. Bottom Quick Navigation Action Bar */}
-      <div className="relative z-10 w-full flex items-center justify-between border-t border-[#8c6d23]/25 pt-3 mt-4 text-xs text-[#d4af37]/75">
-        <span className="font-mono">
-          🏁 Sirkuit 5 Pos &bull; Finish Line Pos 5
-        </span>
-        {onSwitchToCircuit && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onSwitchToCircuit}
-            className="text-xs text-[#fde047] hover:text-[#fff8db] hover:bg-[#d4af37]/10"
-          >
-            <span>&larr; Lihat Peta Sirkuit</span>
-          </Button>
-        )}
-      </div>
     </div>
   );
 }
