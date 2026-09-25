@@ -129,7 +129,12 @@ export function GroupSidebarList({
                       <span className="text-muted-foreground">Belum Mulai</span>
                     )}
                   </span>
-                  <span className="font-mono font-bold text-[#fde047]">{progressPct}%</span>
+                  <div className="flex items-center gap-2">
+                    {grp.timeElapsedFormatted && grp.timeElapsedFormatted !== "00:00" && (
+                      <span className="font-mono text-[#e6cf9b]/80">⏱️ {grp.timeElapsedFormatted}</span>
+                    )}
+                    <span className="font-mono font-bold text-[#fde047]">{progressPct}%</span>
+                  </div>
                 </div>
 
                 <div className="w-full bg-[#120c07] rounded-full h-1.5 overflow-hidden border border-[#8c6d23]/30">

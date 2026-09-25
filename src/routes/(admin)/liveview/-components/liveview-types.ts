@@ -8,6 +8,7 @@ export interface StaseDetailData {
   score?: number;
   maxScore: number;
   timeSpentFormatted: string;
+  timeSpentSeconds?: number;
   summaryAnswer: string;
   details?: {
     type: "chat" | "magnet" | "sequence" | "mcq" | "audio";
@@ -30,6 +31,7 @@ export interface GroupRaceState {
   avatarUrl?: string;
   totalScore: number;
   timeElapsedFormatted: string;
+  timeElapsedSeconds?: number;
   currentStaseStatus: "working" | "idle" | "completed";
   staseData: Record<number, StaseDetailData>;
 }
@@ -140,6 +142,7 @@ export const INITIAL_MOCK_STASES_FACTORY = (
       score: getScore(1, isKelA ? 100 : 85),
       maxScore: 100,
       timeSpentFormatted: currentPos >= 1 ? (isKelA ? "01:30" : "01:40") : "-",
+      timeSpentSeconds: currentPos >= 1 ? (isKelA ? 90 : 100) : 0,
       summaryAnswer: isKelA
         ? "5 Keyword Lengkap Tergali: Keputihan patologis, perdarahan kontak, paritas G5P4A0, KB IUD 8 th, riwayat skrining."
         : "4 Keyword Tergali: Keputihan, flek kontak, paritas, KB IUD (lupa menanyakan riwayat skrining/vaksinasi HPV).",
@@ -169,6 +172,7 @@ export const INITIAL_MOCK_STASES_FACTORY = (
       score: getScore(2, isKelA ? 100 : 75),
       maxScore: 100,
       timeSpentFormatted: currentPos >= 2 ? (isKelA ? "01:15" : "01:30") : "-",
+      timeSpentSeconds: currentPos >= 2 ? (isKelA ? 75 : 90) : 0,
       summaryAnswer: isKelA
         ? "4 Kartu Benar Tertempel: Perdarahan Kontak, Multiparitas G5P4A0, Menikah <20 Thn, Belum Skrining IVA."
         : "3 Kartu Tertempel: Perdarahan Kontak, Multiparitas, Menikah Muda (1 Kartu Skrining Terlewat).",
@@ -199,6 +203,7 @@ export const INITIAL_MOCK_STASES_FACTORY = (
       score: getScore(3, isKelA ? 95 : 85),
       maxScore: 100,
       timeSpentFormatted: currentPos >= 3 ? (isKelA ? "01:45" : "02:00") : "-",
+      timeSpentSeconds: currentPos >= 3 ? (isKelA ? 105 : 120) : 0,
       summaryAnswer: isKelA
         ? "Urutan Langkah 1-6 Tersusun Sempurna Sesuai Standar Kemenkes RI."
         : "Urutan Langkah 1-6 Tersusun (Langkah 3 & 4 tertukar posisi).",
@@ -225,6 +230,7 @@ export const INITIAL_MOCK_STASES_FACTORY = (
       score: getScore(4, 100),
       maxScore: 100,
       timeSpentFormatted: currentPos >= 4 ? (isKelA ? "01:10" : "01:20") : "-",
+      timeSpentSeconds: currentPos >= 4 ? (isKelA ? 70 : 80) : 0,
       summaryAnswer: "Pilihan Benar: C. IVA Positif dengan Lesi Asetowhite Luas (>75% kuadran SSK).",
       liveActivity: "Selesai: Jawaban diagnosis tepat sasaran (Opsi C).",
       details: {
@@ -240,6 +246,7 @@ export const INITIAL_MOCK_STASES_FACTORY = (
       score: getScore(5, isKelA ? 95 : 85),
       maxScore: 100,
       timeSpentFormatted: currentPos >= 5 ? (isKelA ? "02:05" : "02:00") : "-",
+      timeSpentSeconds: currentPos >= 5 ? (isKelA ? 125 : 120) : 0,
       summaryAnswer: isKelA
         ? "Konseling Empatik Sempurna: Edukasi lesi pra-kanker dapat diobati tuntas, opsi krioterapi & rujukan SpOG."
         : "Konseling Cukup Baik: Menjelaskan hasil IVA positif & menyiapkan surat rujukan SpOG.",

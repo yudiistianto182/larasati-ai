@@ -106,6 +106,11 @@ export function Step5InterpretasiMcq({
     setSelectedId("");
   }, [kasus]);
 
+  // Sync onSelectOption saat selectedId berubah
+  React.useEffect(() => {
+    onSelectOption?.(selectedId);
+  }, [selectedId, onSelectOption]);
+
   const canvasRef = React.useRef<HTMLDivElement>(null);
   const zoomScaleRef = React.useRef(zoomScale);
   zoomScaleRef.current = zoomScale;

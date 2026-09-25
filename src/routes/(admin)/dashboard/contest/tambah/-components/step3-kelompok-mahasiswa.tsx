@@ -18,11 +18,13 @@ import { MahasiswaPickerModal } from "./mahasiswa-picker-modal";
 interface Step3KelompokMahasiswaProps {
   kelompokList: KelompokLomba[];
   onChange: (list: KelompokLomba[]) => void;
+  onDeleteKelompok?: (kel: KelompokLomba) => void;
 }
 
 export function Step3KelompokMahasiswa({
   kelompokList,
   onChange,
+  onDeleteKelompok,
 }: Step3KelompokMahasiswaProps) {
   const { mahasiswaList, fetchUsers, isLoadingUsers } = useContestStore();
   const [activePickerKelompokId, setActivePickerKelompokId] = React.useState<string | null>(null);
@@ -51,8 +53,9 @@ export function Step3KelompokMahasiswa({
     onChange([...kelompokList, newKelompok]);
   };
 
-  const handleRemoveKelompok = (id: string) => {
-    onChange(kelompokList.filter((k) => k.id !== id));
+  const handleRemoveKelompok = (kel: KelompokLomba) => {
+    onDeleteKelompok?.(kel);
+    onChange(kelompokList.filter((k) => k.id !== kel.id));
   };
 
   const handleUpdateKelompokName = (id: string, newName: string) => {
@@ -254,7 +257,7 @@ export function Step3KelompokMahasiswa({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    onClick={() => handleRemoveKelompok(kel.id)}
+                    onClick={() => handleRemoveKelompok(kel)}
                     className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                     title="Hapus Kelompok"
                   >

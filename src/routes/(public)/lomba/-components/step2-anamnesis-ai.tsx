@@ -28,6 +28,7 @@ interface Message {
 interface Step2AnamnesisAiProps {
   isStarted?: boolean;
   onComplete?: () => void;
+  onAnswerChanged?: (hasAnswered: boolean) => void;
   kasus?: Kasus;
   simli?: SimliAvatarHandle;
   isAiEnabled?: boolean;
@@ -39,6 +40,7 @@ interface Step2AnamnesisAiProps {
 export function Step2AnamnesisAi({
   isStarted = false,
   onComplete: _onComplete,
+  onAnswerChanged,
   kasus,
   simli: simliProp,
   isAiEnabled = true,
@@ -66,6 +68,12 @@ export function Step2AnamnesisAi({
       timestamp: "Baru saja",
     },
   ]);
+
+  // Sync apakah peserta sudah bertanya / menjawab ke pasien
+  React.useEffect(() => {
+    const hasMidwifeSpoken = messages.some((m) => m.sender === "midwife");
+    onAnswerChanged?.(hasMidwifeSpoken);
+  }, [messages, onAnswerChanged]);
 
   // Sequential dialogue index: next trigger to be revealed (starts from 1 since trigger 0 was initial greeting)
   const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(1);

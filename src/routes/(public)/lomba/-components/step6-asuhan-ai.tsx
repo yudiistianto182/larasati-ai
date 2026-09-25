@@ -27,6 +27,7 @@ interface Message {
 
 interface Step6AsuhanAiProps {
   isStarted?: boolean;
+  onAnswerChanged?: (hasAnswered: boolean) => void;
   kasus?: Kasus;
   simli?: SimliAvatarHandle;
   isAiEnabled?: boolean;
@@ -37,6 +38,7 @@ interface Step6AsuhanAiProps {
 
 export function Step6AsuhanAi({
   isStarted = false,
+  onAnswerChanged,
   kasus,
   simli: simliProp,
   isAiEnabled = true,
@@ -63,6 +65,12 @@ export function Step6AsuhanAi({
       timestamp: "Baru saja",
     },
   ]);
+
+  // Sync apakah peserta sudah memberikan asuhan / edukasi ke pasien
+  React.useEffect(() => {
+    const hasMidwifeSpoken = messages.some((m) => m.sender === "midwife");
+    onAnswerChanged?.(hasMidwifeSpoken);
+  }, [messages, onAnswerChanged]);
   const [isAiThinking, setIsAiThinking] = React.useState(false);
 
   // 3-second countdown before patient starts speaking (starts only when student clicks Mulai Pengerjaan Pos)

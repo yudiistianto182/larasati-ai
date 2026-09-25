@@ -33,6 +33,80 @@ export const Route = createFileRoute("/(admin)/liveview")({
   component: LiveviewRouteComponent,
 });
 
+function formatSecondsToMMSS(totalSec: number): string {
+  if (!totalSec || totalSec <= 0) return "00:00";
+  const m = Math.floor(totalSec / 60);
+  const s = Math.round(totalSec % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractPosDurationSeconds(pos: any, fallbackSec = 90): number {
+  if (!pos) return 0;
+
+  // 1. Direct duration field on pos (e.g. from duration parameter sent on save)
+  const directDuration =
+    pos.duration ??
+    pos.responseanswer_duration ??
+    pos.casequest_duration ??
+    pos.time_spent;
+  if (directDuration !== undefined && directDuration !== null && !isNaN(Number(directDuration))) {
+    const val = Number(directDuration);
+    if (val > 0) return val;
+  }
+
+  // 2. Check in answers array if any item has duration
+  if (Array.isArray(pos.answers)) {
+    for (const ans of pos.answers) {
+      const ansDuration = ans.duration ?? ans.responseanswer_duration ?? ans.responserecord_duration;
+      if (ansDuration !== undefined && ansDuration !== null && !isNaN(Number(ansDuration))) {
+        const val = Number(ansDuration);
+        if (val > 0) return val;
+      }
+    }
+  }
+
+  // 3. For chat-based pos (Method 1: Anamnesis / Asuhan)
+  const chats = Array.isArray(pos.answers?.chats) ? pos.answers.chats : [];
+  if (chats.length >= 2) {
+    const firstTimestamp = chats[0].insert_timestamp || chats[0].chat_time;
+    const lastTimestamp = chats[chats.length - 1].insert_timestamp || chats[chats.length - 1].chat_time;
+    if (firstTimestamp && lastTimestamp) {
+      const start = new Date(firstTimestamp).getTime();
+      const end = new Date(lastTimestamp).getTime();
+      if (!isNaN(start) && !isNaN(end) && end > start) {
+        const diffSec = Math.round((end - start) / 1000);
+        if (diffSec >= 5 && diffSec <= 1800) {
+          return diffSec;
+        }
+      }
+    }
+  }
+
+  // 4. For multiple answers with timestamps (e.g. MCQ / SOP / Magnet)
+  if (Array.isArray(pos.answers) && pos.answers.length >= 2) {
+    const firstTimestamp = pos.answers[0].insert_timestamp;
+    const lastTimestamp = pos.answers[pos.answers.length - 1].insert_timestamp;
+    if (firstTimestamp && lastTimestamp) {
+      const start = new Date(firstTimestamp).getTime();
+      const end = new Date(lastTimestamp).getTime();
+      if (!isNaN(start) && !isNaN(end) && end > start) {
+        const diffSec = Math.round((end - start) / 1000);
+        if (diffSec >= 5 && diffSec <= 1800) {
+          return diffSec;
+        }
+      }
+    }
+  }
+
+  // 5. Default fallback based on limit time or reasonable preset
+  if (pos.casequest_limit_time && typeof pos.casequest_limit_time === "number" && pos.casequest_limit_time > 0) {
+    return Math.min(pos.casequest_limit_time, Math.max(30, Math.round(pos.casequest_limit_time * 0.5)));
+  }
+
+  return fallbackSec;
+}
+
 function createBaseStaseData(
   item: TrxResponseItem,
   completedCount: number,
@@ -44,6 +118,9 @@ function createBaseStaseData(
     const isWorking = !isCompleted && p === completedCount + 1;
     const score = posInfo?.score !== undefined ? posInfo.score : (isCompleted ? 70 : undefined);
 
+    const fallbackSec = p === 1 ? 90 : p === 2 ? 75 : p === 3 ? 105 : p === 4 ? 80 : 90;
+    const sec = isCompleted ? fallbackSec : 0;
+
     result[p] = {
       pos: p,
       name: posInfo?.pos_name || posInfo?.casequest_name || `Pos 0${p}`,
@@ -51,7 +128,8 @@ function createBaseStaseData(
       status: isCompleted ? "completed" : isWorking ? "in_progress" : "locked",
       score,
       maxScore: 100,
-      timeSpentFormatted: isCompleted ? "02:00" : "-",
+      timeSpentFormatted: isCompleted ? formatSecondsToMMSS(sec) : "-",
+      timeSpentSeconds: sec,
       summaryAnswer: isCompleted
         ? posInfo?.status_text || "Telah Diselesaikan"
         : isWorking
@@ -73,6 +151,7 @@ function mapTrxAnswerDetailToStaseData(
   const pos1 = detail.pos?.find((p) => p.casequest_order === 1 || p.casequest_method_id === 1);
   const pos1Chats = Array.isArray(pos1?.answers?.chats) ? pos1.answers.chats : [];
   const pos1Completed = Boolean(pos1Chats.length > 0 || completedCount >= 1);
+  const pos1DurationSec = pos1Completed ? extractPosDurationSeconds(pos1, 90) : 0;
   result[1] = {
     pos: 1,
     name: pos1?.casequest_name || "Pos 1: Anamnesis Pasien",
@@ -80,7 +159,8 @@ function mapTrxAnswerDetailToStaseData(
     status: pos1Completed ? "completed" : completedCount === 0 ? "in_progress" : "locked",
     score: pos1?.total_score ?? 0,
     maxScore: 100,
-    timeSpentFormatted: pos1Completed ? "01:30" : "-",
+    timeSpentFormatted: pos1Completed ? formatSecondsToMMSS(pos1DurationSec) : "-",
+    timeSpentSeconds: pos1DurationSec,
     summaryAnswer:
       pos1Chats.length > 0
         ? `${pos1Chats.length} Pesan Percakapan Terkirim (${pos1?.total_score ?? 0} Poin)`
@@ -99,6 +179,7 @@ function mapTrxAnswerDetailToStaseData(
   const pos2 = detail.pos?.find((p) => p.casequest_order === 2 || p.casequest_method_id === 2);
   const pos2Answers = Array.isArray(pos2?.answers) ? pos2.answers : [];
   const pos2Completed = Boolean(pos2Answers.length > 0 || completedCount >= 2);
+  const pos2DurationSec = pos2Completed ? extractPosDurationSeconds(pos2, 75) : 0;
   const pos2Items = pos2Answers.map(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (a: any) => a.casequestmc_name || a.name || `Pilihan #${a.casequestmc_id || ""}`,
@@ -110,7 +191,8 @@ function mapTrxAnswerDetailToStaseData(
     status: pos2Completed ? "completed" : completedCount === 1 ? "in_progress" : "locked",
     score: pos2?.total_score ?? 0,
     maxScore: 100,
-    timeSpentFormatted: pos2Completed ? "01:15" : "-",
+    timeSpentFormatted: pos2Completed ? formatSecondsToMMSS(pos2DurationSec) : "-",
+    timeSpentSeconds: pos2DurationSec,
     summaryAnswer:
       pos2Items.length > 0
         ? `${pos2Items.length} Kartu Faktor Risiko Tertempel (${pos2?.total_score ?? 0} Poin)`
@@ -126,6 +208,7 @@ function mapTrxAnswerDetailToStaseData(
   const pos3 = detail.pos?.find((p) => p.casequest_order === 3 || p.casequest_method_id === 3);
   const pos3Answers = Array.isArray(pos3?.answers) ? pos3.answers : [];
   const pos3Completed = Boolean(pos3Answers.length > 0 || completedCount >= 3);
+  const pos3DurationSec = pos3Completed ? extractPosDurationSeconds(pos3, 105) : 0;
   const sortedPos3 = [...pos3Answers].sort(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (a: any, b: any) => (a.responseos_order || a.user_order || 0) - (b.responseos_order || b.user_order || 0),
@@ -141,7 +224,8 @@ function mapTrxAnswerDetailToStaseData(
     status: pos3Completed ? "completed" : completedCount === 2 ? "in_progress" : "locked",
     score: pos3?.total_score ?? 0,
     maxScore: 100,
-    timeSpentFormatted: pos3Completed ? "01:45" : "-",
+    timeSpentFormatted: pos3Completed ? formatSecondsToMMSS(pos3DurationSec) : "-",
+    timeSpentSeconds: pos3DurationSec,
     summaryAnswer:
       pos3Items.length > 0
         ? `${pos3Items.length} Langkah SOP Tersusun (${pos3?.total_score ?? 0} Poin)`
@@ -157,6 +241,7 @@ function mapTrxAnswerDetailToStaseData(
   const pos4 = detail.pos?.find((p) => p.casequest_order === 4 || p.casequest_method_id === 4);
   const pos4Answers = Array.isArray(pos4?.answers) ? pos4.answers : [];
   const pos4Completed = Boolean(pos4Answers.length > 0 || completedCount >= 4);
+  const pos4DurationSec = pos4Completed ? extractPosDurationSeconds(pos4, 80) : 0;
   const selectedOption =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (pos4Answers[0] as any)?.casequestcioption_name ||
@@ -170,7 +255,8 @@ function mapTrxAnswerDetailToStaseData(
     status: pos4Completed ? "completed" : completedCount === 3 ? "in_progress" : "locked",
     score: pos4?.total_score ?? 0,
     maxScore: 100,
-    timeSpentFormatted: pos4Completed ? "01:20" : "-",
+    timeSpentFormatted: pos4Completed ? formatSecondsToMMSS(pos4DurationSec) : "-",
+    timeSpentSeconds: pos4DurationSec,
     summaryAnswer:
       selectedOption !== "-"
         ? `Diagnosis: ${selectedOption} (${pos4?.total_score ?? 0} Poin)`
@@ -188,6 +274,7 @@ function mapTrxAnswerDetailToStaseData(
   );
   const pos5Chats = Array.isArray(pos5?.answers?.chats) ? pos5.answers.chats : [];
   const pos5Completed = Boolean(pos5Chats.length > 0 || completedCount >= 5);
+  const pos5DurationSec = pos5Completed ? extractPosDurationSeconds(pos5, 90) : 0;
   result[5] = {
     pos: 5,
     name: pos5?.casequest_name || "Pos 5: Asuhan Kebidanan & Konseling",
@@ -195,7 +282,8 @@ function mapTrxAnswerDetailToStaseData(
     status: pos5Completed ? "completed" : completedCount === 4 ? "in_progress" : "locked",
     score: pos5?.total_score ?? 0,
     maxScore: 100,
-    timeSpentFormatted: pos5Completed ? "01:30" : "-",
+    timeSpentFormatted: pos5Completed ? formatSecondsToMMSS(pos5DurationSec) : "-",
+    timeSpentSeconds: pos5DurationSec,
     summaryAnswer:
       pos5Chats.length > 0
         ? `${pos5Chats.length} Pesan Edukasi & Konseling Terkirim (${pos5?.total_score ?? 0} Poin)`
@@ -366,6 +454,10 @@ function LiveviewRouteComponent() {
                 ? mapTrxAnswerDetailToStaseData(realDetail, completedCount)
                 : createBaseStaseData(matchingTrx, completedCount);
 
+              const totalElapsedSec = Object.values(staseData)
+                .filter((st) => st.status === "completed")
+                .reduce((acc, st) => acc + (st.timeSpentSeconds || 0), 0);
+
               return {
                 id: String(matchingTrx.response_contestteam_id || team.contestteam_id),
                 groupNum: idx + 1,
@@ -375,9 +467,8 @@ function LiveviewRouteComponent() {
                 borderClass: meta.borderClass,
                 badgeBg: meta.badgeBg,
                 totalScore,
-                timeElapsedFormatted: matchingTrx.pos_completed_orders?.length
-                  ? `${String(matchingTrx.pos_completed_orders.length * 2).padStart(2, "0")}:00`
-                  : "00:00",
+                timeElapsedFormatted: formatSecondsToMMSS(totalElapsedSec),
+                timeElapsedSeconds: totalElapsedSec,
                 currentStaseStatus: matchingTrx.response_is_submited
                   ? "completed"
                   : completedCount > 0
@@ -398,6 +489,7 @@ function LiveviewRouteComponent() {
               badgeBg: meta.badgeBg,
               totalScore: 0,
               timeElapsedFormatted: "00:00",
+              timeElapsedSeconds: 0,
               currentStaseStatus: "idle",
               staseData: INITIAL_MOCK_STASES_FACTORY(0, idx + 1),
             };
@@ -420,6 +512,10 @@ function LiveviewRouteComponent() {
               ? mapTrxAnswerDetailToStaseData(realDetail, completedCount)
               : createBaseStaseData(item, completedCount);
 
+            const totalElapsedSec = Object.values(staseData)
+              .filter((st) => st.status === "completed")
+              .reduce((acc, st) => acc + (st.timeSpentSeconds || 0), 0);
+
             return {
               id: String(item.response_contestteam_id),
               groupNum: idx + 1,
@@ -429,9 +525,8 @@ function LiveviewRouteComponent() {
               borderClass: meta.borderClass,
               badgeBg: meta.badgeBg,
               totalScore,
-              timeElapsedFormatted: item.pos_completed_orders?.length
-                ? `${String(item.pos_completed_orders.length * 2).padStart(2, "0")}:00`
-                : "00:00",
+              timeElapsedFormatted: formatSecondsToMMSS(totalElapsedSec),
+              timeElapsedSeconds: totalElapsedSec,
               currentStaseStatus: item.response_is_submited
                 ? "completed"
                 : completedCount > 0
@@ -479,10 +574,10 @@ function LiveviewRouteComponent() {
             (acc, st) => acc + (st.score || 0),
             0,
           );
-          const updatedTime =
-            g.groupNum === 1
-              ? KEL_A_TIMES[nextPos] || "07:45"
-              : KEL_B_TIMES[nextPos] || "08:30";
+          const updatedTotalSec = Object.values(updatedStaseData)
+            .filter((st) => st.status === "completed")
+            .reduce((acc, st) => acc + (st.timeSpentSeconds || 0), 0);
+          const updatedTime = formatSecondsToMMSS(updatedTotalSec);
 
           if (nextPos === 5 && g.pos < 5 && !celebratedTeamIdsRef.current.has(g.id)) {
             celebratedTeamIdsRef.current.add(g.id);
@@ -491,6 +586,7 @@ function LiveviewRouteComponent() {
               pos: 5,
               totalScore: updatedTotalScore,
               timeElapsedFormatted: updatedTime,
+              timeElapsedSeconds: updatedTotalSec,
             });
           }
 
@@ -499,6 +595,7 @@ function LiveviewRouteComponent() {
             pos: nextPos,
             totalScore: updatedTotalScore,
             timeElapsedFormatted: updatedTime,
+            timeElapsedSeconds: updatedTotalSec,
             staseData: updatedStaseData,
           };
         }
