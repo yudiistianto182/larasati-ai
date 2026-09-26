@@ -1449,6 +1449,11 @@ export default class TrxResponseAnswerController {
             'dari', 'ke', 'di', 'dengan', 'untuk', 'ya', 'saja', 'terkait', 'tentang'
         ])
 
+        // Kata tanya atau kata umum yang tidak spesifik topik klinis
+        const GENERIC_WORDS = new Set([
+            'siapa', 'kapan', 'berapa', 'kenapa', 'mengapa', 'bagaimana', 'mana', 'hari', 'bulan', 'tahun', 'kali', 'merasa'
+        ])
+
         const cleanText = text.toLowerCase().trim()
         // Jika hanya sapaan murni tanpa konteks klinis/medis, jangan cocokkan ke trigger medis
         if (/^(halo|hai|selamat\s+(pagi|siang|sore|malam)|assalamu['\w]*)\s*(bu|ibu|bidan)?\s*[.!?]?$/i.test(cleanText)) {
@@ -1481,18 +1486,24 @@ export default class TrxResponseAnswerController {
                     if (k.length < 2 || STOP_WORDS.has(k)) continue
 
                     const wordsInKey = k.split(/\s+/).filter(Boolean)
+                    const isGenericSingle = wordsInKey.length === 1 && GENERIC_WORDS.has(wordsInKey[0])
 
                     // Jika frasa persis ada di teks
                     if (cleanText.includes(k)) {
-                        score += wordsInKey.length > 1 ? 30 * wordsInKey.length : 20
+                        if (isGenericSingle) {
+                            score += 5
+                        } else {
+                            score += wordsInKey.length > 1 ? 30 * wordsInKey.length : 20
+                        }
                     } else {
                         // Cek token kata individual dalam key
                         for (const kw of wordsInKey) {
                             if (kw.length < 3 || STOP_WORDS.has(kw)) continue
 
+                            const isKwGeneric = GENERIC_WORDS.has(kw)
                             if (textTokens.includes(kw)) {
-                                score += 10
-                            } else if (kw.length >= 4) {
+                                score += isKwGeneric ? 3 : 10
+                            } else if (kw.length >= 4 && !isKwGeneric) {
                                 // Substring / stem match hanya untuk kata >= 4 huruf (misal "darah" <-> "pendarahan")
                                 if (textTokens.some((tw) => tw.length >= 4 && (tw.includes(kw) || kw.includes(tw)))) {
                                     score += 5
@@ -1508,11 +1519,11 @@ export default class TrxResponseAnswerController {
                 const nameWords = nameStr
                     .replace(/[^\w\s]/g, ' ')
                     .split(/\s+/)
-                    .filter((w) => w.length > 3 && !['riwayat', 'pasien', 'pemeriksaan'].includes(w) && !STOP_WORDS.has(w))
+                    .filter((w) => w.length > 3 && !['riwayat', 'pasien', 'pemeriksaan'].includes(w) && !STOP_WORDS.has(w) && !GENERIC_WORDS.has(w))
 
                 for (const nw of nameWords) {
                     if (cleanText.includes(nw) || textTokens.includes(nw)) {
-                        score += 12
+                        score += 15
                     }
                 }
             }
@@ -1523,7 +1534,7 @@ export default class TrxResponseAnswerController {
             }
         }
 
-        return maxScore >= 10 ? bestTrigger : null
+        return maxScore >= 15 ? bestTrigger : null
     }
 
     /**
