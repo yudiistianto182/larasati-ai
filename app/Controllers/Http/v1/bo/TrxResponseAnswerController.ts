@@ -400,70 +400,25 @@ export default class TrxResponseAnswerController {
                 .insert(participantChatInsert)
             const participantChatId = Array.isArray(partResult) ? partResult[0] : partResult
 
-            // B. Cek apakah post.text mengandung keyword pada tabel data_case_quest_ia_trigger
+            // B. Cek apakah post.text mengandung keyword pada tabel data_case_quest_ia_trigger (soal terkait)
             const triggers = await dbInstance
                 .query()
                 .from('data_case_quest_ia_trigger')
                 .where('casequestiatrigger_casequest_id', casequest_id)
 
-            const lowerText = text.toLowerCase()
-            let matchedTrigger: any = null
-
-            if (triggers && triggers.length > 0) {
-                for (const trg of triggers) {
-                    if (trg.casequestiatrigger_key) {
-                        const keys = String(trg.casequestiatrigger_key)
-                            .split(',')
-                            .map((k) => k.trim().toLowerCase())
-                            .filter(Boolean)
-
-                        const hasMatch = keys.some((k) => lowerText.includes(k)) || lowerText.includes(String(trg.casequestiatrigger_key).trim().toLowerCase())
-                        if (hasMatch) {
-                            matchedTrigger = trg
-                            break
-                        }
-                    }
-                }
-            }
-
-            let aiText = ''
+            let matchedTrigger: any = this.findMatchingTrigger(triggers, text)
             let savedTrigger: any = null
 
             if (matchedTrigger) {
-                // Simpan ke tabel trx_response_ia_trigger
-                const triggerInsert = {
-                    responseiatrigger_response_id: response_id,
-                    responseiatrigger_casequest_id: casequest_id,
-                    responseiatrigger_trigger_id: matchedTrigger.casequestiatrigger_id,
-                    responseiatrigger_score: matchedTrigger.casequestiatrigger_score ?? 0,
-                }
-
-                // Check exist triger
-                const checkTriger = await dbInstance
-                    .query()
-                    .from('trx_response_ia_trigger')
-                    .where('responseiatrigger_response_id', response_id)
-                    .where('responseiatrigger_casequest_id', casequest_id)
-                    .where('responseiatrigger_trigger_id', matchedTrigger.casequestiatrigger_id)
-                    .first()
-
-                if (!checkTriger) {
-                    const trgResult = await dbInstance
-                        .insertQuery()
-                        .table('trx_response_ia_trigger')
-                        .insert(triggerInsert)
-                    const trgId = Array.isArray(trgResult) ? trgResult[0] : trgResult
-
-                    savedTrigger = {
-                        responseiatrigger_id: trgId,
-                        ...triggerInsert,
-                        trigger_name: matchedTrigger.casequestiatrigger_name,
-                        trigger_key: matchedTrigger.casequestiatrigger_key,
-                    }
-                } else {
-                    savedTrigger = checkTriger
-                }
+                savedTrigger = await this.saveMatchedTriggerHelper({
+                    response_id,
+                    casequest_id,
+                    matchedTrigger,
+                    dbInstance,
+                })
             }
+
+            let aiText = ''
 
             // Dapatkan respon balasan pasien via Gemini AI & susun prompt lengkap yang dikirim ke Gemini
             let fullPromptToGemini = ''
@@ -484,8 +439,38 @@ export default class TrxResponseAnswerController {
                     responseTime = Date.now() - startTime
                     aiText = geminiResult.replyText
                     fullPromptToGemini = geminiResult.fullPrompt
+
+                    // Jika matchedTrigger teridentifikasi atau di-resolve saat proses getResponseGemini / fallback
+                    if (!matchedTrigger && geminiResult.matchedTrigger) {
+                        matchedTrigger = geminiResult.matchedTrigger
+                        savedTrigger = await this.saveMatchedTriggerHelper({
+                            response_id,
+                            casequest_id,
+                            matchedTrigger,
+                            dbInstance,
+                        })
+                    }
                 } else {
-                    aiText = matchedTrigger?.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+                    // Fallback jika API Gemini sedang down / disconnected
+                    if (!matchedTrigger) {
+                        matchedTrigger = this.findMatchingTrigger(triggers, text)
+                        if (matchedTrigger) {
+                            savedTrigger = await this.saveMatchedTriggerHelper({
+                                response_id,
+                                casequest_id,
+                                matchedTrigger,
+                                dbInstance,
+                            })
+                        }
+                    }
+
+                    aiText = await this.getFallbackReplyText({
+                        casequest_id,
+                        text,
+                        matchedTrigger,
+                        dbInstance,
+                    })
+
                     const promptData = await this.buildGeminiPromptOnly({
                         response_id,
                         casequest_id,
@@ -498,7 +483,25 @@ export default class TrxResponseAnswerController {
                 }
             } catch (aiErr: any) {
                 console.warn('[TrxResponseAnswerController.saveChat] Error calling Gemini API:', aiErr?.message)
-                aiText = matchedTrigger?.casequestiatrigger_response || 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+                if (!matchedTrigger) {
+                    matchedTrigger = this.findMatchingTrigger(triggers, text)
+                    if (matchedTrigger) {
+                        savedTrigger = await this.saveMatchedTriggerHelper({
+                            response_id,
+                            casequest_id,
+                            matchedTrigger,
+                            dbInstance,
+                        })
+                    }
+                }
+
+                aiText = await this.getFallbackReplyText({
+                    casequest_id,
+                    text,
+                    matchedTrigger,
+                    dbInstance,
+                })
+
                 fullPromptToGemini = `[Error Fallback: ${aiErr?.message}] ${text}`
             }
 
@@ -1432,6 +1435,188 @@ export default class TrxResponseAnswerController {
     }
 
     /**
+     * Helper: Mencari trigger terbaik dari data_case_quest_ia_trigger
+     * berdasarkan kata kunci (key), kategori (name), dan kecocokan token.
+     */
+    public findMatchingTrigger(triggers: any[], text: string): any {
+        if (!triggers || triggers.length === 0 || !text) {
+            return null
+        }
+
+        const STOP_WORDS = new Set([
+            'bu', 'ibu', 'pak', 'bapak', 'bidan', 'dokter', 'ada', 'dan', 'atau', 'yang', 'ini', 'itu',
+            'saya', 'anda', 'kamu', 'apa', 'apakah', 'sudah', 'belum', 'mau', 'lagi', 'bisa', 'pada',
+            'dari', 'ke', 'di', 'dengan', 'untuk', 'ya', 'saja', 'terkait', 'tentang'
+        ])
+
+        const cleanText = text.toLowerCase().trim()
+        // Jika hanya sapaan murni tanpa konteks klinis/medis, jangan cocokkan ke trigger medis
+        if (/^(halo|hai|selamat\s+(pagi|siang|sore|malam)|assalamu['\w]*)\s*(bu|ibu|bidan)?\s*[.!?]?$/i.test(cleanText)) {
+            return null
+        }
+
+        const textTokens = cleanText
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter((w) => w.length > 1 && !STOP_WORDS.has(w))
+
+        let bestTrigger: any = null
+        let maxScore = 0
+
+        for (const trg of triggers) {
+            let score = 0
+            const keyStr = trg.casequestiatrigger_key ? String(trg.casequestiatrigger_key).trim().toLowerCase() : ''
+            const nameStr = trg.casequestiatrigger_name ? String(trg.casequestiatrigger_name).trim().toLowerCase() : ''
+
+            if (!keyStr && !nameStr) continue
+
+            // 1. Cek kecocokan frasa / kata kunci pada casequestiatrigger_key
+            if (keyStr) {
+                const keys = keyStr
+                    .split(',')
+                    .map((k) => k.trim())
+                    .filter(Boolean)
+
+                for (const k of keys) {
+                    if (k.length < 2 || STOP_WORDS.has(k)) continue
+
+                    const wordsInKey = k.split(/\s+/).filter(Boolean)
+
+                    // Jika frasa persis ada di teks
+                    if (cleanText.includes(k)) {
+                        score += wordsInKey.length > 1 ? 30 * wordsInKey.length : 20
+                    } else {
+                        // Cek token kata individual dalam key
+                        for (const kw of wordsInKey) {
+                            if (kw.length < 3 || STOP_WORDS.has(kw)) continue
+
+                            if (textTokens.includes(kw)) {
+                                score += 10
+                            } else if (kw.length >= 4) {
+                                // Substring / stem match hanya untuk kata >= 4 huruf (misal "darah" <-> "pendarahan")
+                                if (textTokens.some((tw) => tw.length >= 4 && (tw.includes(kw) || kw.includes(tw)))) {
+                                    score += 5
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Cek kecocokan dengan nama kategori trigger (casequestiatrigger_name)
+            if (nameStr) {
+                const nameWords = nameStr
+                    .replace(/[^\w\s]/g, ' ')
+                    .split(/\s+/)
+                    .filter((w) => w.length > 3 && !['riwayat', 'pasien', 'pemeriksaan'].includes(w) && !STOP_WORDS.has(w))
+
+                for (const nw of nameWords) {
+                    if (cleanText.includes(nw) || textTokens.includes(nw)) {
+                        score += 12
+                    }
+                }
+            }
+
+            if (score > maxScore) {
+                maxScore = score
+                bestTrigger = trg
+            }
+        }
+
+        return maxScore >= 10 ? bestTrigger : null
+    }
+
+    /**
+     * Helper: Menyimpan matched trigger ke tabel trx_response_ia_trigger jika belum ada
+     */
+    public async saveMatchedTriggerHelper({
+        response_id,
+        casequest_id,
+        matchedTrigger,
+        dbInstance = Database,
+    }: {
+        response_id: any
+        casequest_id: any
+        matchedTrigger: any
+        dbInstance?: any
+    }): Promise<any> {
+        if (!matchedTrigger || !matchedTrigger.casequestiatrigger_id) return null
+
+        const triggerInsert = {
+            responseiatrigger_response_id: response_id,
+            responseiatrigger_casequest_id: casequest_id,
+            responseiatrigger_trigger_id: matchedTrigger.casequestiatrigger_id,
+            responseiatrigger_score: matchedTrigger.casequestiatrigger_score ?? 0,
+        }
+
+        const checkTriger = await dbInstance
+            .query()
+            .from('trx_response_ia_trigger')
+            .where('responseiatrigger_response_id', response_id)
+            .where('responseiatrigger_casequest_id', casequest_id)
+            .where('responseiatrigger_trigger_id', matchedTrigger.casequestiatrigger_id)
+            .first()
+
+        if (!checkTriger) {
+            const trgResult = await dbInstance
+                .insertQuery()
+                .table('trx_response_ia_trigger')
+                .insert(triggerInsert)
+            const trgId = Array.isArray(trgResult) ? trgResult[0] : trgResult
+
+            return {
+                responseiatrigger_id: trgId,
+                ...triggerInsert,
+                trigger_name: matchedTrigger.casequestiatrigger_name,
+                trigger_key: matchedTrigger.casequestiatrigger_key,
+            }
+        }
+
+        return checkTriger
+    }
+
+    /**
+     * Helper: Mendapatkan teks balasan fallback dari data_case_quest_ia_trigger atau data_case_quest_ia
+     */
+    public async getFallbackReplyText({
+        casequest_id,
+        text,
+        matchedTrigger,
+        dbInstance = Database,
+    }: {
+        casequest_id: string | number
+        text: string
+        matchedTrigger?: any
+        dbInstance?: any
+    }): Promise<string> {
+        if (matchedTrigger?.casequestiatrigger_response) {
+            return matchedTrigger.casequestiatrigger_response
+        }
+
+        try {
+            const iaConfig = await dbInstance
+                .query()
+                .from('data_case_quest_ia')
+                .where('casequestia_casequest_id', casequest_id)
+                .first()
+
+            const cleanLower = (text || '').toLowerCase().trim()
+            const isGreeting = /^(halo|hai|selamat\s+(pagi|siang|sore|malam)|assalamu)/i.test(cleanLower)
+
+            if (isGreeting && iaConfig?.casequestia_initmsg) {
+                return iaConfig.casequestia_initmsg
+            }
+            if (iaConfig?.casequestia_unknown) {
+                return iaConfig.casequestia_unknown
+            }
+        } catch (e: any) {
+            console.warn('[TrxResponseAnswerController.getFallbackReplyText] Error fetching iaConfig:', e?.message)
+        }
+
+        return 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+    }
+
+    /**
      * Membersihkan teks keluaran Gemini agar murni bahasa lisan untuk respon chat
      */
     private cleanReplyForTts(text: string): string {
@@ -1462,6 +1647,9 @@ export default class TrxResponseAnswerController {
     }): Promise<any> {
         let systemPrompt = ''
         let contextPrompt = text
+        let activeTriggers = triggers
+        let initMsg = 'Selamat pagi Bu Bidan, saya mau berkonsultasi terkait keluhan saya.'
+        let outOfScopeFallbackMessage = 'Aduh, maaf ya Bu Bidan... saya agak bingung, sepertinya hal itu tidak berhubungan dengan keluhan kesehatan saya saat ini.'
 
         try {
             // 1. Ambil data Kasus dan Pasien dari DB
@@ -1515,18 +1703,19 @@ export default class TrxResponseAnswerController {
                 .first()
 
             const personality = iaConfig?.casequestia_personality || 'Santun, kooperatif, dan berbicara secara singkat padat.'
-            const initMsg = iaConfig?.casequestia_initmsg || 'Selamat pagi Bu Bidan, saya mau berkonsultasi terkait keluhan saya.'
-            const outOfScopeFallbackMessage =
-                iaConfig?.casequestia_unknown ||
-                'Aduh, maaf ya Bu Bidan... saya agak bingung, sepertinya hal itu tidak berhubungan dengan keluhan kesehatan saya saat ini.'
+            initMsg = iaConfig?.casequestia_initmsg || initMsg
+            outOfScopeFallbackMessage = iaConfig?.casequestia_unknown || outOfScopeFallbackMessage
 
-            // 3. Ambil data triggers jika belum disediakan
-            let activeTriggers = triggers
+            // 3. Ambil data triggers jika belum disediakan & pastikan matchedTrigger terisi jika cocok
             if (!activeTriggers || activeTriggers.length === 0) {
                 activeTriggers = await dbInstance
                     .query()
                     .from('data_case_quest_ia_trigger')
                     .where('casequestiatrigger_casequest_id', casequest_id)
+            }
+
+            if (!matchedTrigger) {
+                matchedTrigger = this.findMatchingTrigger(activeTriggers, text)
             }
 
             const formattedTriggers = (activeTriggers || [])
@@ -1594,29 +1783,53 @@ ${formattedTriggers || '- Belum ada data anamnesis terdaftar.'}
                 prompt: contextPrompt,
                 systemInstruction: systemPrompt,
                 temperature: 0.6,
-                maxOutputTokens: 150,
+                maxOutputTokens: 250,
                 topP: 0.9,
                 timeout: 25000,
             })
 
             let cleaned = this.cleanReplyForTts(aiResult)
-            const isAbrupt = !/[.!?…'"]\s*$/.test(cleaned)
-            if (!cleaned || cleaned.length < 10 || isAbrupt) {
+            if (!cleaned || cleaned.length < 5) {
                 throw new Error(`Respons Gemini belum lengkap atau terpotong: "${cleaned}"`)
+            }
+            if (!/[.!?…'"]\s*$/.test(cleaned)) {
+                cleaned += '.'
             }
 
             return {
                 replyText: cleaned,
                 fullPrompt: `SYSTEM INSTRUCTION:\n${systemPrompt}\n\nUSER PROMPT:\n${contextPrompt}`,
+                matchedTrigger,
             }
         } catch (error: any) {
             console.warn('[TrxResponseAnswerController] Gemini fallback triggered:', error?.message)
+
+            // Ambil jawaban fallback cadangan dari tabel data_case_quest_ia_trigger
+            // yang sesuai dengan key terkait dan soal terkait (casequest_id)
+            let resolvedTrigger = matchedTrigger
+            if (!resolvedTrigger?.casequestiatrigger_response) {
+                resolvedTrigger = this.findMatchingTrigger(activeTriggers, text)
+            }
+
+            let fallbackReply = resolvedTrigger?.casequestiatrigger_response
+
+            // Jika masih belum ada trigger yang cocok (misal sapaan atau hal di luar lingkup kasus)
+            if (!fallbackReply) {
+                const cleanLower = (text || '').toLowerCase().trim()
+                const isGreeting = /^(halo|hai|selamat\s+(pagi|siang|sore|malam)|assalamu)/i.test(cleanLower)
+                if (isGreeting && initMsg) {
+                    fallbackReply = initMsg
+                } else if (outOfScopeFallbackMessage) {
+                    fallbackReply = outOfScopeFallbackMessage
+                } else {
+                    fallbackReply = 'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
+                }
+            }
+
             return {
-                replyText: (
-                    matchedTrigger?.casequestiatrigger_response ||
-                    'Maaf bu bidan, saya kurang paham dengan pertanyaan tersebut. Apakah ada yang ingin ditanyakan terkait keluhan saya?'
-                ),
+                replyText: fallbackReply,
                 fullPrompt: `SYSTEM INSTRUCTION:\n${systemPrompt}\n\nUSER PROMPT:\n${contextPrompt}`,
+                matchedTrigger: resolvedTrigger,
             }
         }
     }
