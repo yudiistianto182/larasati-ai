@@ -140,12 +140,20 @@ export default class GeminiService {
             } catch (error: any) {
                 lastError = error
                 const errorStr = error?.message || String(error)
+                const isQuotaExceeded =
+                    errorStr.includes('429') ||
+                    errorStr.includes('RESOURCE_EXHAUSTED') ||
+                    errorStr.includes('quota')
+
+                if (isQuotaExceeded) {
+                    console.warn(`[GeminiService] Quota exceeded on ${modelName} (${errorStr.slice(0, 100)}). Aborting fallback to prevent connection hang.`)
+                    throw this.formatError(error)
+                }
+
                 const isRetryable =
                     errorStr.includes('503') ||
                     errorStr.includes('high demand') ||
                     errorStr.includes('UNAVAILABLE') ||
-                    errorStr.includes('429') ||
-                    errorStr.includes('RESOURCE_EXHAUSTED') ||
                     errorStr.includes('404') ||
                     errorStr.includes('timed out') ||
                     errorStr.includes('no longer available')
