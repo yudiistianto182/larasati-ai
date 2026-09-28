@@ -202,8 +202,8 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
         const allTrx = await trxResponseService.getAll(selectedTeam.contest.contest_id);
         const matched = Array.isArray(allTrx.data)
           ? allTrx.data.find(
-              (r) => String(r.response_contestteam_id) === String(selectedTeam.contestteam_id),
-            )
+            (r) => String(r.response_contestteam_id) === String(selectedTeam.contestteam_id),
+          )
           : null;
         if (matched) {
           if (matched.response_id) {
@@ -227,12 +227,12 @@ export function LombaAuthScreen({ onLoginSuccess }: LombaAuthScreenProps) {
             matched.response_is_submited === 1 ||
             (totalCount > 0 && completedCount >= totalCount);
 
-          if (isAllCompleted) {
-            const msg = `Tim "${selectedTeam.contestteam_name}" telah menyelesaikan seluruh pos (${completedCount}/${totalCount}) pada sirkuit ini. Akses masuk sirkuit telah ditutup.`;
-            setErrorMsg(msg);
-            triggerErrorAlert("Sirkuit Telah Selesai", msg);
-            return;
-          }
+          // if (isAllCompleted) {
+          //   const msg = `Tim "${selectedTeam.contestteam_name}" telah menyelesaikan seluruh pos (${completedCount}/${totalCount}) pada sirkuit ini. Akses masuk sirkuit telah ditutup.`;
+          //   setErrorMsg(msg);
+          //   triggerErrorAlert("Sirkuit Telah Selesai", msg);
+          //   return;
+          // }
         }
       } catch (err) {
         console.warn("[Auth Screen] Gagal memuat existing trx_response:", err);
