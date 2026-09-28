@@ -54,6 +54,8 @@ export function Step2AnamnesisAi({
   const triggers = stase1Data?.triggers || [];
 
   const initialGreeting =
+    stase1Data?.init_message ||
+    (stase1Data as any)?.casequestia_initmsg ||
     (stase1Data as any)?.initmsg ||
     triggers[0]?.jawaban_cadangan ||
     kasus?.teks_perkenalan ||
@@ -126,18 +128,23 @@ export function Step2AnamnesisAi({
 
   // Reset when kasus changes
   React.useEffect(() => {
-    if (triggers.length > 0) {
-      setMessages([
-        {
-          id: `msg-init-${Date.now()}`,
-          sender: "ai",
-          text: triggers[0]?.jawaban_cadangan || initialGreeting,
-          category: triggers[0]?.konteks || "Riwayat keluhan",
-          timestamp: "Baru saja",
-        },
-      ]);
-      setCurrentStepIndex(1);
-    }
+    const greeting =
+      stase1Data?.init_message ||
+      (stase1Data as any)?.casequestia_initmsg ||
+      (stase1Data as any)?.initmsg ||
+      triggers[0]?.jawaban_cadangan ||
+      initialGreeting;
+
+    setMessages([
+      {
+        id: `msg-init-${Date.now()}`,
+        sender: "ai",
+        text: greeting,
+        category: triggers[0]?.konteks || "Riwayat keluhan",
+        timestamp: "Baru saja",
+      },
+    ]);
+    setCurrentStepIndex(1);
   }, [kasus]);
 
   // Start countdown only when isStarted is true

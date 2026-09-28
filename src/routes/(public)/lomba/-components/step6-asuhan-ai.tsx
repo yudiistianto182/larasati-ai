@@ -52,6 +52,8 @@ export function Step6AsuhanAi({
   const triggers = stase5Data?.triggers || [];
 
   const initialText =
+    stase5Data?.init_message ||
+    (stase5Data as any)?.casequestia_initmsg ||
     (stase5Data as any)?.initmsg ||
     triggers[0]?.jawaban_cadangan ||
     "Bu Bidan... bagaimana hasil pemeriksaan serviks saya tadi? Apakah ada hal yang berbahaya atau kanker ya Bu? Saya sangat takut dan cemas...";
@@ -61,7 +63,7 @@ export function Step6AsuhanAi({
       id: "msg-ash-1",
       sender: "ai",
       text: initialText,
-      category: "Kekhawatiran Pasien",
+      category: triggers[0]?.konteks || "Kekhawatiran Pasien",
       timestamp: "Baru saja",
     },
   ]);
@@ -120,17 +122,22 @@ export function Step6AsuhanAi({
 
   // Reset when kasus changes
   React.useEffect(() => {
-    if (triggers.length > 0) {
-      setMessages([
-        {
-          id: `msg-ash-init-${Date.now()}`,
-          sender: "ai",
-          text: triggers[0]?.jawaban_cadangan || initialText,
-          category: "Kekhawatiran Pasien",
-          timestamp: "Baru saja",
-        },
-      ]);
-    }
+    const resolvedInit =
+      stase5Data?.init_message ||
+      (stase5Data as any)?.casequestia_initmsg ||
+      (stase5Data as any)?.initmsg ||
+      triggers[0]?.jawaban_cadangan ||
+      initialText;
+
+    setMessages([
+      {
+        id: `msg-ash-init-${Date.now()}`,
+        sender: "ai",
+        text: resolvedInit,
+        category: triggers[0]?.konteks || "Kekhawatiran Pasien",
+        timestamp: "Baru saja",
+      },
+    ]);
   }, [kasus]);
 
   // Start countdown only when isStarted is true
