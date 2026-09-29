@@ -24,7 +24,7 @@ import fs from 'fs'
 import path from 'path'
 
 Route.get('/', async () => {
-  return { hello: 'update on 2025-09-18 15.000' }
+  return { hello: 'update on 2026-09-29 10.44' }
 })
 
 // Route untuk mengakses file / image di folder storage/

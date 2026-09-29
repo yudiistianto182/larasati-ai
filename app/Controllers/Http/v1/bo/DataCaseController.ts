@@ -336,25 +336,31 @@ export default class DataCaseController {
                     .select('casequest_id');
                 const questIds = existingQuests.map((q) => q.casequest_id);
 
+                // Simpan data CI dan CI option lama per quest_id untuk migrasi
+                const oldCiByQuestId: Record<number, any[]> = {};
+                const oldCiOptionByQuestId: Record<number, any[]> = {};
+
                 if (questIds.length > 0) {
-                    // Hapus file fisik gambar CI dari folder storage jika ada
+                    // Ambil data CI lama per quest_id
                     const oldCiRecords = await trx
                         .from('data_case_quest_ci')
-                        .whereIn('casequestci_casequest_id', questIds)
-                        .select('casequestci_image');
-
+                        .whereIn('casequestci_casequest_id', questIds);
                     for (const ci of oldCiRecords) {
-                        if (ci.casequestci_image && ci.casequestci_image.startsWith('storage/')) {
-                            const relativePath = ci.casequestci_image.replace(/^storage\//, '');
-                            const fullPath = path.join(Application.makePath('storage'), relativePath);
-                            if (fs.existsSync(fullPath)) {
-                                try {
-                                    fs.unlinkSync(fullPath);
-                                } catch (e) {
-                                    console.error('Error deleting file:', e);
-                                }
-                            }
+                        if (!oldCiByQuestId[ci.casequestci_casequest_id]) {
+                            oldCiByQuestId[ci.casequestci_casequest_id] = [];
                         }
+                        oldCiByQuestId[ci.casequestci_casequest_id].push(ci);
+                    }
+
+                    // Ambil data CI option lama per quest_id
+                    const oldCiOptionRecords = await trx
+                        .from('data_case_quest_ci_option')
+                        .whereIn('casequestcioption_casequest_id', questIds);
+                    for (const opt of oldCiOptionRecords) {
+                        if (!oldCiOptionByQuestId[opt.casequestcioption_casequest_id]) {
+                            oldCiOptionByQuestId[opt.casequestcioption_casequest_id] = [];
+                        }
+                        oldCiOptionByQuestId[opt.casequestcioption_casequest_id].push(opt);
                     }
 
                     // Hapus data transaksi terkait yang memiliki foreign key ke data_case_quest
@@ -363,7 +369,7 @@ export default class DataCaseController {
                     // await trx.from('trx_response_answer_os').whereIn('responseansweros_casequest_id', questIds).delete();
                     // await trx.from('trx_response_answer').whereIn('responseanswer_casequest_id', questIds).delete();
 
-                    // Hapus sub-tabel data_case_quest & jawaban
+                    // Hapus sub-tabel data_case_quest & jawaban (kecuali CI, ditangani nanti)
                     await trx.from('data_case_quest_ia_trigger').whereIn('casequestiatrigger_casequest_id', questIds).delete();
                     await trx.from('data_case_quest_ia').whereIn('casequestia_casequest_id', questIds).delete();
                     await trx.from('data_case_quest_mc').whereIn('casequestmc_casequest_id', questIds).delete();
@@ -477,7 +483,27 @@ export default class DataCaseController {
                             break;
 
                         case '4':
-                            if (post.quest[index].ci) {
+                            // Cari quest lama yang sesuai (berdasarkan urutan index di existingQuests)
+                            const oldQuestIdForCi = existingQuests[index] ? existingQuests[index].casequest_id : null;
+                            const oldCiList = oldQuestIdForCi ? (oldCiByQuestId[oldQuestIdForCi] || []) : [];
+                            const oldCiOptList = oldQuestIdForCi ? (oldCiOptionByQuestId[oldQuestIdForCi] || []) : [];
+
+                            if (post.quest[index].ci && post.quest[index].ci.length > 0) {
+                                // Ada data CI baru dari post → hapus file gambar lama, insert data baru
+                                for (const oldCi of oldCiList) {
+                                    if (oldCi.casequestci_image && oldCi.casequestci_image.startsWith('storage/')) {
+                                        const relativePath = oldCi.casequestci_image.replace(/^storage\//, '');
+                                        const fullPath = path.join(Application.makePath('storage'), relativePath);
+                                        if (fs.existsSync(fullPath)) {
+                                            try {
+                                                fs.unlinkSync(fullPath);
+                                            } catch (e) {
+                                                console.error('Error deleting old CI file:', e);
+                                            }
+                                        }
+                                    }
+                                }
+
                                 for (let index2 = 0; index2 < post.quest[index].ci.length; index2++) {
                                     const element2 = post.quest[index].ci[index2];
                                     let image: string | null = element2.image || null;
@@ -538,9 +564,24 @@ export default class DataCaseController {
                                         .table('data_case_quest_ci')
                                         .insert(data_insert_ci);
                                 }
+                            } else {
+                                // Tidak ada data CI baru → migrasi data CI lama ke quest ID baru
+                                for (const oldCi of oldCiList) {
+                                    let data_migrate_ci = {
+                                        casequestci_casequest_id: casequest_id[0],
+                                        casequestci_name: oldCi.casequestci_name,
+                                        casequestci_desc: oldCi.casequestci_desc,
+                                        casequestci_image: oldCi.casequestci_image
+                                    }
+                                    await trx
+                                        .insertQuery()
+                                        .table('data_case_quest_ci')
+                                        .insert(data_migrate_ci);
+                                }
                             }
 
-                            if (post.quest[index].ci_option) {
+                            if (post.quest[index].ci_option && post.quest[index].ci_option.length > 0) {
+                                // Ada CI option baru dari post → insert data baru
                                 for (let index2 = 0; index2 < post.quest[index].ci_option.length; index2++) {
                                     const element2 = post.quest[index].ci_option[index2];
                                     let data_insert_ci_option = {
@@ -554,6 +595,20 @@ export default class DataCaseController {
                                         .insertQuery()
                                         .table('data_case_quest_ci_option')
                                         .insert(data_insert_ci_option);
+                                }
+                            } else {
+                                // Tidak ada CI option baru → migrasi data CI option lama
+                                for (const oldOpt of oldCiOptList) {
+                                    let data_migrate_ci_option = {
+                                        casequestcioption_casequest_id: casequest_id[0],
+                                        casequestcioption_code: oldOpt.casequestcioption_code,
+                                        casequestcioption_name: oldOpt.casequestcioption_name,
+                                        casequestcioption_score: oldOpt.casequestcioption_score
+                                    }
+                                    await trx
+                                        .insertQuery()
+                                        .table('data_case_quest_ci_option')
+                                        .insert(data_migrate_ci_option);
                                 }
                             }
                             break;
