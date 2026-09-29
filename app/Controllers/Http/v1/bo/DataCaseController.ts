@@ -489,26 +489,15 @@ export default class DataCaseController {
                             const oldCiOptList = oldQuestIdForCi ? (oldCiOptionByQuestId[oldQuestIdForCi] || []) : [];
 
                             if (post.quest[index].ci && post.quest[index].ci.length > 0) {
-                                // Ada data CI baru dari post → hapus file gambar lama, insert data baru
-                                for (const oldCi of oldCiList) {
-                                    if (oldCi.casequestci_image && oldCi.casequestci_image.startsWith('storage/')) {
-                                        const relativePath = oldCi.casequestci_image.replace(/^storage\//, '');
-                                        const fullPath = path.join(Application.makePath('storage'), relativePath);
-                                        if (fs.existsSync(fullPath)) {
-                                            try {
-                                                fs.unlinkSync(fullPath);
-                                            } catch (e) {
-                                                console.error('Error deleting old CI file:', e);
-                                            }
-                                        }
-                                    }
-                                }
-
+                                // Ada data CI baru dari post → proses per-item
                                 for (let index2 = 0; index2 < post.quest[index].ci.length; index2++) {
                                     const element2 = post.quest[index].ci[index2];
-                                    let image: string | null = element2.image || null;
+                                    // Ambil data CI lama yang sesuai berdasarkan index
+                                    const oldCiItem = oldCiList[index2] || null;
+                                    let image: string | null = null;
+                                    let hasNewImage = false;
 
-                                    // Upload / simpan gambar ke folder storage/
+                                    // Cek apakah ada file upload baru untuk CI item ini
                                     const allFiles = request.allFiles() as any;
                                     const fileFromRequest =
                                         request.file(`quest[${index}][ci][${index2}][image]`) ||
@@ -519,6 +508,7 @@ export default class DataCaseController {
                                         (element2 && typeof element2.image === 'object' && element2.image?.move ? element2.image : null);
 
                                     if (fileFromRequest) {
+                                        hasNewImage = true;
                                         const ext = fileFromRequest.extname || (fileFromRequest.clientName ? path.extname(fileFromRequest.clientName).replace('.', '') : 'jpg') || 'jpg';
                                         const fileName = `ci_${Date.now()}_${index}_${index2}.${ext}`;
                                         await fileFromRequest.move(Application.makePath('storage'), {
@@ -528,6 +518,7 @@ export default class DataCaseController {
                                         image = `storage/${fileName}`;
                                     } else if (typeof element2.image === 'string' && element2.image.startsWith('data:image/')) {
                                         // Handle base64 data URL
+                                        hasNewImage = true;
                                         const matches = element2.image.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
                                         if (matches) {
                                             const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
@@ -543,6 +534,7 @@ export default class DataCaseController {
                                         }
                                     } else if (typeof element2.image === 'string' && /^[A-Za-z0-9+/=]+$/.test(element2.image) && element2.image.length > 100) {
                                         // Handle raw base64 string
+                                        hasNewImage = true;
                                         const fileName = `ci_${Date.now()}_${index}_${index2}.jpg`;
                                         const storageDir = Application.makePath('storage');
                                         if (!fs.existsSync(storageDir)) {
@@ -551,6 +543,24 @@ export default class DataCaseController {
                                         const filePath = path.join(storageDir, fileName);
                                         fs.writeFileSync(filePath, Buffer.from(element2.image, 'base64'));
                                         image = `storage/${fileName}`;
+                                    }
+
+                                    if (hasNewImage) {
+                                        // Ada gambar baru → hapus file gambar lama untuk index ini saja
+                                        if (oldCiItem && oldCiItem.casequestci_image && oldCiItem.casequestci_image.startsWith('storage/')) {
+                                            const relativePath = oldCiItem.casequestci_image.replace(/^storage\//, '');
+                                            const fullPath = path.join(Application.makePath('storage'), relativePath);
+                                            if (fs.existsSync(fullPath)) {
+                                                try {
+                                                    fs.unlinkSync(fullPath);
+                                                } catch (e) {
+                                                    console.error('Error deleting old CI file at index', index2, ':', e);
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // Tidak ada gambar baru → pertahankan gambar lama
+                                        image = oldCiItem ? oldCiItem.casequestci_image : null;
                                     }
 
                                     let data_insert_ci = {
